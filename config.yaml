@@ -1,0 +1,6 @@
+port: 8317
+auth_dir: "~/.cli-proxy-api"
+debug: false
+api_keys:
+  - "12345"
+  - "23456"

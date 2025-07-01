@@ -1,0 +1,11 @@
+builds:
+  - id: "cli-proxy-api"
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/server/
+    binary: cli-proxy-api
