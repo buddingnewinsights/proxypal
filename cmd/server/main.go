@@ -104,7 +104,7 @@ func main() {
 		clientCtx := context.Background()
 
 		log.Info("Initializing authentication...")
-		httpClient, errGetClient := auth.GetAuthenticatedClient(clientCtx, &ts, cfg.AuthDir)
+		httpClient, errGetClient := auth.GetAuthenticatedClient(clientCtx, &ts, cfg)
 		if errGetClient != nil {
 			log.Fatalf("failed to get authenticated client: %v", errGetClient)
 			return
@@ -165,7 +165,7 @@ func main() {
 					clientCtx := context.Background()
 
 					log.Info("Initializing authentication...")
-					httpClient, errGetClient := auth.GetAuthenticatedClient(clientCtx, &ts, cfg.AuthDir)
+					httpClient, errGetClient := auth.GetAuthenticatedClient(clientCtx, &ts, cfg)
 					if errGetClient != nil {
 						log.Fatalf("failed to get authenticated client: %v", errGetClient)
 						return errGetClient

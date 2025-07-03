@@ -146,12 +146,13 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 
 ### Configuration Options
 
-| Parameter | Type | Default            | Description |
-|-----------|------|--------------------|-------------|
-| `port` | integer | 8317               | The port number on which the server will listen |
-| `auth_dir` | string | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory |
-| `debug` | boolean | false              | Enable debug mode for verbose logging |
-| `api_keys` | string[] | []                 | List of API keys that can be used to authenticate requests |
+| Parameter   | Type     | Default            | Description                                                                                  |
+|-------------|----------|--------------------|----------------------------------------------------------------------------------------------|
+| `port`      | integer  | 8317               | The port number on which the server will listen                                              |
+| `auth_dir`  | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory      |
+| `proxy-url` | string   | ""                 | Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/ |
+| `debug`     | boolean  | false              | Enable debug mode for verbose logging                                                        |
+| `api_keys`  | string[] | []                 | List of API keys that can be used to authenticate requests                                   |
 
 ### Example Configuration File
 
