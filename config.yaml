@@ -1,7 +1,10 @@
 port: 8317
-auth_dir: "~/.cli-proxy-api"
+auth-dir: "~/.cli-proxy-api"
 debug: true
 proxy-url: ""
-api_keys:
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+api-keys:
   - "12345"
   - "23456"
