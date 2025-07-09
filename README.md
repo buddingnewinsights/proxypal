@@ -11,6 +11,7 @@ A proxy server that provides an OpenAI-compatible API interface for CLI. This al
 - Multiple account support with load balancing
 - Simple CLI authentication flow
 - Support for Generative Language API Key
+- Support Gemini CLI with multiple account load balancing
 
 ## Installation
 
@@ -172,6 +173,13 @@ debug: false
 api-keys:
   - "your-api-key-1"
   - "your-api-key-2"
+
+# API keys for official Generative Language API
+generative-language-api-key:
+  - "AIzaSy...01"
+  - "AIzaSy...02"
+  - "AIzaSy...03"
+  - "AIzaSy...04"
 ```
 
 ### Authentication Directory
@@ -185,6 +193,20 @@ The `api-keys` parameter allows you to define a list of API keys that can be use
 ```
 Authorization: Bearer your-api-key-1
 ```
+
+### Official Generative Language API
+
+The `generative-language-api-key` parameter allows you to define a list of API keys that can be used to authenticate requests to the official Generative Language API.
+
+## Gemini CLI with multiple account load balancing
+
+Start CLI Proxy API server, and then set the `CODE_ASSIST_ENDPOINT` environment variable to the URL of the CLI Proxy API server.
+
+```bash
+export CODE_ASSIST_ENDPOINT="http://127.0.0.1:8317"
+```
+
+The server will relay the `loadCodeAssist`, `onboardUser`, and `countTokens` requests. And automatically load balance the text generation requests between the multiple accounts.
 
 ## Contributing
 
