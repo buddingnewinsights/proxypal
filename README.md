@@ -150,10 +150,10 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | Parameter                     | Type     | Default            | Description                                                                                  |
 |-------------------------------|----------|--------------------|----------------------------------------------------------------------------------------------|
 | `port`                        | integer  | 8317               | The port number on which the server will listen                                              |
-| `auth_dir`                    | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory      |
+| `auth-dir`                    | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory      |
 | `proxy-url`                   | string   | ""                 | Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/ |
 | `debug`                       | boolean  | false              | Enable debug mode for verbose logging                                                        |
-| `api_keys`                    | string[] | []                 | List of API keys that can be used to authenticate requests                                   |
+| `api-keys`                    | string[] | []                 | List of API keys that can be used to authenticate requests                                   |
 | `generative-language-api-key` | string[] | []                 | List of Generative Language API keys                                                         |
 
 ### Example Configuration File
@@ -163,24 +163,24 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 port: 8317
 
 # Authentication directory (supports ~ for home directory)
-auth_dir: "~/.cli-proxy-api"
+auth-dir: "~/.cli-proxy-api"
 
 # Enable debug logging
 debug: false
 
 # API keys for authentication
-api_keys:
+api-keys:
   - "your-api-key-1"
   - "your-api-key-2"
 ```
 
 ### Authentication Directory
 
-The `auth_dir` parameter specifies where authentication tokens are stored. When you run the login command, the application will create JSON files in this directory containing the authentication tokens for your Google accounts. Multiple accounts can be used for load balancing.
+The `auth-dir` parameter specifies where authentication tokens are stored. When you run the login command, the application will create JSON files in this directory containing the authentication tokens for your Google accounts. Multiple accounts can be used for load balancing.
 
 ### API Keys
 
-The `api_keys` parameter allows you to define a list of API keys that can be used to authenticate requests to your proxy server. When making requests to the API, you can include one of these keys in the `Authorization` header:
+The `api-keys` parameter allows you to define a list of API keys that can be used to authenticate requests to your proxy server. When making requests to the API, you can include one of these keys in the `Authorization` header:
 
 ```
 Authorization: Bearer your-api-key-1
