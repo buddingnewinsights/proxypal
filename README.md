@@ -1,10 +1,10 @@
 # CLI Proxy API
 
-A proxy server that provides an OpenAI-compatible API interface for CLI. This allows you to use CLI models with tools and libraries designed for the OpenAI API.
+A proxy server that provides an OpenAI-compatible/Gemini-compatible API interface for CLI. This allows you to use CLI models with tools and libraries designed for the OpenAI/Gemini API.
 
 ## Features
 
-- OpenAI-compatible API endpoints for CLI models
+- OpenAI/Gemini compatible API endpoints for CLI models
 - Support for both streaming and non-streaming responses
 - Function calling/tools support
 - Multimodal input support (text and images)
@@ -207,6 +207,10 @@ export CODE_ASSIST_ENDPOINT="http://127.0.0.1:8317"
 ```
 
 The server will relay the `loadCodeAssist`, `onboardUser`, and `countTokens` requests. And automatically load balance the text generation requests between the multiple accounts.
+
+> [!NOTE]  
+> This feature only allows local access because I couldn't find a way to authenticate the requests.   
+> I hardcoded `127.0.0.1` into the load balancing.
 
 ## Contributing
 
