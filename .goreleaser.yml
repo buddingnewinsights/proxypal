@@ -14,4 +14,5 @@ archives:
     files:
       - LICENSE
       - README.md
+      - README_CN.md
       - config.yaml

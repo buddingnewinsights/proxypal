@@ -1,5 +1,7 @@
 # CLI Proxy API
 
+English | [中文](README_CN.md)
+
 A proxy server that provides an OpenAI/Gemini/Claude compatible API interface for CLI. This allows you to use CLI models with tools and libraries designed for the OpenAI/Gemini/Claude API.
 
 ## Features
@@ -148,14 +150,17 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 
 ### Configuration Options
 
-| Parameter                     | Type     | Default            | Description                                                                                  |
-|-------------------------------|----------|--------------------|----------------------------------------------------------------------------------------------|
-| `port`                        | integer  | 8317               | The port number on which the server will listen                                              |
-| `auth-dir`                    | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory      |
-| `proxy-url`                   | string   | ""                 | Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/ |
-| `debug`                       | boolean  | false              | Enable debug mode for verbose logging                                                        |
-| `api-keys`                    | string[] | []                 | List of API keys that can be used to authenticate requests                                   |
-| `generative-language-api-key` | string[] | []                 | List of Generative Language API keys                                                         |
+| Parameter                             | Type     | Default            | Description                                                                                  |
+|---------------------------------------|----------|--------------------|----------------------------------------------------------------------------------------------|
+| `port`                                | integer  | 8317               | The port number on which the server will listen                                              |
+| `auth-dir`                            | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory      |
+| `proxy-url`                           | string   | ""                 | Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/ |
+| `quota-exceeded`                      | object   | {}                 | Configuration for handling quota exceeded                                                    |
+| `quota-exceeded.switch-project`       | boolean  | true               | Whether to automatically switch to another project when a quota is exceeded                  |
+| `quota-exceeded.switch-preview-model` | boolean  | true               | Whether to automatically switch to a preview model when a quota is exceeded                  |
+| `debug`                               | boolean  | false              | Enable debug mode for verbose logging                                                        |
+| `api-keys`                            | string[] | []                 | List of API keys that can be used to authenticate requests                                   |
+| `generative-language-api-key`         | string[] | []                 | List of Generative Language API keys                                                         |
 
 ### Example Configuration File
 
@@ -168,6 +173,14 @@ auth-dir: "~/.cli-proxy-api"
 
 # Enable debug logging
 debug: false
+
+# Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/
+proxy-url: ""
+
+# Quota exceeded behavior
+quota-exceeded:
+   switch-project: true # Whether to automatically switch to another project when a quota is exceeded
+   switch-preview-model: true # Whether to automatically switch to a preview model when a quota is exceeded
 
 # API keys for authentication
 api-keys:
