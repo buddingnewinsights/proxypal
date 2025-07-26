@@ -15,4 +15,4 @@ archives:
       - LICENSE
       - README.md
       - README_CN.md
-      - config.yaml
+      - config.example.yaml
