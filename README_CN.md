@@ -263,6 +263,27 @@ export CODE_ASSIST_ENDPOINT="http://127.0.0.1:8317"
 > 此功能仅允许本地访问，因为找不到一个可以验证请求的方法。   
 > 所以只能强制只有 `127.0.0.1` 可以访问。
 
+## Claude Code 的使用方法
+
+启动 CLI Proxy API 服务器, 设置如下系统环境变量 `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=gemini-2.5-pro
+export ANTHROPIC_SMALL_FAST_MODEL=gemini-2.5-flash
+```
+
+或者
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=gpt-5
+export ANTHROPIC_SMALL_FAST_MODEL=codex-mini-latest
+```
+
+
 ## 使用 Docker 运行
 
 运行以下命令进行登录（Gemini OAuth，端口 8085）：

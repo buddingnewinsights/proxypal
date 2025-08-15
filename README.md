@@ -262,6 +262,26 @@ The server will relay the `loadCodeAssist`, `onboardUser`, and `countTokens` req
 > This feature only allows local access because I couldn't find a way to authenticate the requests.   
 > I hardcoded `127.0.0.1` into the load balancing.
 
+## Claude Code with multiple account load balancing
+
+Start CLI Proxy API server, and then set the `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL` environment variables.
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=gemini-2.5-pro
+export ANTHROPIC_SMALL_FAST_MODEL=gemini-2.5-flash
+```
+
+or
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=gpt-5
+export ANTHROPIC_SMALL_FAST_MODEL=codex-mini-latest
+```
+
 ## Run with Docker
 
 Run the following command to login (Gemini OAuth on port 8085): 
