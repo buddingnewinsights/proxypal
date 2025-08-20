@@ -8,19 +8,23 @@
 
 可与本地或多账户方式配合，使用任何 OpenAI 兼容的客户端与 SDK。
 
+现在，我们添加了第一个中国提供商：[Qwen Code](https://github.com/QwenLM/qwen-code)。
+
 ## 功能特性
 
 - 为 CLI 模型提供 OpenAI/Gemini/Claude 兼容的 API 端点
 - 新增 OpenAI Codex（GPT 系列）支持（OAuth 登录）
 - 新增 Claude Code 支持（OAuth 登录）
+- 新增 Qwen Code 支持（OAuth 登录）
 - 支持流式与非流式响应
 - 函数调用/工具支持
 - 多模态输入（文本、图片）
-- 多账户支持与轮询负载均衡（Gemini、OpenAI 与 Claude）
-- 简单的 CLI 身份验证流程（Gemini、OpenAI 与 Claude）
+- 多账户支持与轮询负载均衡（Gemini、OpenAI、Claude 与 Qwen）
+- 简单的 CLI 身份验证流程（Gemini、OpenAI、Claude 与 Qwen）
 - 支持 Gemini AIStudio API 密钥
 - 支持 Gemini CLI 多账户轮询
 - 支持 Claude Code 多账户轮询
+- 支持 Qwen Code 多账户轮询
 
 ## 安装
 
@@ -30,6 +34,7 @@
 - 有权访问 Gemini CLI 模型的 Google 账户（可选）
 - 有权访问 OpenAI Codex/GPT 的 OpenAI 账户（可选）
 - 有权访问 Claude Code 的 Anthropic 账户（可选）
+- 有权访问 Qwen Code 的 Qwen Chat 账户（可选）
 
 ### 从源码构建
 
@@ -72,6 +77,12 @@
   ```
   选项：加上 `--no-browser` 可打印登录地址而不自动打开浏览器。本地 OAuth 回调端口为 `54545`。
 
+- Qwen（Qwen Chat，OAuth）：
+  ```bash
+  ./cli-proxy-api --qwen-login
+  ```
+  选项：加上 `--no-browser` 可打印登录地址而不自动打开浏览器。使用 Qwen Chat 的 OAuth 设备登录流程。
+
 ### 启动服务器
 
 身份验证完成后，启动服务器：
@@ -112,7 +123,7 @@ POST http://localhost:8317/v1/chat/completions
 ```
 
 说明：
-- 使用 `gemini-*` 模型（如 `gemini-2.5-pro`）走 Gemini，使用 `gpt-*` 模型（如 `gpt-5`）走 OpenAI，使用 `claude-*` 模型（如 `claude-3-5-sonnet-20241022`）走 Claude，服务会自动路由到对应提供商。
+- 使用 `gemini-*` 模型（如 `gemini-2.5-pro`）走 Gemini，使用 `gpt-*` 模型（如 `gpt-5`）走 OpenAI，使用 `claude-*` 模型（如 `claude-3-5-sonnet-20241022`）走 Claude，使用 `qwen-*` 模型（如 `qwen3-coder-plus`）走 Qwen，服务会自动路由到对应提供商。
 
 #### Claude 消息（SSE 兼容）
 
@@ -210,6 +221,8 @@ console.log(await claudeResponse.json());
 - claude-sonnet-4-20250514
 - claude-3-7-sonnet-20250219
 - claude-3-5-haiku-20241022
+- qwen3-coder-plus
+- qwen3-coder-flash
 - Gemini 模型在需要时自动切换到对应的 preview 版本
 
 ## 配置
@@ -336,6 +349,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
 export ANTHROPIC_AUTH_TOKEN=sk-dummy
 export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export ANTHROPIC_SMALL_FAST_MODEL=claude-3-5-haiku-20241022
+```
+
+使用 Qwen 模型：
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=qwen3-coder-plus
+export ANTHROPIC_SMALL_FAST_MODEL=qwen3-coder-flash
 ```
 
 

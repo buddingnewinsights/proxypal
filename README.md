@@ -8,19 +8,23 @@ It now also supports OpenAI Codex (GPT models) and Claude Code via OAuth.
 
 so you can use local or multi‑account CLI access with OpenAI‑compatible clients and SDKs.
 
+Now, We added the first Chinese provider: [Qwen Code](https://github.com/QwenLM/qwen-code).
+
 ## Features
 
 - OpenAI/Gemini/Claude compatible API endpoints for CLI models
 - OpenAI Codex support (GPT models) via OAuth login
 - Claude Code support via OAuth login
+- Qwen Code support via OAuth login
 - Streaming and non-streaming responses
 - Function calling/tools support
 - Multimodal input support (text and images)
-- Multiple accounts with round‑robin load balancing (Gemini, OpenAI, and Claude)
-- Simple CLI authentication flows (Gemini, OpenAI, and Claude)
+- Multiple accounts with round‑robin load balancing (Gemini, OpenAI, Claude and Qwen)
+- Simple CLI authentication flows (Gemini, OpenAI, Claude and Qwen)
 - Generative Language API Key support
 - Gemini CLI multi‑account load balancing
 - Claude Code multi‑account load balancing
+- Qwen Code multi‑account load balancing
 
 ## Installation
 
@@ -30,6 +34,7 @@ so you can use local or multi‑account CLI access with OpenAI‑compatible clie
 - A Google account with access to Gemini CLI models (optional)
 - An OpenAI account for Codex/GPT access (optional)
 - An Anthropic account for Claude Code access (optional)
+- A Qwen Chat account for Qwen Code access (optional)
 
 ### Building from Source
 
@@ -60,6 +65,8 @@ You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the s
   ```
   The local OAuth callback uses port `8085`.
 
+  Options: add `--no-browser` to print the login URL instead of opening a browser. The local OAuth callback uses port `1455`.
+
 - OpenAI (Codex/GPT via OAuth):
   ```bash
   ./cli-proxy-api --codex-login
@@ -71,6 +78,13 @@ You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the s
   ./cli-proxy-api --claude-login
   ```
   Options: add `--no-browser` to print the login URL instead of opening a browser. The local OAuth callback uses port `54545`.
+
+- Qwen (Qwen Chat via OAuth):
+  ```bash
+  ./cli-proxy-api --qwen-login
+  ```
+  Options: add `--no-browser` to print the login URL instead of opening a browser. Use the Qwen Chat's OAuth device flow.
+
 
 ### Starting the Server
 
@@ -112,7 +126,7 @@ Request body example:
 ```
 
 Notes:
-- Use a `gemini-*` model for Gemini (e.g., `gemini-2.5-pro`), a `gpt-*` model for OpenAI (e.g., `gpt-5`), or a `claude-*` model for Claude (e.g., `claude-3-5-sonnet-20241022`). The proxy will route to the correct provider automatically.
+- Use a `gemini-*` model for Gemini (e.g., `gemini-2.5-pro`), a `gpt-*` model for OpenAI (e.g., `gpt-5`), a `claude-*` model for Claude (e.g., `claude-3-5-sonnet-20241022`), or a `qwen-*` model for Qwen (e.g., `qwen3-coder-plus`). The proxy will route to the correct provider automatically.
 
 #### Claude Messages (SSE-compatible)
 
@@ -210,6 +224,8 @@ console.log(await claudeResponse.json());
 - claude-sonnet-4-20250514
 - claude-3-7-sonnet-20250219
 - claude-3-5-haiku-20241022
+- qwen3-coder-plus
+- qwen3-coder-flash
 - Gemini models auto‑switch to preview variants when needed
 
 ## Configuration
@@ -336,6 +352,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
 export ANTHROPIC_AUTH_TOKEN=sk-dummy
 export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export ANTHROPIC_SMALL_FAST_MODEL=claude-3-5-haiku-20241022
+```
+
+Using Claude models:
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=qwen3-coder-plus
+export ANTHROPIC_SMALL_FAST_MODEL=qwen3-coder-flash
 ```
 
 ## Run with Docker

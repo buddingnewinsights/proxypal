@@ -60,6 +60,7 @@ func main() {
 	var login bool
 	var codexLogin bool
 	var claudeLogin bool
+	var qwenLogin bool
 	var noBrowser bool
 	var projectID string
 	var configPath string
@@ -68,6 +69,7 @@ func main() {
 	flag.BoolVar(&login, "login", false, "Login Google Account")
 	flag.BoolVar(&codexLogin, "codex-login", false, "Login to Codex using OAuth")
 	flag.BoolVar(&claudeLogin, "claude-login", false, "Login to Claude using OAuth")
+	flag.BoolVar(&qwenLogin, "qwen-login", false, "Login to Qwen using OAuth")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Don't open browser automatically for OAuth")
 	flag.StringVar(&projectID, "project_id", "", "Project ID (Gemini only, not required)")
 	flag.StringVar(&configPath, "config", "", "Configure File Path")
@@ -132,6 +134,8 @@ func main() {
 	} else if claudeLogin {
 		// Handle Claude login
 		cmd.DoClaudeLogin(cfg, options)
+	} else if qwenLogin {
+		cmd.DoQwenLogin(cfg, options)
 	} else {
 		// Start the main proxy service
 		cmd.StartService(cfg, configFilePath)
