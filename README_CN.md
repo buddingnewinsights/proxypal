@@ -6,9 +6,9 @@
 
 现已支持通过 OAuth 登录接入 OpenAI Codex（GPT 系列）和 Claude Code。
 
-可与本地或多账户方式配合，使用任何 OpenAI 兼容的客户端与 SDK。
+您可以使用本地或多账户的CLI方式，通过任何与OpenAI兼容的客户端和SDK进行访问。
 
-现在，我们添加了第一个中国提供商：[Qwen Code](https://github.com/QwenLM/qwen-code)。
+现已新增首个中国提供商：[Qwen Code](https://github.com/QwenLM/qwen-code)。
 
 ## 功能特性
 
@@ -25,6 +25,7 @@
 - 支持 Gemini CLI 多账户轮询
 - 支持 Claude Code 多账户轮询
 - 支持 Qwen Code 多账户轮询
+- 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
 
 ## 安装
 
@@ -59,11 +60,13 @@
   ```bash
   ./cli-proxy-api --login
   ```
-  如果您是旧版 gemini code 用户，可能需要指定项目 ID：
+  如果您是现有的 Gemini Code 用户，可能需要指定一个项目ID：
   ```bash
   ./cli-proxy-api --login --project_id <your_project_id>
   ```
   本地 OAuth 回调端口为 `8085`。
+
+  选项：加上 `--no-browser` 可打印登录地址而不自动打开浏览器。本地 OAuth 回调端口为 `8085`。
 
 - OpenAI（Codex/GPT，OAuth）：
   ```bash
@@ -123,7 +126,7 @@ POST http://localhost:8317/v1/chat/completions
 ```
 
 说明：
-- 使用 `gemini-*` 模型（如 `gemini-2.5-pro`）走 Gemini，使用 `gpt-*` 模型（如 `gpt-5`）走 OpenAI，使用 `claude-*` 模型（如 `claude-3-5-sonnet-20241022`）走 Claude，使用 `qwen-*` 模型（如 `qwen3-coder-plus`）走 Qwen，服务会自动路由到对应提供商。
+- 使用 "gemini-*" 模型（例如 "gemini-2.5-pro"）来调用 Gemini，使用 "gpt-*" 模型（例如 "gpt-5"）来调用 OpenAI，使用 "claude-*" 模型（例如 "claude-3-5-sonnet-20241022"）来调用 Claude，或者使用 "qwen-*" 模型（例如 "qwen3-coder-plus"）来调用 Qwen。代理服务会自动将请求路由到相应的提供商。
 
 #### Claude 消息（SSE 兼容）
 
@@ -235,21 +238,28 @@ console.log(await claudeResponse.json());
 
 ### 配置选项
 
-| 参数                                    | 类型       | 默认值                | 描述                                                                     |
-|---------------------------------------|----------|--------------------|------------------------------------------------------------------------|
-| `port`                                | integer  | 8317               | 服务器监听的端口号                                                              |
-| `auth-dir`                            | string   | "~/.cli-proxy-api" | 存储身份验证令牌的目录。支持使用 `~` 表示主目录                                             |
-| `proxy-url`                           | string   | ""                 | 代理 URL，支持 socks5/http/https 协议，示例：socks5://user:pass@192.168.1.1:1080/ |
-| `request-retry`                       | integer  | 0                  | 请求失败重试次数，如果响应的http代码为403、408、500、502、503、504则会自动重试                     |
-| `quota-exceeded`                      | object   | {}                 | 处理配额超限的配置                                                              |
-| `quota-exceeded.switch-project`       | boolean  | true               | 当配额超限时是否自动切换到另一个项目                                                     |
-| `quota-exceeded.switch-preview-model` | boolean  | true               | 当配额超限时是否自动切换到预览模型                                                      |
-| `debug`                               | boolean  | false              | 启用调试模式以进行详细日志记录                                                        |
-| `api-keys`                            | string[] | []                 | 可用于验证请求的 API 密钥列表                                                      |
-| `generative-language-api-key`         | string[] | []                 | 生成式语言 API 密钥列表                                                         |
-| `claude-api-key`                      | object   | {}                 | Claude API 密钥列表                                                        |
-| `claude-api-key.api-key`              | string   | ""                 | Claude API 密钥                                                          |
-| `claude-api-key.base-url`             | string   | ""                 | 自定义 Claude API 端点（如果你使用的是第三方 Claude API 端点）                            |
+| 参数                                    | 类型       | 默认值                | 描述                                                                                          |
+|---------------------------------------|----------|--------------------|---------------------------------------------------------------------------------------------|
+| `port`                                | integer  | 8317               | 服务器将监听的端口号。                                                                          |
+| `auth-dir`                            | string   | "~/.cli-proxy-api" | 存储身份验证令牌的目录。支持使用 `~` 来表示主目录。                                                  |
+| `proxy-url`                           | string   | ""                 | 代理URL。支持socks5/http/https协议。例如：socks5://user:pass@192.168.1.1:1080/                  |
+| `request-retry`                       | integer  | 0                  | 请求重试次数。如果HTTP响应码为403、408、500、502、503或504，将会触发重试。                                |
+| `quota-exceeded`                      | object   | {}                 | 用于处理配额超限的配置。                                                                        |
+| `quota-exceeded.switch-project`       | boolean  | true               | 当配额超限时，是否自动切换到另一个项目。                                                              |
+| `quota-exceeded.switch-preview-model` | boolean  | true               | 当配额超限时，是否自动切换到预览模型。                                                                |
+| `debug`                               | boolean  | false              | 启用调试模式以获取详细日志。                                                                    |
+| `api-keys`                            | string[] | []                 | 可用于验证请求的API密钥列表。                                                                   |
+| `generative-language-api-key`         | string[] | []                 | 生成式语言API密钥列表。                                                                         |
+| `claude-api-key`                      | object   | {}                 | Claude API密钥列表。                                                                            |
+| `claude-api-key.api-key`              | string   | ""                 | Claude API密钥。                                                                                |
+| `claude-api-key.base-url`             | string   | ""                 | 自定义的Claude API端点，如果您使用第三方的API端点。                                                 |
+| `openai-compatibility`                | object[] | []                 | 上游OpenAI兼容提供商的配置（名称、基础URL、API密钥、模型）。                                        |
+| `openai-compatibility.*.name`           | string   | ""                 | 提供商的名称。它将被用于用户代理（User Agent）和其他地方。                                            |
+| `openai-compatibility.*.base-url`       | string   | ""                 | 提供商的基础URL。                                                                               |
+| `openai-compatibility.*.api-keys`       | string[] | []                 | 提供商的API密钥。如果需要，可以添加多个密钥。如果允许未经身份验证的访问，则可以省略。                         |
+| `openai-compatibility.*.models`         | object[] | []                 | 实际的模型名称。                                                                                |
+| `openai-compatibility.*.models.*.name`  | string   | ""                 | 提供商支持的模型。                                                                              |
+| `openai-compatibility.*.models.*.alias` | string   | ""                 | 在API中使用的别名。                                                                             |
 
 ### 配置文件示例
 
@@ -263,10 +273,10 @@ auth-dir: "~/.cli-proxy-api"
 # 启用调试日志
 debug: false
 
-# 代理 URL，支持 socks5/http/https 协议，示例：socks5://user:pass@192.168.1.1:1080/
+# 代理URL。支持socks5/http/https协议。例如：socks5://user:pass@192.168.1.1:1080/
 proxy-url: ""
 
-# 请求失败重试次数，如果响应的http代码为403、408、500、502、503、504则会自动重试
+# 请求重试次数。如果HTTP响应码为403、408、500、502、503或504，将会触发重试。
 request-retry: 3
 
 
@@ -292,7 +302,45 @@ claude-api-key:
   - api-key: "sk-atSM..." # use the official claude API key, no need to set the base url
   - api-key: "sk-atSM..."
     base-url: "https://www.example.com" # use the custom claude API endpoint
+
+# OpenAI 兼容提供商
+openai-compatibility:
+  - name: "openrouter" # 提供商的名称；它将被用于用户代理和其它地方。
+    base-url: "https://openrouter.ai/api/v1" # 提供商的基础URL。
+    api-keys: # 提供商的API密钥。如果需要，可以添加多个密钥。如果允许未经身份验证的访问，则可以省略。
+      - "sk-or-v1-...b780"
+      - "sk-or-v1-...b781"
+    models: # 提供商支持的模型。
+      - name: "moonshotai/kimi-k2:free" # 实际的模型名称。
+        alias: "kimi-k2" # 在API中使用的别名。
 ```
+
+### OpenAI 兼容上游提供商
+
+通过 `openai-compatibility` 配置上游 OpenAI 兼容提供商（例如 OpenRouter）。
+
+- name：内部识别名
+- base-url：提供商基础地址
+- api-keys：可选，多密钥轮询（若提供商支持无鉴权可省略）
+- models：将上游模型 `name` 映射为本地可用 `alias`
+
+示例：
+
+```yaml
+openai-compatibility:
+  - name: "openrouter"
+    base-url: "https://openrouter.ai/api/v1"
+    api-keys:
+      - "sk-or-v1-...b780"
+      - "sk-or-v1-...b781"
+    models:
+      - name: "moonshotai/kimi-k2:free"
+        alias: "kimi-k2"
+```
+
+使用方式：在 `/v1/chat/completions` 中将 `model` 设为别名（如 `kimi-k2`），代理将自动路由到对应提供商与模型。
+
+并且，对于这些与OpenAI兼容的提供商模型，您始终可以通过将CODE_ASSIST_ENDPOINT设置为 http://127.0.0.1:8317 来使用Gemini CLI。
 
 ### 身份验证目录
 
@@ -325,7 +373,7 @@ export CODE_ASSIST_ENDPOINT="http://127.0.0.1:8317"
 服务器将中继 `loadCodeAssist`、`onboardUser` 和 `countTokens` 请求。并自动在多个账户之间轮询文本生成请求。
 
 > [!NOTE]  
-> 此功能仅允许本地访问，因为找不到一个可以验证请求的方法。   
+> 此功能仅允许本地访问，因为找不到一个可以验证请求的方法。
 > 所以只能强制只有 `127.0.0.1` 可以访问。
 
 ## Claude Code 的使用方法
