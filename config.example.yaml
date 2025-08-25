@@ -4,6 +4,9 @@ auth-dir: "~/.cli-proxy-api"
 debug: true
 proxy-url: ""
 
+# Request retry times, if the response http code is 403, 408, 500, 502, 503, 504, it will retry
+request-retry: 3
+
 # Quota exceeded behavior
 quota-exceeded:
   switch-project: true

@@ -240,6 +240,7 @@ console.log(await claudeResponse.json());
 | `port`                                | integer  | 8317               | 服务器监听的端口号                                                              |
 | `auth-dir`                            | string   | "~/.cli-proxy-api" | 存储身份验证令牌的目录。支持使用 `~` 表示主目录                                             |
 | `proxy-url`                           | string   | ""                 | 代理 URL，支持 socks5/http/https 协议，示例：socks5://user:pass@192.168.1.1:1080/ |
+| `request-retry`                       | integer  | 0                  | 请求失败重试次数，如果响应的http代码为403、408、500、502、503、504则会自动重试                     |
 | `quota-exceeded`                      | object   | {}                 | 处理配额超限的配置                                                              |
 | `quota-exceeded.switch-project`       | boolean  | true               | 当配额超限时是否自动切换到另一个项目                                                     |
 | `quota-exceeded.switch-preview-model` | boolean  | true               | 当配额超限时是否自动切换到预览模型                                                      |
@@ -264,6 +265,10 @@ debug: false
 
 # 代理 URL，支持 socks5/http/https 协议，示例：socks5://user:pass@192.168.1.1:1080/
 proxy-url: ""
+
+# 请求失败重试次数，如果响应的http代码为403、408、500、502、503、504则会自动重试
+request-retry: 3
+
 
 # 配额超限行为
 quota-exceeded:

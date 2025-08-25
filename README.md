@@ -238,20 +238,21 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 
 ### Configuration Options
 
-| Parameter                             | Type     | Default            | Description                                                                                  |
-|---------------------------------------|----------|--------------------|----------------------------------------------------------------------------------------------|
-| `port`                                | integer  | 8317               | The port number on which the server will listen                                              |
-| `auth-dir`                            | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory      |
-| `proxy-url`                           | string   | ""                 | Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/ |
-| `quota-exceeded`                      | object   | {}                 | Configuration for handling quota exceeded                                                    |
-| `quota-exceeded.switch-project`       | boolean  | true               | Whether to automatically switch to another project when a quota is exceeded                  |
-| `quota-exceeded.switch-preview-model` | boolean  | true               | Whether to automatically switch to a preview model when a quota is exceeded                  |
-| `debug`                               | boolean  | false              | Enable debug mode for verbose logging                                                        |
-| `api-keys`                            | string[] | []                 | List of API keys that can be used to authenticate requests                                   |
-| `generative-language-api-key`         | string[] | []                 | List of Generative Language API keys                                                         |
-| `claude-api-key`                      | object   | {}                 | List of Claude API keys                                                                      |
-| `claude-api-key.api-key`              | string   | ""                 | Claude API key                                                                               |
-| `claude-api-key.base-url`             | string   | ""                 | Custom Claude API endpoint, if you use the third party API endpoint                          |
+| Parameter                             | Type     | Default            | Description                                                                                   |
+|---------------------------------------|----------|--------------------|-----------------------------------------------------------------------------------------------|
+| `port`                                | integer  | 8317               | The port number on which the server will listen                                               |
+| `auth-dir`                            | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for home directory       |
+| `proxy-url`                           | string   | ""                 | Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/  |
+| `request-retry`                       | integer  | 0                  | Request retry times, if the response http code is 403, 408, 500, 502, 503, 504, it will retry |
+| `quota-exceeded`                      | object   | {}                 | Configuration for handling quota exceeded                                                     |
+| `quota-exceeded.switch-project`       | boolean  | true               | Whether to automatically switch to another project when a quota is exceeded                   |
+| `quota-exceeded.switch-preview-model` | boolean  | true               | Whether to automatically switch to a preview model when a quota is exceeded                   |
+| `debug`                               | boolean  | false              | Enable debug mode for verbose logging                                                         |
+| `api-keys`                            | string[] | []                 | List of API keys that can be used to authenticate requests                                    |
+| `generative-language-api-key`         | string[] | []                 | List of Generative Language API keys                                                          |
+| `claude-api-key`                      | object   | {}                 | List of Claude API keys                                                                       |
+| `claude-api-key.api-key`              | string   | ""                 | Claude API key                                                                                |
+| `claude-api-key.base-url`             | string   | ""                 | Custom Claude API endpoint, if you use the third party API endpoint                           |
 
 ### Example Configuration File
 
@@ -267,6 +268,9 @@ debug: false
 
 # Proxy url, support socks5/http/https protocol, example: socks5://user:pass@192.168.1.1:1080/
 proxy-url: ""
+
+# Request retry times, if the response http code is 403, 408, 500, 502, 503, 504, it will retry
+request-retry: 3
 
 # Quota exceeded behavior
 quota-exceeded:
