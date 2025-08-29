@@ -239,28 +239,28 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 
 ### Configuration Options
 
-| Parameter                               | Type     | Default            | Description                                                                                             |
-|-----------------------------------------|----------|--------------------|---------------------------------------------------------------------------------------------------------|
-| `port`                                  | integer  | 8317               | The port number on which the server will listen.                                                        |
-| `auth-dir`                              | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for the home directory.            |
-| `proxy-url`                             | string   | ""                 | Proxy URL. Supports socks5/http/https protocols. Example: socks5://user:pass@192.168.1.1:1080/           |
-| `request-retry`                         | integer  | 0                  | Number of times to retry a request. Retries will occur if the HTTP response code is 403, 408, 500, 502, 503, or 504. |
-| `quota-exceeded`                        | object   | {}                 | Configuration for handling quota exceeded.                                                              |
-| `quota-exceeded.switch-project`         | boolean  | true               | Whether to automatically switch to another project when a quota is exceeded.                            |
-| `quota-exceeded.switch-preview-model`   | boolean  | true               | Whether to automatically switch to a preview model when a quota is exceeded.                            |
-| `debug`                                 | boolean  | false              | Enable debug mode for verbose logging.                                                                  |
-| `api-keys`                              | string[] | []                 | List of API keys that can be used to authenticate requests.                                             |
-| `generative-language-api-key`           | string[] | []                 | List of Generative Language API keys.                                                                   |
-| `claude-api-key`                        | object   | {}                 | List of Claude API keys.                                                                                |
-| `claude-api-key.api-key`                | string   | ""                 | Claude API key.                                                                                         |
-| `claude-api-key.base-url`               | string   | ""                 | Custom Claude API endpoint, if you use a third-party API endpoint.                                      |
-| `openai-compatibility`                  | object[] | []                 | Upstream OpenAI-compatible providers configuration (name, base-url, api-keys, models).                  |
-| `openai-compatibility.*.name`           | string   | ""                 | The name of the provider. It will be used in the user agent and other places.                           |
-| `openai-compatibility.*.base-url`       | string   | ""                 | The base URL of the provider.                                                                           |
-| `openai-compatibility.*.api-keys`       | string[] | []                 | The API keys for the provider. Add multiple keys if needed. Omit if unauthenticated access is allowed. |
-| `openai-compatibility.*.models`         | object[] | []                 | The actual model name.                                                                                  |
-| `openai-compatibility.*.models.*.name`  | string   | ""                 | The models supported by the provider.                                                                   |
-| `openai-compatibility.*.models.*.alias` | string   | ""                 | The alias used in the API.                                                                              |
+| Parameter                               | Type     | Default            | Description                                                                                                                                                              |
+|-----------------------------------------|----------|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `port`                                  | integer  | 8317               | The port number on which the server will listen.                                                                                                                         |
+| `auth-dir`                              | string   | "~/.cli-proxy-api" | Directory where authentication tokens are stored. Supports using `~` for the home directory. If you use Windows, please set the directory like this: `C:/cli-proxy-api/` |
+| `proxy-url`                             | string   | ""                 | Proxy URL. Supports socks5/http/https protocols. Example: socks5://user:pass@192.168.1.1:1080/                                                                           |
+| `request-retry`                         | integer  | 0                  | Number of times to retry a request. Retries will occur if the HTTP response code is 403, 408, 500, 502, 503, or 504.                                                     |
+| `quota-exceeded`                        | object   | {}                 | Configuration for handling quota exceeded.                                                                                                                               |
+| `quota-exceeded.switch-project`         | boolean  | true               | Whether to automatically switch to another project when a quota is exceeded.                                                                                             |
+| `quota-exceeded.switch-preview-model`   | boolean  | true               | Whether to automatically switch to a preview model when a quota is exceeded.                                                                                             |
+| `debug`                                 | boolean  | false              | Enable debug mode for verbose logging.                                                                                                                                   |
+| `api-keys`                              | string[] | []                 | List of API keys that can be used to authenticate requests.                                                                                                              |
+| `generative-language-api-key`           | string[] | []                 | List of Generative Language API keys.                                                                                                                                    |
+| `claude-api-key`                        | object   | {}                 | List of Claude API keys.                                                                                                                                                 |
+| `claude-api-key.api-key`                | string   | ""                 | Claude API key.                                                                                                                                                          |
+| `claude-api-key.base-url`               | string   | ""                 | Custom Claude API endpoint, if you use a third-party API endpoint.                                                                                                       |
+| `openai-compatibility`                  | object[] | []                 | Upstream OpenAI-compatible providers configuration (name, base-url, api-keys, models).                                                                                   |
+| `openai-compatibility.*.name`           | string   | ""                 | The name of the provider. It will be used in the user agent and other places.                                                                                            |
+| `openai-compatibility.*.base-url`       | string   | ""                 | The base URL of the provider.                                                                                                                                            |
+| `openai-compatibility.*.api-keys`       | string[] | []                 | The API keys for the provider. Add multiple keys if needed. Omit if unauthenticated access is allowed.                                                                   |
+| `openai-compatibility.*.models`         | object[] | []                 | The actual model name.                                                                                                                                                   |
+| `openai-compatibility.*.models.*.name`  | string   | ""                 | The models supported by the provider.                                                                                                                                    |
+| `openai-compatibility.*.models.*.alias` | string   | ""                 | The alias used in the API.                                                                                                                                               |
 
 ### Example Configuration File
 
@@ -268,7 +268,7 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 # Server port
 port: 8317
 
-# Authentication directory (supports ~ for home directory)
+# Authentication directory (supports ~ for home directory). If you use Windows, please set the directory like this: `C:/cli-proxy-api/`
 auth-dir: "~/.cli-proxy-api"
 
 # Enable debug logging

@@ -238,28 +238,28 @@ console.log(await claudeResponse.json());
 
 ### 配置选项
 
-| 参数                                    | 类型       | 默认值                | 描述                                                                                          |
-|---------------------------------------|----------|--------------------|---------------------------------------------------------------------------------------------|
-| `port`                                | integer  | 8317               | 服务器将监听的端口号。                                                                          |
-| `auth-dir`                            | string   | "~/.cli-proxy-api" | 存储身份验证令牌的目录。支持使用 `~` 来表示主目录。                                                  |
-| `proxy-url`                           | string   | ""                 | 代理URL。支持socks5/http/https协议。例如：socks5://user:pass@192.168.1.1:1080/                  |
-| `request-retry`                       | integer  | 0                  | 请求重试次数。如果HTTP响应码为403、408、500、502、503或504，将会触发重试。                                |
-| `quota-exceeded`                      | object   | {}                 | 用于处理配额超限的配置。                                                                        |
-| `quota-exceeded.switch-project`       | boolean  | true               | 当配额超限时，是否自动切换到另一个项目。                                                              |
-| `quota-exceeded.switch-preview-model` | boolean  | true               | 当配额超限时，是否自动切换到预览模型。                                                                |
-| `debug`                               | boolean  | false              | 启用调试模式以获取详细日志。                                                                    |
-| `api-keys`                            | string[] | []                 | 可用于验证请求的API密钥列表。                                                                   |
-| `generative-language-api-key`         | string[] | []                 | 生成式语言API密钥列表。                                                                         |
-| `claude-api-key`                      | object   | {}                 | Claude API密钥列表。                                                                            |
-| `claude-api-key.api-key`              | string   | ""                 | Claude API密钥。                                                                                |
-| `claude-api-key.base-url`             | string   | ""                 | 自定义的Claude API端点，如果您使用第三方的API端点。                                                 |
-| `openai-compatibility`                | object[] | []                 | 上游OpenAI兼容提供商的配置（名称、基础URL、API密钥、模型）。                                        |
-| `openai-compatibility.*.name`           | string   | ""                 | 提供商的名称。它将被用于用户代理（User Agent）和其他地方。                                            |
-| `openai-compatibility.*.base-url`       | string   | ""                 | 提供商的基础URL。                                                                               |
-| `openai-compatibility.*.api-keys`       | string[] | []                 | 提供商的API密钥。如果需要，可以添加多个密钥。如果允许未经身份验证的访问，则可以省略。                         |
-| `openai-compatibility.*.models`         | object[] | []                 | 实际的模型名称。                                                                                |
-| `openai-compatibility.*.models.*.name`  | string   | ""                 | 提供商支持的模型。                                                                              |
-| `openai-compatibility.*.models.*.alias` | string   | ""                 | 在API中使用的别名。                                                                             |
+| 参数                                      | 类型       | 默认值                | 描述                                                                  |
+|-----------------------------------------|----------|--------------------|---------------------------------------------------------------------|
+| `port`                                  | integer  | 8317               | 服务器将监听的端口号。                                                         |
+| `auth-dir`                              | string   | "~/.cli-proxy-api" | 存储身份验证令牌的目录。支持使用 `~` 来表示主目录。如果你使用Windows，建议设置成`C:/cli-proxy-api/`。  |
+| `proxy-url`                             | string   | ""                 | 代理URL。支持socks5/http/https协议。例如：socks5://user:pass@192.168.1.1:1080/ |
+| `request-retry`                         | integer  | 0                  | 请求重试次数。如果HTTP响应码为403、408、500、502、503或504，将会触发重试。                    |
+| `quota-exceeded`                        | object   | {}                 | 用于处理配额超限的配置。                                                        |
+| `quota-exceeded.switch-project`         | boolean  | true               | 当配额超限时，是否自动切换到另一个项目。                                                |
+| `quota-exceeded.switch-preview-model`   | boolean  | true               | 当配额超限时，是否自动切换到预览模型。                                                 |
+| `debug`                                 | boolean  | false              | 启用调试模式以获取详细日志。                                                      |
+| `api-keys`                              | string[] | []                 | 可用于验证请求的API密钥列表。                                                    |
+| `generative-language-api-key`           | string[] | []                 | 生成式语言API密钥列表。                                                       |
+| `claude-api-key`                        | object   | {}                 | Claude API密钥列表。                                                     |
+| `claude-api-key.api-key`                | string   | ""                 | Claude API密钥。                                                       |
+| `claude-api-key.base-url`               | string   | ""                 | 自定义的Claude API端点，如果您使用第三方的API端点。                                    |
+| `openai-compatibility`                  | object[] | []                 | 上游OpenAI兼容提供商的配置（名称、基础URL、API密钥、模型）。                                |
+| `openai-compatibility.*.name`           | string   | ""                 | 提供商的名称。它将被用于用户代理（User Agent）和其他地方。                                  |
+| `openai-compatibility.*.base-url`       | string   | ""                 | 提供商的基础URL。                                                          |
+| `openai-compatibility.*.api-keys`       | string[] | []                 | 提供商的API密钥。如果需要，可以添加多个密钥。如果允许未经身份验证的访问，则可以省略。                        |
+| `openai-compatibility.*.models`         | object[] | []                 | 实际的模型名称。                                                            |
+| `openai-compatibility.*.models.*.name`  | string   | ""                 | 提供商支持的模型。                                                           |
+| `openai-compatibility.*.models.*.alias` | string   | ""                 | 在API中使用的别名。                                                         |
 
 ### 配置文件示例
 
@@ -267,7 +267,7 @@ console.log(await claudeResponse.json());
 # 服务器端口
 port: 8317
 
-# 身份验证目录（支持 ~ 表示主目录）
+# 身份验证目录（支持 ~ 表示主目录）。如果你使用Windows，建议设置成`C:/cli-proxy-api/`。
 auth-dir: "~/.cli-proxy-api"
 
 # 启用调试日志
