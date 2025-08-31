@@ -96,10 +96,6 @@
 
 默认情况下，服务器在端口 8317 上运行。
 
-## 管理 API 文档
-
-请参见 [MANAGEMENT_API_CN.md](MANAGEMENT_API_CN.md)
-
 ### API 端点
 
 #### 列出模型
@@ -461,6 +457,10 @@ docker run -it -rm -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /pat
 ```bash
 docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest
 ```
+
+## 管理 API 文档
+
+请参见 [MANAGEMENT_API_CN.md](MANAGEMENT_API_CN.md)
 
 ## 贡献
 

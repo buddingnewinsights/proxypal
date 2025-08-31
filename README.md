@@ -328,10 +328,6 @@ openai-compatibility:
         alias: "kimi-k2" # The alias used in the API.
 ```
 
-## Management API
-
-see [MANAGEMENT_API.md](MANAGEMENT_API.md)
-
 ### OpenAI Compatibility Providers
 
 Configure upstream OpenAI-compatible providers (e.g., OpenRouter) via `openai-compatibility`.
@@ -465,6 +461,10 @@ Run the following command to start the server:
 ```bash
 docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest
 ```
+
+## Management API
+
+see [MANAGEMENT_API.md](MANAGEMENT_API.md)
 
 ## Contributing
 
