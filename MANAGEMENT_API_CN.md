@@ -233,6 +233,50 @@
     { "status": "ok" }
     ```
 
+### Codex API Key（OpenAI）
+- GET `/codex-api-key`
+  - 请求：
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' http://localhost:8317/v0/management/codex-api-key
+    ```
+  - 响应：
+    ```json
+    { "codex-api-key": ["sk-proj-01","sk-proj-02"] }
+    ```
+- PUT `/codex-api-key`
+  - 请求：
+    ```bash
+    curl -X PUT -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '["sk-proj-1","sk-proj-2"]' \
+      http://localhost:8317/v0/management/codex-api-key
+    ```
+  - 响应：
+    ```json
+    { "status": "ok" }
+    ```
+- PATCH `/codex-api-key`
+  - 请求：
+    ```bash
+    curl -X PATCH -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '{"old":"sk-proj-1","new":"sk-proj-1b"}' \
+      http://localhost:8317/v0/management/codex-api-key
+    ```
+  - 响应：
+    ```json
+    { "status": "ok" }
+    ```
+- DELETE `/codex-api-key`
+  - 请求：
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' -X DELETE 'http://localhost:8317/v0/management/codex-api-key?value=sk-proj-2'
+    ```
+  - 响应：
+    ```json
+    { "status": "ok" }
+    ```
+
 ### 开启请求日志
 - GET `/request-log` — 获取布尔值
   - 请求：

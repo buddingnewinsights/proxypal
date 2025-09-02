@@ -116,6 +116,50 @@ Response (GET):
 
 Same request/response shapes as API keys.
 
+### Codex API Keys (OpenAI)
+- GET `/codex-api-key`
+  - Request:
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' http://localhost:8317/v0/management/codex-api-key
+    ```
+  - Response:
+    ```json
+    { "codex-api-key": ["sk-proj-01","sk-proj-02"] }
+    ```
+- PUT `/codex-api-key`
+  - Request:
+    ```bash
+    curl -X PUT -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '["sk-proj-1","sk-proj-2"]' \
+      http://localhost:8317/v0/management/codex-api-key
+    ```
+  - Response:
+    ```json
+    { "status": "ok" }
+    ```
+- PATCH `/codex-api-key`
+  - Request:
+    ```bash
+    curl -X PATCH -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '{"old":"sk-proj-1","new":"sk-proj-1b"}' \
+      http://localhost:8317/v0/management/codex-api-key
+    ```
+  - Response:
+    ```json
+    { "status": "ok" }
+    ```
+- DELETE `/codex-api-key`
+  - Request:
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' -X DELETE 'http://localhost:8317/v0/management/codex-api-key?value=sk-proj-2'
+    ```
+  - Response:
+    ```json
+    { "status": "ok" }
+    ```
+
 ### Request Logging
 - GET `/request-log` — get boolean
 - PUT/PATCH `/request-log` — set boolean
