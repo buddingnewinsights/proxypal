@@ -1,18 +1,34 @@
+# 写给所有中国网友的
+
+对于项目前期的确有很多用户使用上遇到各种各样的奇怪问题，大部分是因为配置或我说明文档不全导致的。
+
+对说明文档我已经尽可能的修补，有些重要的地方我甚至已经写到了打包的配置文件里。
+
+已经写在 README 中的功能，都是**可用**的，经过**验证**的，并且我自己**每天**都在使用的。
+
+可能在某些场景中使用上效果并不是很出色，但那基本上是模型和工具的原因，比如用 Claude Code 的时候，有的模型就无法正确使用工具，比如 Gemini，就在 Claude Code 和 Codex 的下使用的相当扭捏，有时能完成大部分工作，但有时候却只说不做。
+
+目前来说 Claude 和 GPT-5 是目前使用各种第三方CLI工具运用的最好的模型，我自己也是多个账号做均衡负载使用。
+
+实事求是的说，最初的几个版本我根本就没有中文文档，我至今所有文档也都是使用英文更新让后让 Gemini 翻译成中文的。但是无论如何都不会出现中文文档无法理解的问题。因为所有的中英文文档我都是再三校对，并且发现未及时更改的更新的地方都快速更新掉了。
+
+最后，烦请在发 Issue 之前请认真阅读这篇文档。
+
 # CLI 代理 API
 
 [English](README.md) | 中文
 
-一个为 CLI 提供 OpenAI/Gemini/Claude 兼容 API 接口的代理服务器。
+一个为 CLI 提供 OpenAI/Gemini/Claude/Codex 兼容 API 接口的代理服务器。
 
 现已支持通过 OAuth 登录接入 OpenAI Codex（GPT 系列）和 Claude Code。
 
-您可以使用本地或多账户的CLI方式，通过任何与OpenAI兼容的客户端和SDK进行访问。
+您可以使用本地或多账户的CLI方式，通过任何与 OpenAI（包括Responses）/Gemini/Claude 兼容的客户端和SDK进行访问。
 
 现已新增首个中国提供商：[Qwen Code](https://github.com/QwenLM/qwen-code)。
 
 ## 功能特性
 
-- 为 CLI 模型提供 OpenAI/Gemini/Claude 兼容的 API 端点
+- 为 CLI 模型提供 OpenAI/Gemini/Claude/Codex 兼容的 API 端点
 - 新增 OpenAI Codex（GPT 系列）支持（OAuth 登录）
 - 新增 Claude Code 支持（OAuth 登录）
 - 新增 Qwen Code 支持（OAuth 登录）
@@ -25,6 +41,7 @@
 - 支持 Gemini CLI 多账户轮询
 - 支持 Claude Code 多账户轮询
 - 支持 Qwen Code 多账户轮询
+- 支持 OpenAI Codex 多账户轮询
 - 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
 
 ## 安装

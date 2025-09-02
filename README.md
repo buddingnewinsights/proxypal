@@ -2,11 +2,11 @@
 
 English | [中文](README_CN.md)
 
-A proxy server that provides OpenAI/Gemini/Claude compatible API interfaces for CLI.
+A proxy server that provides OpenAI/Gemini/Claude/Codex compatible API interfaces for CLI.
 
 It now also supports OpenAI Codex (GPT models) and Claude Code via OAuth.
 
-So you can use local or multi-account CLI access with OpenAI-compatible clients and SDKs.
+So you can use local or multi-account CLI access with OpenAI(include Responses)/Gemini/Claude-compatible clients and SDKs.
 
 The first Chinese provider has now been added: [Qwen Code](https://github.com/QwenLM/qwen-code).
 
@@ -25,6 +25,7 @@ The first Chinese provider has now been added: [Qwen Code](https://github.com/Qw
 - Gemini CLI multi-account load balancing
 - Claude Code multi-account load balancing
 - Qwen Code multi-account load balancing
+- OpenAI Codex multi-account load balancing
 - OpenAI-compatible upstream providers via config (e.g., OpenRouter)
 
 ## Installation
