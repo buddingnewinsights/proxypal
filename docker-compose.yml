@@ -1,0 +1,14 @@
+services:
+  cli-proxy-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cli-proxy-api:latest
+    container_name: cli-proxy-api
+    ports:
+      - "8317:8317"
+    volumes:
+      - ./config.yaml:/CLIProxyAPI/config.yaml
+      - ./auths:/root/.cli-proxy-api
+      - ./logs:/CLIProxyAPI/logs
+    restart: unless-stopped

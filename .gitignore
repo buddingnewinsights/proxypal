@@ -1,3 +1,5 @@
 config.yaml
-docs/
-logs/
+docs/*
+logs/*
+auths/*
+!auths/.gitkeep

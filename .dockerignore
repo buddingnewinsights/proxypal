@@ -1,0 +1,25 @@
+# Git and GitHub folders
+.git
+.github
+
+# Docker and CI/CD related files
+docker-compose.yml
+.dockerignore
+.gitignore
+.goreleaser.yml
+Dockerfile
+
+# Documentation and license
+README.md
+README_CN.md
+MANAGEMENT_API.md
+MANAGEMENT_API_CN.md
+LICENSE
+
+# Example configuration
+config.example.yaml
+
+# Runtime data folders (should be mounted as volumes)
+auths
+logs
+config.yaml
