@@ -237,6 +237,7 @@ console.log(await claudeResponse.json());
 
 - gemini-2.5-pro
 - gemini-2.5-flash
+- gemini-2.5-flash-lite
 - gpt-5
 - claude-opus-4-1-20250805
 - claude-opus-4-20250514
@@ -271,6 +272,9 @@ console.log(await claudeResponse.json());
 | `debug`                                 | boolean  | false              | 启用调试模式以获取详细日志。                                                      |
 | `api-keys`                              | string[] | []                 | 可用于验证请求的API密钥列表。                                                    |
 | `generative-language-api-key`           | string[] | []                 | 生成式语言API密钥列表。                                                       |
+| `codex-api-key`                         | object   | {}                 | Codex API密钥列表。                                                      |
+| `codex-api-key.api-key`                 | string   | ""                 | Codex API密钥。                                                        |
+| `codex-api-key.base-url`                | string   | ""                 | 自定义的Codex API端点                                                     |
 | `claude-api-key`                        | object   | {}                 | Claude API密钥列表。                                                     |
 | `claude-api-key.api-key`                | string   | ""                 | Claude API密钥。                                                       |
 | `claude-api-key.base-url`               | string   | ""                 | 自定义的Claude API端点，如果您使用第三方的API端点。                                    |
@@ -328,11 +332,16 @@ generative-language-api-key:
   - "AIzaSy...03"
   - "AIzaSy...04"
 
-# Claude API keys
-claude-api-key:
-  - api-key: "sk-atSM..." # use the official claude API key, no need to set the base url
+# Codex API 密钥
+codex-api-key:
   - api-key: "sk-atSM..."
-    base-url: "https://www.example.com" # use the custom claude API endpoint
+    base-url: "https://www.example.com" # 第三方 Codex API 中转服务端点
+
+# Claude API 密钥
+claude-api-key:
+  - api-key: "sk-atSM..." # 如果使用官方 Claude API，无需设置 base-url
+  - api-key: "sk-atSM..."
+    base-url: "https://www.example.com" # 第三方 Claude API 中转服务端点
 
 # OpenAI 兼容提供商
 openai-compatibility:

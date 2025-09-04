@@ -220,6 +220,7 @@ console.log(await claudeResponse.json());
 
 - gemini-2.5-pro
 - gemini-2.5-flash
+- gemini-2.5-flash-lite
 - gpt-5
 - claude-opus-4-1-20250805
 - claude-opus-4-20250514
@@ -254,6 +255,9 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `debug`                                 | boolean  | false              | Enable debug mode for verbose logging.                                                                                                                                                    |
 | `api-keys`                              | string[] | []                 | List of API keys that can be used to authenticate requests.                                                                                                                               |
 | `generative-language-api-key`           | string[] | []                 | List of Generative Language API keys.                                                                                                                                                     |
+| `codex-api-key`                         | object   | {}                 | List of Codex API keys.                                                                                                                                                                   |
+| `codex-api-key.api-key`                 | string   | ""                 | Codex API key.                                                                                                                                                                            |
+| `codex-api-key.base-url`                | string   | ""                 | Custom Codex API endpoint, if you use a third-party API endpoint.                                                                                                                         |
 | `claude-api-key`                        | object   | {}                 | List of Claude API keys.                                                                                                                                                                  |
 | `claude-api-key.api-key`                | string   | ""                 | Claude API key.                                                                                                                                                                           |
 | `claude-api-key.base-url`               | string   | ""                 | Custom Claude API endpoint, if you use a third-party API endpoint.                                                                                                                        |
@@ -310,6 +314,11 @@ generative-language-api-key:
   - "AIzaSy...02"
   - "AIzaSy...03"
   - "AIzaSy...04"
+
+# Codex API keys
+codex-api-key:
+  - api-key: "sk-atSM..."
+    base-url: "https://www.example.com" # use the custom codex API endpoint
   
 # Claude API keys
 claude-api-key:
