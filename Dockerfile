@@ -8,7 +8,9 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o ./CLIProxyAPI ./cmd/server/
+ARG APP_VERSION="dev"
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=${APP_VERSION}'" -o ./CLIProxyAPI ./cmd/server/
 
 FROM alpine:3.22.0
 

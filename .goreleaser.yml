@@ -9,6 +9,8 @@ builds:
       - arm64
     main: ./cmd/server/
     binary: cli-proxy-api
+    ldflags:
+      - -X 'main.Version={{.Env.GORELEASER_CURRENT_TAG}}'
 archives:
   - id: "cli-proxy-api"
     format: tar.gz
