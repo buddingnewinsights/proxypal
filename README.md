@@ -499,10 +499,15 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 
 1.  Create a `config.yaml` from `config.example.yaml` and customize it.
 
-2.  Build and start the services using Docker Compose:
-    ```bash
-    docker compose up -d --build
-    ```
+2.  Build and start the services using the build scripts:
+    - For Windows (PowerShell):
+      ```powershell
+      ./docker-build.ps1
+      ```
+    - For Linux/macOS:
+      ```bash
+      bash docker-build.sh
+      ```
 
 3.  To authenticate with providers, run the login command inside the container:
     - **Gemini**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login`

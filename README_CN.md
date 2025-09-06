@@ -512,10 +512,15 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 
 1.  从 `config.example.yaml` 创建一个 `config.yaml` 文件并进行自定义。
 
-2.  使用 Docker Compose 构建并启动服务：
-    ```bash
-    docker compose up -d --build
-    ```
+2.  使用构建脚本构建并启动服务：
+    - Windows (PowerShell):
+      ```powershell
+      ./docker-build.ps1
+      ```
+    - Linux/macOS:
+      ```bash
+      bash docker-build.sh
+      ```
 
 3.  要在容器内运行登录命令进行身份验证：
     - **Gemini**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login`
