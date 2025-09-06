@@ -10,7 +10,10 @@ builds:
     main: ./cmd/server/
     binary: cli-proxy-api
     ldflags:
-      - -X 'main.Version={{.Env.GORELEASER_CURRENT_TAG}}'
+      - -s -w
+      - -X 'main.Version={{.Version}}'
+      - -X 'main.Commit={{.ShortCommit}}'
+      - -X 'main.BuildDate={{.Date}}'
 archives:
   - id: "cli-proxy-api"
     format: tar.gz
