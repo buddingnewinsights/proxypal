@@ -16,6 +16,8 @@
 
 另外中文需要交流的用户可以加 QQ 群：188637136
 
+或 Telegram 群：https://t.me/CLIProxyAPI
+
 # CLI 代理 API
 
 [English](README.md) | 中文
