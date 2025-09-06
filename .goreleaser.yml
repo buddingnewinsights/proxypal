@@ -10,10 +10,7 @@ builds:
     main: ./cmd/server/
     binary: cli-proxy-api
     ldflags:
-      - -s -w
-      - -X 'main.Version={{.Version}}'
-      - -X 'main.Commit={{.ShortCommit}}'
-      - -X 'main.BuildDate={{.Date}}'
+      - -s -w -X 'main.Version={{.Version}}' -X 'main.Commit={{.ShortCommit}}' -X 'main.BuildDate={{.Date}}'
 archives:
   - id: "cli-proxy-api"
     format: tar.gz
@@ -25,3 +22,16 @@ archives:
       - README.md
       - README_CN.md
       - config.example.yaml
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
