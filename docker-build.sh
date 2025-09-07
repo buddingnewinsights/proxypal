@@ -9,15 +9,21 @@
 set -euo pipefail
 
 # --- Step 1: Choose Environment ---
-echo "Please select your environment:"
-echo "1) Local Development (Build and Run)"
-echo "2) Remote Deployment (Run from Image)"
+echo "Please select an option:"
+echo "1) Run using Pre-built Image (Recommended)"
+echo "2) Build from Source and Run (For Developers)"
 read -r -p "Enter choice [1-2]: " choice
 
 # --- Step 2: Execute based on choice ---
 case "$choice" in
   1)
-    echo "--- Starting Local Development Environment ---"
+    echo "--- Running with Pre-built Image ---"
+    docker compose up -d --remove-orphans --no-build
+    echo "Services are starting from remote image."
+    echo "Run 'docker compose logs -f' to see the logs."
+    ;;
+  2)
+    echo "--- Building from Source and Running ---"
 
     # Get Version Information
     VERSION="$(git describe --tags --always --dirty)"
@@ -30,22 +36,19 @@ case "$choice" in
     echo "  Build Date: ${BUILD_DATE}"
     echo "----------------------------------------"
 
-    # Build the Docker Image
+    # Build and start the services with a local-only image tag
+    export CLI_PROXY_IMAGE="cli-proxy-api:local"
+    
+    echo "Building the Docker image..."
     docker compose build \
       --build-arg VERSION="${VERSION}" \
       --build-arg COMMIT="${COMMIT}" \
       --build-arg BUILD_DATE="${BUILD_DATE}"
 
-    # Start the Services
-    docker compose up -d --remove-orphans
+    echo "Starting the services..."
+    docker compose up -d --remove-orphans --pull never
 
     echo "Build complete. Services are starting."
-    echo "Run 'docker compose logs -f' to see the logs."
-    ;;
-  2)
-    echo "--- Starting Remote Deployment Environment ---"
-    docker compose -f docker-compose.yml -f docker-compose.remote.yml up -d
-    echo "Services are starting from remote image."
     echo "Run 'docker compose logs -f' to see the logs."
     ;;
   *)
