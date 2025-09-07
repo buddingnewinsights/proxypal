@@ -497,30 +497,36 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 
 ## Run with Docker Compose
 
-1.  Create a `config.yaml` from `config.example.yaml` and customize it.
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/luispater/CLIProxyAPI.git
+    cd CLIProxyAPI
+    ```
 
-2.  Build and start the services using the build scripts:
+2.  Create a `config.yaml` from `config.example.yaml` and customize it.
+
+3.  Build and start the services using the build scripts:
     - For Windows (PowerShell):
       ```powershell
-      ./docker-build.ps1
+      .\docker-build.ps1
       ```
     - For Linux/macOS:
       ```bash
       bash docker-build.sh
       ```
 
-3.  To authenticate with providers, run the login command inside the container:
+4.  To authenticate with providers, run the login command inside the container:
     - **Gemini**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login`
     - **OpenAI (Codex)**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --codex-login`
     - **Claude**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --claude-login`
     - **Qwen**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --qwen-login`
 
-4.  To view the server logs:
+5.  To view the server logs:
     ```bash
     docker compose logs -f
     ```
 
-5.  To stop the application:
+6.  To stop the application:
     ```bash
     docker compose down
     ```
