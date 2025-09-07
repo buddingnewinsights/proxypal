@@ -530,11 +530,23 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
         - **Option 1: Run using Pre-built Image (Recommended)**: Pulls the latest official image from the registry and starts the container. This is the easiest way to get started.
         - **Option 2: Build from Source and Run (For Developers)**: Builds the image from the local source code, tags it as `cli-proxy-api:local`, and then starts the container. This is useful if you are making changes to the source code.
 
-4.  To authenticate with providers, run the login command inside the container:
-    - **Gemini**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login`
-    - **OpenAI (Codex)**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --codex-login`
-    - **Claude**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --claude-login`
-    - **Qwen**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --qwen-login`
+4. To authenticate with providers, run the login command inside the container:
+    - **Gemini**: 
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login
+    ```
+    - **OpenAI (Codex)**: 
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --codex-login
+    ```
+    - **Claude**: 
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --claude-login
+    ```
+    - **Qwen**: 
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --qwen-login
+    ```
 
 5.  To view the server logs:
     ```bash
