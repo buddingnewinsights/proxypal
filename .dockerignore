@@ -4,6 +4,8 @@
 
 # Docker and CI/CD related files
 docker-compose.yml
+docker-compose.override.yml
+docker-compose.remote.yml
 .dockerignore
 .gitignore
 .goreleaser.yml

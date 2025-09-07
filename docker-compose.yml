@@ -1,13 +1,5 @@
 services:
   cli-proxy-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VERSION: ${VERSION:-dev}
-        COMMIT: ${COMMIT:-none}
-        BUILD_DATE: ${BUILD_DATE:-unknown}
-    image: cli-proxy-api:latest
     container_name: cli-proxy-api
     ports:
       - "8317:8317"

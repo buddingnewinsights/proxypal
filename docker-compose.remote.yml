@@ -1,0 +1,3 @@
+services:
+  cli-proxy-api:
+    image: eceasy/cli-proxy-api:latest

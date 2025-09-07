@@ -520,7 +520,7 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 
 2.  从 `config.example.yaml` 创建一个 `config.yaml` 文件并进行自定义。
 
-3.  使用构建脚本构建并启动服务：
+3.  使用交互式构建脚本构建并启动服务：
     - Windows (PowerShell):
       ```powershell
       .\docker-build.ps1
@@ -529,6 +529,9 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
       ```bash
       bash docker-build.sh
       ```
+    脚本将提示您选择一个环境：
+    - **选项 1：本地开发 (Local Development)**：从源代码构建 Docker 镜像并启动服务。
+    - **选项 2：远程部署 (Remote Deployment)**：拉取 `docker-compose.remote.yml` 中指定的预构建镜像并启动服务。
 
 4.  要在容器内运行登录命令进行身份验证：
     - **Gemini**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login`

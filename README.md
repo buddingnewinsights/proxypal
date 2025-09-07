@@ -505,7 +505,7 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 
 2.  Create a `config.yaml` from `config.example.yaml` and customize it.
 
-3.  Build and start the services using the build scripts:
+3.  Build and start the services using the interactive build scripts:
     - For Windows (PowerShell):
       ```powershell
       .\docker-build.ps1
@@ -514,6 +514,9 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
       ```bash
       bash docker-build.sh
       ```
+    The script will prompt you to choose an environment:
+    - **Option 1: Local Development**: Builds the Docker image from the source and starts the services.
+    - **Option 2: Remote Deployment**: Pulls the pre-built image specified in `docker-compose.remote.yml` and starts the services.
 
 4.  To authenticate with providers, run the login command inside the container:
     - **Gemini**: `docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login`

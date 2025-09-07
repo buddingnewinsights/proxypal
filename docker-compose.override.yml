@@ -1,0 +1,10 @@
+services:
+  cli-proxy-api:
+    image: cli-proxy-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-none}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
