@@ -47,9 +47,15 @@ The first Chinese provider has now been added: [Qwen Code](https://github.com/Qw
    ```
 
 2. Build the application:
+   Linux, macOS:
    ```bash
    go build -o cli-proxy-api ./cmd/server
    ```
+   Windows: 
+   ```bash
+   go build -o cli-proxy-api.exe ./cmd/server
+   ```
+
 
 ## Usage
 
