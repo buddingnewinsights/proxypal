@@ -1,4 +1,4 @@
-module github.com/luispater/CLIProxyAPI
+module github.com/luispater/CLIProxyAPI/v5
 
 go 1.24
 

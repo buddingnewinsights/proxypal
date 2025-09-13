@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/luispater/CLIProxyAPI/internal/cmd"
-	"github.com/luispater/CLIProxyAPI/internal/config"
-	_ "github.com/luispater/CLIProxyAPI/internal/translator"
-	"github.com/luispater/CLIProxyAPI/internal/util"
+	"github.com/luispater/CLIProxyAPI/v5/internal/cmd"
+	"github.com/luispater/CLIProxyAPI/v5/internal/config"
+	_ "github.com/luispater/CLIProxyAPI/v5/internal/translator"
+	"github.com/luispater/CLIProxyAPI/v5/internal/util"
 	log "github.com/sirupsen/logrus"
 )
 
