@@ -1,6 +1,10 @@
 config.yaml
 docs/*
 logs/*
+conv/*
 auths/*
 !auths/.gitkeep
+.vscode/*
+.claude/*
 AGENTS.md
+CLAUDE.md
