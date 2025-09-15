@@ -241,6 +241,7 @@ console.log(await claudeResponse.json());
 - gemini-2.5-flash
 - gemini-2.5-flash-lite
 - gpt-5
+- gpt-5-codex
 - claude-opus-4-1-20250805
 - claude-opus-4-20250514
 - claude-sonnet-4-20250514
@@ -274,6 +275,7 @@ console.log(await claudeResponse.json());
 | `debug`                                 | boolean  | false              | 启用调试模式以获取详细日志。                                                      |
 | `api-keys`                              | string[] | []                 | 可用于验证请求的API密钥列表。                                                    |
 | `generative-language-api-key`           | string[] | []                 | 生成式语言API密钥列表。                                                       |
+| `force-gpt-5-codex`                     | bool     | false              | 强制将 GPT-5 调用转换成 GPT-5 Codex.                                        |
 | `codex-api-key`                         | object   | {}                 | Codex API密钥列表。                                                      |
 | `codex-api-key.api-key`                 | string   | ""                 | Codex API密钥。                                                        |
 | `codex-api-key.base-url`                | string   | ""                 | 自定义的Codex API端点                                                     |
@@ -333,6 +335,9 @@ generative-language-api-key:
   - "AIzaSy...02"
   - "AIzaSy...03"
   - "AIzaSy...04"
+
+# 强制将 GPT-5 调用转换成 GPT-5 Codex.
+force-gpt-5-codex: true
 
 # Codex API 密钥
 codex-api-key:
@@ -430,13 +435,22 @@ export ANTHROPIC_MODEL=gemini-2.5-pro
 export ANTHROPIC_SMALL_FAST_MODEL=gemini-2.5-flash
 ```
 
-使用 OpenAI 模型：
+使用 OpenAI GPT 5 模型：
 ```bash
 export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
 export ANTHROPIC_AUTH_TOKEN=sk-dummy
 export ANTHROPIC_MODEL=gpt-5
 export ANTHROPIC_SMALL_FAST_MODEL=gpt-5-minimal
 ```
+
+使用 OpenAI GPT 5 Codex 模型:
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=gpt-5-codex
+export ANTHROPIC_SMALL_FAST_MODEL=gpt-5-codex-low
+```
+
 
 使用 Claude 模型：
 ```bash
@@ -461,7 +475,7 @@ export ANTHROPIC_SMALL_FAST_MODEL=qwen3-coder-flash
 config.toml:
 ```toml
 model_provider = "cliproxyapi"
-model = "gpt-5" # 你可以使用任何我们支持的模型
+model = "gpt-5-codex" # 或者是gpt-5，你也可以使用任何我们支持的模型
 model_reasoning_effort = "high"
 
 [model_providers.cliproxyapi]
