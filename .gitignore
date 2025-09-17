@@ -1,5 +1,4 @@
 config.yaml
-*.exe
 bin/*
 docs/*
 logs/*
@@ -10,3 +9,4 @@ auths/*
 .claude/*
 AGENTS.md
 CLAUDE.md
+*.exe
