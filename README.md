@@ -16,6 +16,7 @@ The first Chinese provider has now been added: [Qwen Code](https://github.com/Qw
 - OpenAI Codex support (GPT models) via OAuth login
 - Claude Code support via OAuth login
 - Qwen Code support via OAuth login
+- Gemini Web support via cookie-based login
 - Streaming and non-streaming responses
 - Function calling/tools support
 - Multimodal input support (text and images)
@@ -75,6 +76,13 @@ You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the s
   The local OAuth callback uses port `8085`.
 
   Options: add `--no-browser` to print the login URL instead of opening a browser. The local OAuth callback uses port `8085`.
+
+- Gemini Web (via Cookies):
+  This method authenticates by simulating a browser, using cookies obtained from the Gemini website.
+  ```bash
+  ./cli-proxy-api --gemini-web-auth
+  ```
+  You will be prompted to enter your `__Secure-1PSID` and `__Secure-1PSIDTS` values. Please retrieve these cookies from your browser's developer tools.
 
 - OpenAI (Codex/GPT via OAuth):
   ```bash
@@ -277,6 +285,12 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `openai-compatibility.*.models`         | object[] | []                 | The actual model name.                                                                                                                                                                    |
 | `openai-compatibility.*.models.*.name`  | string   | ""                 | The models supported by the provider.                                                                                                                                                     |
 | `openai-compatibility.*.models.*.alias` | string   | ""                 | The alias used in the API.                                                                                                                                                                |
+| `gemini-web`                            | object   | {}                 | Configuration specific to the Gemini Web client.                                                                                                                                          |
+| `gemini-web.context`                    | boolean  | true               | Enables conversation context reuse for continuous dialogue.                                                                                                                               |
+| `gemini-web.code-mode`                  | boolean  | false              | Enables code mode for optimized responses in coding-related tasks.                                                                                                                        |
+| `gemini-web.max-chars-per-request`      | integer  | 1,000,000          | The maximum number of characters to send to Gemini Web in a single request.                                                                                                               |
+| `gemini-web.disable-continuation-hint`  | boolean  | false              | Disables the continuation hint for split prompts.                                                                                                                                         |
+| `gemini-web.token-refresh-seconds`      | integer  | 540                | The interval in seconds for background cookie auto-refresh.                                                                                                                               |
 
 ### Example Configuration File
 
@@ -311,6 +325,13 @@ request-retry: 3
 quota-exceeded:
    switch-project: true # Whether to automatically switch to another project when a quota is exceeded
    switch-preview-model: true # Whether to automatically switch to a preview model when a quota is exceeded
+
+# Gemini Web client configuration
+gemini-web:
+  context: true # Enable conversation context reuse
+  code-mode: false # Enable code mode
+  max-chars-per-request: 1000000 # Max characters per request
+  token-refresh-seconds: 540 # Cookie refresh interval in seconds
 
 # API keys for authentication
 api-keys:
@@ -491,6 +512,12 @@ Run the following command to login (Gemini OAuth on port 8085):
 docker run --rm -p 8085:8085 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --login
 ```
 
+Run the following command to login (Gemini Web Cookies):
+
+```bash
+docker run -it --rm -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --gemini-web-auth
+```
+
 Run the following command to login (OpenAI OAuth on port 1455):
 
 ```bash
@@ -555,7 +582,11 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
     ```bash
     docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login
     ```
-    - **OpenAI (Codex)**: 
+    - **Gemini Web**:
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI --gemini-web-auth
+    ```
+    - **OpenAI (Codex)**:
     ```bash
     docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --codex-login
     ```
