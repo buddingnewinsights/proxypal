@@ -84,6 +84,24 @@ func (a *Auth) AccountInfo() (bool, string) {
 	if a == nil {
 		return false, ""
 	}
+	if strings.ToLower(a.Provider) == "gemini-web" {
+		if a.Metadata != nil {
+			if v, ok := a.Metadata["secure_1psid"].(string); ok && v != "" {
+				return true, v
+			}
+			if v, ok := a.Metadata["__Secure-1PSID"].(string); ok && v != "" {
+				return true, v
+			}
+		}
+		if a.Attributes != nil {
+			if v := a.Attributes["secure_1psid"]; v != "" {
+				return true, v
+			}
+			if v := a.Attributes["api_key"]; v != "" {
+				return true, v
+			}
+		}
+	}
 	if a.Metadata != nil {
 		if v, ok := a.Metadata["email"].(string); ok {
 			return false, v
@@ -125,7 +143,7 @@ func expirationFromMap(meta map[string]any) (time.Time, bool) {
 	}
 	for _, key := range expireKeys {
 		if v, ok := meta[key]; ok {
-			if ts, ok := parseTimeValue(v); ok {
+			if ts, ok1 := parseTimeValue(v); ok1 {
 				return ts, true
 			}
 		}
@@ -134,7 +152,7 @@ func expirationFromMap(meta map[string]any) (time.Time, bool) {
 		if nested, ok := meta[nestedKey]; ok {
 			switch val := nested.(type) {
 			case map[string]any:
-				if ts, ok := expirationFromMap(val); ok {
+				if ts, ok1 := expirationFromMap(val); ok1 {
 					return ts, true
 				}
 			case map[string]string:
@@ -142,7 +160,7 @@ func expirationFromMap(meta map[string]any) (time.Time, bool) {
 				for k, v := range val {
 					temp[k] = v
 				}
-				if ts, ok := expirationFromMap(temp); ok {
+				if ts, ok1 := expirationFromMap(temp); ok1 {
 					return ts, true
 				}
 			}

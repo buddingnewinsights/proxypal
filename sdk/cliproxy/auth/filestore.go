@@ -73,7 +73,7 @@ func (s *FileStore) Save(ctx context.Context, auth *Auth) error {
 	if err != nil {
 		return fmt.Errorf("auth filestore: marshal metadata failed: %w", err)
 	}
-	if existing, err := os.ReadFile(path); err == nil {
+	if existing, errReadFile := os.ReadFile(path); errReadFile == nil {
 		if jsonEqual(existing, raw) {
 			return nil
 		}
@@ -108,8 +108,8 @@ func deepEqualJSON(a, b any) bool {
 			return false
 		}
 		for key, subA := range valA {
-			subB, ok := valB[key]
-			if !ok || !deepEqualJSON(subA, subB) {
+			subB, ok1 := valB[key]
+			if !ok1 || !deepEqualJSON(subA, subB) {
 				return false
 			}
 		}

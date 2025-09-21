@@ -795,7 +795,7 @@ func authLastRefreshTimestamp(a *Auth) (time.Time, bool) {
 func lookupMetadataTime(meta map[string]any, keys ...string) (time.Time, bool) {
 	for _, key := range keys {
 		if val, ok := meta[key]; ok {
-			if ts, ok := parseTimeValue(val); ok {
+			if ts, ok1 := parseTimeValue(val); ok1 {
 				return ts, true
 			}
 		}

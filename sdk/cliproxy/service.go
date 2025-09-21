@@ -15,6 +15,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/executor"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
@@ -172,10 +173,11 @@ func (s *Service) Run(ctx context.Context) error {
 		log.Infof("core auth auto-refresh started (interval=%s)", interval)
 	}
 
-	totalNewClients := tokenResult.SuccessfulAuthed + apiKeyResult.GeminiKeyCount + apiKeyResult.ClaudeKeyCount + apiKeyResult.CodexKeyCount + apiKeyResult.OpenAICompatCount
+	authFileCount := util.CountAuthFiles(s.cfg.AuthDir)
+	totalNewClients := authFileCount + apiKeyResult.GeminiKeyCount + apiKeyResult.ClaudeKeyCount + apiKeyResult.CodexKeyCount + apiKeyResult.OpenAICompatCount
 	log.Infof("full client load complete - %d clients (%d auth files + %d GL API keys + %d Claude API keys + %d Codex keys + %d OpenAI-compat)",
 		totalNewClients,
-		tokenResult.SuccessfulAuthed,
+		authFileCount,
 		apiKeyResult.GeminiKeyCount,
 		apiKeyResult.ClaudeKeyCount,
 		apiKeyResult.CodexKeyCount,
@@ -292,19 +294,19 @@ func (s *Service) syncCoreAuthFromAuths(ctx context.Context, auths []*coreauth.A
 		// Ensure executors registered per provider: prefer stateless where available.
 		switch strings.ToLower(a.Provider) {
 		case "gemini":
-			s.coreManager.RegisterExecutor(executor.NewGeminiExecutor())
+			s.coreManager.RegisterExecutor(executor.NewGeminiExecutor(s.cfg))
 		case "gemini-cli":
-			s.coreManager.RegisterExecutor(executor.NewGeminiCLIExecutor())
+			s.coreManager.RegisterExecutor(executor.NewGeminiCLIExecutor(s.cfg))
 		case "gemini-web":
 			s.coreManager.RegisterExecutor(executor.NewGeminiWebExecutor(s.cfg))
 		case "claude":
-			s.coreManager.RegisterExecutor(executor.NewClaudeExecutor())
+			s.coreManager.RegisterExecutor(executor.NewClaudeExecutor(s.cfg))
 		case "codex":
-			s.coreManager.RegisterExecutor(executor.NewCodexExecutor())
+			s.coreManager.RegisterExecutor(executor.NewCodexExecutor(s.cfg))
 		case "qwen":
-			s.coreManager.RegisterExecutor(executor.NewQwenExecutor())
+			s.coreManager.RegisterExecutor(executor.NewQwenExecutor(s.cfg))
 		default:
-			s.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor("openai-compatibility"))
+			s.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor("openai-compatibility", s.cfg))
 		}
 
 		// Preserve existing temporal fields
@@ -316,9 +318,9 @@ func (s *Service) syncCoreAuthFromAuths(ctx context.Context, auths []*coreauth.A
 		// Ensure model registry reflects core auth identity
 		s.registerModelsForAuth(a)
 		if _, ok := s.coreManager.GetByID(a.ID); ok {
-			s.coreManager.Update(ctx, a)
+			_, _ = s.coreManager.Update(ctx, a)
 		} else {
-			s.coreManager.Register(ctx, a)
+			_, _ = s.coreManager.Register(ctx, a)
 		}
 	}
 	// Disable removed auths
@@ -333,7 +335,7 @@ func (s *Service) syncCoreAuthFromAuths(ctx context.Context, auths []*coreauth.A
 		stored.Status = coreauth.StatusDisabled
 		// Unregister from model registry when disabled
 		GlobalModelRegistry().UnregisterClient(stored.ID)
-		s.coreManager.Update(ctx, stored)
+		_, _ = s.coreManager.Update(ctx, stored)
 	}
 }
 
