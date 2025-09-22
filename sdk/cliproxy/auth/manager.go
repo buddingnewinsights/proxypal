@@ -27,6 +27,8 @@ type ProviderExecutor interface {
 	ExecuteStream(ctx context.Context, auth *Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (<-chan cliproxyexecutor.StreamChunk, error)
 	// Refresh attempts to refresh provider credentials and returns the updated auth state.
 	Refresh(ctx context.Context, auth *Auth) (*Auth, error)
+	// CountTokens returns the token count for the given request.
+	CountTokens(ctx context.Context, auth *Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error)
 }
 
 // RefreshEvaluator allows runtime state to override refresh decisions.
@@ -215,6 +217,30 @@ func (m *Manager) Execute(ctx context.Context, providers []string, req cliproxye
 	return cliproxyexecutor.Response{}, &Error{Code: "auth_not_found", Message: "no auth available"}
 }
 
+// ExecuteCount performs a non-streaming execution using the configured selector and executor.
+// It supports multiple providers for the same model and round-robins the starting provider per model.
+func (m *Manager) ExecuteCount(ctx context.Context, providers []string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	normalized := m.normalizeProviders(providers)
+	if len(normalized) == 0 {
+		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "no provider supplied"}
+	}
+	rotated := m.rotateProviders(req.Model, normalized)
+	defer m.advanceProviderCursor(req.Model, normalized)
+
+	var lastErr error
+	for _, provider := range rotated {
+		resp, errExec := m.executeCountWithProvider(ctx, provider, req, opts)
+		if errExec == nil {
+			return resp, nil
+		}
+		lastErr = errExec
+	}
+	if lastErr != nil {
+		return cliproxyexecutor.Response{}, lastErr
+	}
+	return cliproxyexecutor.Response{}, &Error{Code: "auth_not_found", Message: "no auth available"}
+}
+
 // ExecuteStream performs a streaming execution using the configured selector and executor.
 // It supports multiple providers for the same model and round-robins the starting provider per model.
 func (m *Manager) ExecuteStream(ctx context.Context, providers []string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (<-chan cliproxyexecutor.StreamChunk, error) {
@@ -270,6 +296,53 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 			execCtx = context.WithValue(execCtx, "cliproxy.roundtripper", rt)
 		}
 		resp, errExec := executor.Execute(execCtx, auth, req, opts)
+		result := Result{AuthID: auth.ID, Provider: provider, Model: req.Model, Success: errExec == nil}
+		if errExec != nil {
+			result.Error = &Error{Message: errExec.Error()}
+			var se cliproxyexecutor.StatusError
+			if errors.As(errExec, &se) && se != nil {
+				result.Error.HTTPStatus = se.StatusCode()
+			}
+			m.MarkResult(execCtx, result)
+			lastErr = errExec
+			continue
+		}
+		m.MarkResult(execCtx, result)
+		return resp, nil
+	}
+}
+
+func (m *Manager) executeCountWithProvider(ctx context.Context, provider string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	if provider == "" {
+		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "provider identifier is empty"}
+	}
+	tried := make(map[string]struct{})
+	var lastErr error
+	for {
+		auth, executor, errPick := m.pickNext(ctx, provider, req.Model, opts, tried)
+		if errPick != nil {
+			if lastErr != nil {
+				return cliproxyexecutor.Response{}, lastErr
+			}
+			return cliproxyexecutor.Response{}, errPick
+		}
+
+		accountType, accountInfo := auth.AccountInfo()
+		if accountType == "api_key" {
+			log.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
+		} else if accountType == "oauth" {
+			log.Debugf("Use OAuth %s for model %s", accountInfo, req.Model)
+		} else if accountType == "cookie" {
+			log.Debugf("Use Cookie %s for model %s", util.HideAPIKey(accountInfo), req.Model)
+		}
+
+		tried[auth.ID] = struct{}{}
+		execCtx := ctx
+		if rt := m.roundTripperFor(auth); rt != nil {
+			execCtx = context.WithValue(execCtx, roundTripperContextKey{}, rt)
+			execCtx = context.WithValue(execCtx, "cliproxy.roundtripper", rt)
+		}
+		resp, errExec := executor.CountTokens(execCtx, auth, req, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: req.Model, Success: errExec == nil}
 		if errExec != nil {
 			result.Error = &Error{Message: errExec.Error()}
