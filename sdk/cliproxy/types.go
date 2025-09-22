@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
 
@@ -39,8 +40,9 @@ type WatcherWrapper struct {
 	start func(ctx context.Context) error
 	stop  func() error
 
-	setConfig     func(cfg *config.Config)
-	snapshotAuths func() []*coreauth.Auth
+	setConfig      func(cfg *config.Config)
+	snapshotAuths  func() []*coreauth.Auth
+	setUpdateQueue func(queue chan<- watcher.AuthUpdate)
 }
 
 // Start proxies to the underlying watcher Start implementation.
@@ -79,4 +81,12 @@ func (w *WatcherWrapper) SnapshotAuths() []*coreauth.Auth {
 		return nil
 	}
 	return w.snapshotAuths()
+}
+
+// SetAuthUpdateQueue registers the channel used to propagate auth updates.
+func (w *WatcherWrapper) SetAuthUpdateQueue(queue chan<- watcher.AuthUpdate) {
+	if w == nil || w.setUpdateQueue == nil {
+		return
+	}
+	w.setUpdateQueue(queue)
 }

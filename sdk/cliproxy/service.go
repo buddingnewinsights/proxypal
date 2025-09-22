@@ -15,6 +15,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/executor"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
 	_ "github.com/router-for-me/CLIProxyAPI/v6/sdk/access/providers/configapikey"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
@@ -39,6 +40,8 @@ type Service struct {
 
 	watcher       *WatcherWrapper
 	watcherCancel context.CancelFunc
+	authUpdates   chan watcher.AuthUpdate
+	authQueueStop context.CancelFunc
 
 	// legacy client caches removed
 	authManager   *sdkAuth.Manager
@@ -68,6 +71,132 @@ func (s *Service) refreshAccessProviders(cfg *config.Config) {
 		return
 	}
 	s.accessManager.SetProviders(providers)
+}
+
+func (s *Service) ensureAuthUpdateQueue(ctx context.Context) {
+	if s == nil {
+		return
+	}
+	if s.authUpdates == nil {
+		s.authUpdates = make(chan watcher.AuthUpdate, 64)
+	}
+	if s.authQueueStop != nil {
+		return
+	}
+	queueCtx, cancel := context.WithCancel(ctx)
+	s.authQueueStop = cancel
+	go s.consumeAuthUpdates(queueCtx)
+}
+
+func (s *Service) consumeAuthUpdates(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case update, ok := <-s.authUpdates:
+			if !ok {
+				return
+			}
+			s.handleAuthUpdate(ctx, update)
+		}
+	}
+}
+
+func (s *Service) handleAuthUpdate(ctx context.Context, update watcher.AuthUpdate) {
+	if s == nil {
+		return
+	}
+	s.cfgMu.RLock()
+	cfg := s.cfg
+	s.cfgMu.RUnlock()
+	if cfg == nil || s.coreManager == nil {
+		return
+	}
+	switch update.Action {
+	case watcher.AuthUpdateActionAdd, watcher.AuthUpdateActionModify:
+		if update.Auth == nil || update.Auth.ID == "" {
+			return
+		}
+		s.applyCoreAuthAddOrUpdate(ctx, update.Auth)
+	case watcher.AuthUpdateActionDelete:
+		id := update.ID
+		if id == "" && update.Auth != nil {
+			id = update.Auth.ID
+		}
+		if id == "" {
+			return
+		}
+		s.applyCoreAuthRemoval(ctx, id)
+	default:
+		log.Debugf("received unknown auth update action: %v", update.Action)
+	}
+}
+
+func (s *Service) applyCoreAuthAddOrUpdate(ctx context.Context, auth *coreauth.Auth) {
+	if s == nil || auth == nil || auth.ID == "" {
+		return
+	}
+	if s.coreManager == nil {
+		return
+	}
+	auth = auth.Clone()
+	s.ensureExecutorsForAuth(auth)
+	s.registerModelsForAuth(auth)
+	if existing, ok := s.coreManager.GetByID(auth.ID); ok && existing != nil {
+		auth.CreatedAt = existing.CreatedAt
+		auth.LastRefreshedAt = existing.LastRefreshedAt
+		auth.NextRefreshAfter = existing.NextRefreshAfter
+		if _, err := s.coreManager.Update(ctx, auth); err != nil {
+			log.Errorf("failed to update auth %s: %v", auth.ID, err)
+		}
+		return
+	}
+	if _, err := s.coreManager.Register(ctx, auth); err != nil {
+		log.Errorf("failed to register auth %s: %v", auth.ID, err)
+	}
+}
+
+func (s *Service) applyCoreAuthRemoval(ctx context.Context, id string) {
+	if s == nil || id == "" {
+		return
+	}
+	if s.coreManager == nil {
+		return
+	}
+	GlobalModelRegistry().UnregisterClient(id)
+	if existing, ok := s.coreManager.GetByID(id); ok && existing != nil {
+		existing.Disabled = true
+		existing.Status = coreauth.StatusDisabled
+		if _, err := s.coreManager.Update(ctx, existing); err != nil {
+			log.Errorf("failed to disable auth %s: %v", id, err)
+		}
+	}
+}
+
+func (s *Service) ensureExecutorsForAuth(a *coreauth.Auth) {
+	if s == nil || a == nil {
+		return
+	}
+	switch strings.ToLower(a.Provider) {
+	case "gemini":
+		s.coreManager.RegisterExecutor(executor.NewGeminiExecutor(s.cfg))
+	case "gemini-cli":
+		s.coreManager.RegisterExecutor(executor.NewGeminiCLIExecutor(s.cfg))
+	case "gemini-web":
+		s.coreManager.RegisterExecutor(executor.NewGeminiWebExecutor(s.cfg))
+	case "claude":
+		s.coreManager.RegisterExecutor(executor.NewClaudeExecutor(s.cfg))
+	case "codex":
+		s.coreManager.RegisterExecutor(executor.NewCodexExecutor(s.cfg))
+	case "qwen":
+		s.coreManager.RegisterExecutor(executor.NewQwenExecutor(s.cfg))
+	default:
+		providerKey := strings.ToLower(strings.TrimSpace(a.Provider))
+		if providerKey == "" {
+			providerKey = "openai-compatibility"
+		}
+		s.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor(providerKey, s.cfg))
+	}
 }
 
 // Run starts the service and blocks until the context is cancelled or the server stops.
@@ -150,15 +279,13 @@ func (s *Service) Run(ctx context.Context) error {
 			newCfg = s.cfg
 			s.cfgMu.RUnlock()
 		}
-
-		// Pull the latest auth snapshot and sync
-		auths := watcherWrapper.SnapshotAuths()
-		s.syncCoreAuthFromAuths(ctx, auths)
+		if newCfg == nil {
+			return
+		}
 		s.refreshAccessProviders(newCfg)
 		if s.server != nil {
 			s.server.UpdateClients(newCfg)
 		}
-
 		s.cfgMu.Lock()
 		s.cfg = newCfg
 		s.cfgMu.Unlock()
@@ -170,6 +297,10 @@ func (s *Service) Run(ctx context.Context) error {
 		return fmt.Errorf("cliproxy: failed to create watcher: %w", err)
 	}
 	s.watcher = watcherWrapper
+	s.ensureAuthUpdateQueue(ctx)
+	if s.authUpdates != nil {
+		watcherWrapper.SetAuthUpdateQueue(s.authUpdates)
+	}
 	watcherWrapper.SetConfig(s.cfg)
 
 	watcherCtx, watcherCancel := context.WithCancel(context.Background())
@@ -234,6 +365,10 @@ func (s *Service) Shutdown(ctx context.Context) error {
 				shutdownErr = err
 			}
 		}
+		if s.authQueueStop != nil {
+			s.authQueueStop()
+			s.authQueueStop = nil
+		}
 
 		// no legacy clients to persist
 
@@ -280,41 +415,7 @@ func (s *Service) syncCoreAuthFromAuths(ctx context.Context, auths []*coreauth.A
 			continue
 		}
 		seen[a.ID] = struct{}{}
-		// Ensure executors registered per provider: prefer stateless where available.
-		switch strings.ToLower(a.Provider) {
-		case "gemini":
-			s.coreManager.RegisterExecutor(executor.NewGeminiExecutor(s.cfg))
-		case "gemini-cli":
-			s.coreManager.RegisterExecutor(executor.NewGeminiCLIExecutor(s.cfg))
-		case "gemini-web":
-			s.coreManager.RegisterExecutor(executor.NewGeminiWebExecutor(s.cfg))
-		case "claude":
-			s.coreManager.RegisterExecutor(executor.NewClaudeExecutor(s.cfg))
-		case "codex":
-			s.coreManager.RegisterExecutor(executor.NewCodexExecutor(s.cfg))
-		case "qwen":
-			s.coreManager.RegisterExecutor(executor.NewQwenExecutor(s.cfg))
-		default:
-			providerKey := strings.ToLower(strings.TrimSpace(a.Provider))
-			if providerKey == "" {
-				providerKey = "openai-compatibility"
-			}
-			s.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor(providerKey, s.cfg))
-		}
-
-		// Preserve existing temporal fields
-		if existing, ok := s.coreManager.GetByID(a.ID); ok && existing != nil {
-			a.CreatedAt = existing.CreatedAt
-			a.LastRefreshedAt = existing.LastRefreshedAt
-			a.NextRefreshAfter = existing.NextRefreshAfter
-		}
-		// Ensure model registry reflects core auth identity
-		s.registerModelsForAuth(a)
-		if _, ok := s.coreManager.GetByID(a.ID); ok {
-			_, _ = s.coreManager.Update(ctx, a)
-		} else {
-			_, _ = s.coreManager.Register(ctx, a)
-		}
+		s.applyCoreAuthAddOrUpdate(ctx, a)
 	}
 	// Disable removed auths
 	for _, stored := range s.coreManager.List() {
@@ -324,11 +425,7 @@ func (s *Service) syncCoreAuthFromAuths(ctx context.Context, auths []*coreauth.A
 		if _, ok := seen[stored.ID]; ok {
 			continue
 		}
-		stored.Disabled = true
-		stored.Status = coreauth.StatusDisabled
-		// Unregister from model registry when disabled
-		GlobalModelRegistry().UnregisterClient(stored.ID)
-		_, _ = s.coreManager.Update(ctx, stored)
+		s.applyCoreAuthRemoval(ctx, stored.ID)
 	}
 }
 
