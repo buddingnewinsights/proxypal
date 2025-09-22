@@ -64,6 +64,15 @@ func (s *FileStore) Save(ctx context.Context, auth *Auth) error {
 	if path == "" {
 		return fmt.Errorf("auth filestore: missing file path attribute for %s", auth.ID)
 	}
+	// If the auth has been disabled and the original file was removed, avoid
+	// recreating it on disk. This lets operators delete auth files explicitly.
+	if auth.Disabled {
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
