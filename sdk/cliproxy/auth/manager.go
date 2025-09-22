@@ -861,7 +861,11 @@ func (m *Manager) refreshAuth(ctx context.Context, id string) {
 	if updated == nil {
 		updated = cloned
 	}
-	updated.Runtime = auth.Runtime
+	// Preserve runtime created by the executor during Refresh.
+	// If executor didn't set one, fall back to the previous runtime.
+	if updated.Runtime == nil {
+		updated.Runtime = auth.Runtime
+	}
 	updated.LastRefreshedAt = now
 	updated.NextRefreshAfter = time.Time{}
 	updated.LastError = nil

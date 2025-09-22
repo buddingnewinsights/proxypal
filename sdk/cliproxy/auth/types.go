@@ -133,6 +133,7 @@ var defaultAuthenticatorFactories = map[string]func() clipauth.Authenticator{
 	"qwen":       func() clipauth.Authenticator { return clipauth.NewQwenAuthenticator() },
 	"gemini":     func() clipauth.Authenticator { return clipauth.NewGeminiAuthenticator() },
 	"gemini-cli": func() clipauth.Authenticator { return clipauth.NewGeminiAuthenticator() },
+	"gemini-web": func() clipauth.Authenticator { return clipauth.NewGeminiWebAuthenticator() },
 }
 
 var expireKeys = [...]string{"expired", "expire", "expires_at", "expiresAt", "expiry", "expires"}
