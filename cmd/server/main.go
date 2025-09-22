@@ -7,21 +7,27 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
-	Version   = "dev"
-	Commit    = "none"
-	BuildDate = "unknown"
+	Version        = "dev"
+	Commit         = "none"
+	BuildDate      = "unknown"
+	logWriter      *lumberjack.Logger
+	ginInfoWriter  *io.PipeWriter
+	ginErrorWriter *io.PipeWriter
 )
 
 // LogFormatter defines a custom log format for logrus.
@@ -53,18 +59,51 @@ func (m *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
 // It sets up the custom log formatter, enables caller reporting,
 // and configures the log output destination.
 func init() {
-	// Set logger output to standard output.
-	log.SetOutput(os.Stdout)
+	logDir := "logs"
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create log directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	logWriter = &lumberjack.Logger{
+		Filename:   filepath.Join(logDir, "main.log"),
+		MaxSize:    10,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+	}
+
+	log.SetOutput(logWriter)
 	// Enable reporting the caller function's file and line number.
 	log.SetReportCaller(true)
 	// Set the custom log formatter.
 	log.SetFormatter(&LogFormatter{})
+
+	ginInfoWriter = log.StandardLogger().Writer()
+	gin.DefaultWriter = ginInfoWriter
+	ginErrorWriter = log.StandardLogger().WriterLevel(log.ErrorLevel)
+	gin.DefaultErrorWriter = ginErrorWriter
+	gin.DebugPrintFunc = func(format string, values ...interface{}) {
+		log.StandardLogger().Infof(format, values...)
+	}
+	log.RegisterExitHandler(func() {
+		if logWriter != nil {
+			_ = logWriter.Close()
+		}
+		if ginInfoWriter != nil {
+			_ = ginInfoWriter.Close()
+		}
+		if ginErrorWriter != nil {
+			_ = ginErrorWriter.Close()
+		}
+	})
 }
 
 // main is the entry point of the application.
 // It parses command-line flags, loads configuration, and starts the appropriate
 // service based on the provided flags (login, codex-login, or server mode).
 func main() {
+	fmt.Printf("CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s\n", Version, Commit, BuildDate)
 	log.Infof("CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s", Version, Commit, BuildDate)
 
 	// Command-line flags to control the application's behavior.
