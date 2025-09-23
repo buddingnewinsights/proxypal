@@ -523,14 +523,14 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
 			switch statusCode {
 			case 401:
 				auth.StatusMessage = "unauthorized"
-				auth.NextRefreshAfter = now.Add(30 * time.Minute)
+				auth.NextRetryAfter = now.Add(30 * time.Minute)
 				if result.Model != "" {
 					shouldSuspendModel = true
 					suspendReason = "unauthorized"
 				}
 			case 402, 403:
 				auth.StatusMessage = "payment_required"
-				auth.NextRefreshAfter = now.Add(30 * time.Minute)
+				auth.NextRetryAfter = now.Add(30 * time.Minute)
 				if result.Model != "" {
 					shouldSuspendModel = true
 					suspendReason = "payment_required"
@@ -540,14 +540,14 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
 				auth.Quota.Exceeded = true
 				auth.Quota.Reason = "quota"
 				auth.Quota.NextRecoverAt = now.Add(30 * time.Minute)
-				auth.NextRefreshAfter = auth.Quota.NextRecoverAt
+				auth.NextRetryAfter = auth.Quota.NextRecoverAt
 				if result.Model != "" {
 					shouldSuspendModel = true
 					registry.GetGlobalRegistry().SetModelQuotaExceeded(auth.ID, result.Model)
 				}
 			case 408, 500, 502, 503, 504:
 				auth.StatusMessage = "transient upstream error"
-				auth.NextRefreshAfter = now.Add(1 * time.Minute)
+				auth.NextRetryAfter = now.Add(1 * time.Minute)
 				if result.Model != "" {
 					shouldSuspendModel = false
 					suspendReason = "forbidden"

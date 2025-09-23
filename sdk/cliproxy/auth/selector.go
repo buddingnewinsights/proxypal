@@ -28,7 +28,7 @@ func (s *RoundRobinSelector) Pick(ctx context.Context, provider, model string, o
 	now := time.Now()
 	for i := range auths {
 		candidate := auths[i]
-		if candidate.Unavailable && candidate.Quota.NextRecoverAt.After(now) {
+		if candidate.Unavailable && candidate.NextRetryAfter.After(now) {
 			continue
 		}
 		if candidate.Status == StatusDisabled || candidate.Disabled {

@@ -43,6 +43,8 @@ type Auth struct {
 	LastRefreshedAt time.Time `json:"last_refreshed_at"`
 	// NextRefreshAfter is the earliest time a refresh should retrigger.
 	NextRefreshAfter time.Time `json:"next_refresh_after"`
+	// NextRetryAfter is the earliest time a retry should retrigger.
+	NextRetryAfter time.Time `json:"next_retry_after"`
 
 	// Runtime carries non-serialisable data used during execution (in-memory only).
 	Runtime any `json:"-"`
