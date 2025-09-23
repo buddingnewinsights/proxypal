@@ -46,12 +46,12 @@ func (m *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
 		b = &bytes.Buffer{}
 	}
 
-    timestamp := entry.Time.Format("2006-01-02 15:04:05")
-    var newLog string
-    // Ensure message doesn't carry trailing newlines; formatter appends one.
-    msg := strings.TrimRight(entry.Message, "\r\n")
-    // Customize the log format to include timestamp, level, caller file/line, and message.
-    newLog = fmt.Sprintf("[%s] [%s] [%s:%d] %s\n", timestamp, entry.Level, filepath.Base(entry.Caller.File), entry.Caller.Line, msg)
+	timestamp := entry.Time.Format("2006-01-02 15:04:05")
+	var newLog string
+	// Ensure message doesn't carry trailing newlines; formatter appends one.
+	msg := strings.TrimRight(entry.Message, "\r\n")
+	// Customize the log format to include timestamp, level, caller file/line, and message.
+	newLog = fmt.Sprintf("[%s] [%s] [%s:%d] %s\n", timestamp, entry.Level, filepath.Base(entry.Caller.File), entry.Caller.Line, msg)
 
 	b.WriteString(newLog)
 	return b.Bytes(), nil
@@ -85,13 +85,13 @@ func init() {
 	gin.DefaultWriter = ginInfoWriter
 	ginErrorWriter = log.StandardLogger().WriterLevel(log.ErrorLevel)
 	gin.DefaultErrorWriter = ginErrorWriter
-    gin.DebugPrintFunc = func(format string, values ...interface{}) {
-        // Trim trailing newlines from Gin's formatted messages to avoid blank lines.
-        // Gin's debug prints usually include a trailing "\n"; our formatter also appends one.
-        // Removing it here ensures a single newline per entry.
-        format = strings.TrimRight(format, "\r\n")
-        log.StandardLogger().Infof(format, values...)
-    }
+	gin.DebugPrintFunc = func(format string, values ...interface{}) {
+		// Trim trailing newlines from Gin's formatted messages to avoid blank lines.
+		// Gin's debug prints usually include a trailing "\n"; our formatter also appends one.
+		// Removing it here ensures a single newline per entry.
+		format = strings.TrimRight(format, "\r\n")
+		log.StandardLogger().Infof(format, values...)
+	}
 	log.RegisterExitHandler(func() {
 		if logWriter != nil {
 			_ = logWriter.Close()
