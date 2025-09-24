@@ -99,7 +99,7 @@ func (s *Service) RegisterUsagePlugin(plugin usage.Plugin) {
 // newDefaultAuthManager creates a default authentication manager with all supported providers.
 func newDefaultAuthManager() *sdkAuth.Manager {
 	return sdkAuth.NewManager(
-		sdkAuth.NewFileTokenStore(),
+		sdkAuth.GetTokenStore(),
 		sdkAuth.NewGeminiAuthenticator(),
 		sdkAuth.NewCodexAuthenticator(),
 		sdkAuth.NewClaudeAuthenticator(),

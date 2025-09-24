@@ -17,6 +17,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -184,6 +185,9 @@ func main() {
 	options := &cmd.LoginOptions{
 		NoBrowser: noBrowser,
 	}
+
+	// Register the shared token store once so all components use the same persistence backend.
+	sdkAuth.RegisterTokenStore(sdkAuth.NewFileTokenStore())
 
 	// Handle different command modes based on the provided flags.
 
