@@ -1,3 +1,6 @@
+// Package cliproxy provides the core service implementation for the CLI Proxy API.
+// It includes service lifecycle management, authentication handling, file watching,
+// and integration with various AI service providers through a unified interface.
 package cliproxy
 
 import (
@@ -26,38 +29,74 @@ import (
 )
 
 // Service wraps the proxy server lifecycle so external programs can embed the CLI proxy.
+// It manages the complete lifecycle including authentication, file watching, HTTP server,
+// and integration with various AI service providers.
 type Service struct {
-	cfg        *config.Config
-	cfgMu      sync.RWMutex
+	// cfg holds the current application configuration.
+	cfg *config.Config
+
+	// cfgMu protects concurrent access to the configuration.
+	cfgMu sync.RWMutex
+
+	// configPath is the path to the configuration file.
 	configPath string
 
-	tokenProvider  TokenClientProvider
-	apiKeyProvider APIKeyClientProvider
-	watcherFactory WatcherFactory
-	hooks          Hooks
-	serverOptions  []api.ServerOption
+	// tokenProvider handles loading token-based clients.
+	tokenProvider TokenClientProvider
 
-	server    *api.Server
+	// apiKeyProvider handles loading API key-based clients.
+	apiKeyProvider APIKeyClientProvider
+
+	// watcherFactory creates file watcher instances.
+	watcherFactory WatcherFactory
+
+	// hooks provides lifecycle callbacks.
+	hooks Hooks
+
+	// serverOptions contains additional server configuration options.
+	serverOptions []api.ServerOption
+
+	// server is the HTTP API server instance.
+	server *api.Server
+
+	// serverErr channel for server startup/shutdown errors.
 	serverErr chan error
 
-	watcher       *WatcherWrapper
+	// watcher handles file system monitoring.
+	watcher *WatcherWrapper
+
+	// watcherCancel cancels the watcher context.
 	watcherCancel context.CancelFunc
-	authUpdates   chan watcher.AuthUpdate
+
+	// authUpdates channel for authentication updates.
+	authUpdates chan watcher.AuthUpdate
+
+	// authQueueStop cancels the auth update queue processing.
 	authQueueStop context.CancelFunc
 
-	// legacy client caches removed
-	authManager   *sdkAuth.Manager
-	accessManager *sdkaccess.Manager
-	coreManager   *coreauth.Manager
+	// authManager handles legacy authentication operations.
+	authManager *sdkAuth.Manager
 
+	// accessManager handles request authentication providers.
+	accessManager *sdkaccess.Manager
+
+	// coreManager handles core authentication and execution.
+	coreManager *coreauth.Manager
+
+	// shutdownOnce ensures shutdown is called only once.
 	shutdownOnce sync.Once
 }
 
 // RegisterUsagePlugin registers a usage plugin on the global usage manager.
+// This allows external code to monitor API usage and token consumption.
+//
+// Parameters:
+//   - plugin: The usage plugin to register
 func (s *Service) RegisterUsagePlugin(plugin usage.Plugin) {
 	usage.RegisterPlugin(plugin)
 }
 
+// newDefaultAuthManager creates a default authentication manager with all supported providers.
 func newDefaultAuthManager() *sdkAuth.Manager {
 	return sdkAuth.NewManager(
 		sdkAuth.NewFileTokenStore(),
@@ -216,6 +255,14 @@ func (s *Service) ensureExecutorsForAuth(a *coreauth.Auth) {
 }
 
 // Run starts the service and blocks until the context is cancelled or the server stops.
+// It initializes all components including authentication, file watching, HTTP server,
+// and starts processing requests. The method blocks until the context is cancelled.
+//
+// Parameters:
+//   - ctx: The context for controlling the service lifecycle
+//
+// Returns:
+//   - error: An error if the service fails to start or run
 func (s *Service) Run(ctx context.Context) error {
 	if s == nil {
 		return fmt.Errorf("cliproxy: service is nil")
@@ -356,6 +403,14 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // Shutdown gracefully stops background workers and the HTTP server.
+// It ensures all resources are properly cleaned up and connections are closed.
+// The shutdown is idempotent and can be called multiple times safely.
+//
+// Parameters:
+//   - ctx: The context for controlling the shutdown timeout
+//
+// Returns:
+//   - error: An error if shutdown fails
 func (s *Service) Shutdown(ctx context.Context) error {
 	if s == nil {
 		return nil

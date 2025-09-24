@@ -1,3 +1,6 @@
+// Package cliproxy provides the core service implementation for the CLI Proxy API.
+// It includes service lifecycle management, authentication handling, file watching,
+// and integration with various AI service providers through a unified interface.
 package cliproxy
 
 import (
@@ -9,30 +12,70 @@ import (
 )
 
 // TokenClientProvider loads clients backed by stored authentication tokens.
+// It provides an interface for loading authentication tokens from various sources
+// and creating clients for AI service providers.
 type TokenClientProvider interface {
+	// Load loads token-based clients from the configured source.
+	//
+	// Parameters:
+	//   - ctx: The context for the loading operation
+	//   - cfg: The application configuration
+	//
+	// Returns:
+	//   - *TokenClientResult: The result containing loaded clients
+	//   - error: An error if loading fails
 	Load(ctx context.Context, cfg *config.Config) (*TokenClientResult, error)
 }
 
 // TokenClientResult represents clients generated from persisted tokens.
+// It contains metadata about the loading operation and the number of successful authentications.
 type TokenClientResult struct {
+	// SuccessfulAuthed is the number of successfully authenticated clients.
 	SuccessfulAuthed int
 }
 
 // APIKeyClientProvider loads clients backed directly by configured API keys.
+// It provides an interface for loading API key-based clients for various AI service providers.
 type APIKeyClientProvider interface {
+	// Load loads API key-based clients from the configuration.
+	//
+	// Parameters:
+	//   - ctx: The context for the loading operation
+	//   - cfg: The application configuration
+	//
+	// Returns:
+	//   - *APIKeyClientResult: The result containing loaded clients
+	//   - error: An error if loading fails
 	Load(ctx context.Context, cfg *config.Config) (*APIKeyClientResult, error)
 }
 
 // APIKeyClientResult contains API key based clients along with type counts.
+// It provides metadata about the number of clients loaded for each provider type.
 type APIKeyClientResult struct {
-	GeminiKeyCount    int
-	ClaudeKeyCount    int
-	CodexKeyCount     int
+	// GeminiKeyCount is the number of Gemini API key clients loaded.
+	GeminiKeyCount int
+
+	// ClaudeKeyCount is the number of Claude API key clients loaded.
+	ClaudeKeyCount int
+
+	// CodexKeyCount is the number of Codex API key clients loaded.
+	CodexKeyCount int
+
+	// OpenAICompatCount is the number of OpenAI-compatible API key clients loaded.
 	OpenAICompatCount int
 }
 
 // WatcherFactory creates a watcher for configuration and token changes.
-// The reload callback now only receives the updated configuration.
+// The reload callback receives the updated configuration when changes are detected.
+//
+// Parameters:
+//   - configPath: The path to the configuration file to watch
+//   - authDir: The directory containing authentication tokens to watch
+//   - reload: The callback function to call when changes are detected
+//
+// Returns:
+//   - *WatcherWrapper: A watcher wrapper instance
+//   - error: An error if watcher creation fails
 type WatcherFactory func(configPath, authDir string, reload func(*config.Config)) (*WatcherWrapper, error)
 
 // WatcherWrapper exposes the subset of watcher methods required by the SDK.

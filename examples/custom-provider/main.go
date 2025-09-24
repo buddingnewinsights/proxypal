@@ -1,6 +1,14 @@
+// Package main demonstrates how to create a custom AI provider executor
+// and integrate it with the CLI Proxy API server. This example shows how to:
+// - Create a custom executor that implements the Executor interface
+// - Register custom translators for request/response transformation
+// - Integrate the custom provider with the SDK server
+// - Register custom models in the model registry
+//
+// This example uses a simple echo service (httpbin.org) as the upstream API
+// for demonstration purposes. In a real implementation, you would replace
+// this with your actual AI service provider.
 package main
-
-// Example: Custom provider executor + translators embedded in the SDK server.
 
 import (
 	"bytes"
@@ -25,12 +33,19 @@ import (
 )
 
 const (
+	// providerKey is the identifier for our custom provider.
 	providerKey = "myprov"
-	fOpenAI     = sdktr.Format("openai.chat")
-	fMyProv     = sdktr.Format("myprov.chat")
+
+	// fOpenAI represents the OpenAI chat format.
+	fOpenAI = sdktr.Format("openai.chat")
+
+	// fMyProv represents our custom provider's chat format.
+	fMyProv = sdktr.Format("myprov.chat")
 )
 
-// Register trivial translators (pass-through demo).
+// init registers trivial translators for demonstration purposes.
+// In a real implementation, you would implement proper request/response
+// transformation logic between OpenAI format and your provider's format.
 func init() {
 	sdktr.Register(fOpenAI, fMyProv,
 		func(model string, raw []byte, stream bool) []byte { return raw },
@@ -45,12 +60,23 @@ func init() {
 	)
 }
 
-// MyExecutor is a minimal provider implementation for demo purposes.
+// MyExecutor is a minimal provider implementation for demonstration purposes.
+// It implements the Executor interface to handle requests to a custom AI provider.
 type MyExecutor struct{}
 
+// Identifier returns the unique identifier for this executor.
 func (MyExecutor) Identifier() string { return providerKey }
 
 // PrepareRequest optionally injects credentials to raw HTTP requests.
+// This method is called before each request to allow the executor to modify
+// the HTTP request with authentication headers or other necessary modifications.
+//
+// Parameters:
+//   - req: The HTTP request to prepare
+//   - a: The authentication information
+//
+// Returns:
+//   - error: An error if request preparation fails
 func (MyExecutor) PrepareRequest(req *http.Request, a *coreauth.Auth) error {
 	if req == nil || a == nil {
 		return nil

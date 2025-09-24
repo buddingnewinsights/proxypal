@@ -1,3 +1,6 @@
+// Package cliproxy provides the core service implementation for the CLI Proxy API.
+// It includes service lifecycle management, authentication handling, file watching,
+// and integration with various AI service providers through a unified interface.
 package cliproxy
 
 import (
@@ -11,37 +14,81 @@ import (
 )
 
 // Builder constructs a Service instance with customizable providers.
+// It provides a fluent interface for configuring all aspects of the service
+// including authentication, file watching, HTTP server options, and lifecycle hooks.
 type Builder struct {
-	cfg            *config.Config
-	configPath     string
-	tokenProvider  TokenClientProvider
+	// cfg holds the application configuration.
+	cfg *config.Config
+
+	// configPath is the path to the configuration file.
+	configPath string
+
+	// tokenProvider handles loading token-based clients.
+	tokenProvider TokenClientProvider
+
+	// apiKeyProvider handles loading API key-based clients.
 	apiKeyProvider APIKeyClientProvider
+
+	// watcherFactory creates file watcher instances.
 	watcherFactory WatcherFactory
-	hooks          Hooks
-	authManager    *sdkAuth.Manager
-	accessManager  *sdkaccess.Manager
-	coreManager    *coreauth.Manager
-	serverOptions  []api.ServerOption
+
+	// hooks provides lifecycle callbacks.
+	hooks Hooks
+
+	// authManager handles legacy authentication operations.
+	authManager *sdkAuth.Manager
+
+	// accessManager handles request authentication providers.
+	accessManager *sdkaccess.Manager
+
+	// coreManager handles core authentication and execution.
+	coreManager *coreauth.Manager
+
+	// serverOptions contains additional server configuration options.
+	serverOptions []api.ServerOption
 }
 
 // Hooks allows callers to plug into service lifecycle stages.
+// These callbacks provide opportunities to perform custom initialization
+// and cleanup operations during service startup and shutdown.
 type Hooks struct {
+	// OnBeforeStart is called before the service starts, allowing configuration
+	// modifications or additional setup.
 	OnBeforeStart func(*config.Config)
-	OnAfterStart  func(*Service)
+
+	// OnAfterStart is called after the service has started successfully,
+	// providing access to the service instance for additional operations.
+	OnAfterStart func(*Service)
 }
 
 // NewBuilder creates a Builder with default dependencies left unset.
+// Use the fluent interface methods to configure the service before calling Build().
+//
+// Returns:
+//   - *Builder: A new builder instance ready for configuration
 func NewBuilder() *Builder {
 	return &Builder{}
 }
 
 // WithConfig sets the configuration instance used by the service.
+//
+// Parameters:
+//   - cfg: The application configuration
+//
+// Returns:
+//   - *Builder: The builder instance for method chaining
 func (b *Builder) WithConfig(cfg *config.Config) *Builder {
 	b.cfg = cfg
 	return b
 }
 
 // WithConfigPath sets the absolute configuration file path used for reload watching.
+//
+// Parameters:
+//   - path: The absolute path to the configuration file
+//
+// Returns:
+//   - *Builder: The builder instance for method chaining
 func (b *Builder) WithConfigPath(path string) *Builder {
 	b.configPath = path
 	return b
