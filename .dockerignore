@@ -30,3 +30,4 @@ config.yaml
 bin/*
 .claude/*
 .vscode/*
+.serena/*
