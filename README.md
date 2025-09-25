@@ -62,6 +62,16 @@ The first Chinese provider has now been added: [Qwen Code](https://github.com/Qw
 
 ## Usage
 
+### GUI Client & Official WebUI
+
+#### [EasyCLI](https://github.com/router-for-me/EasyCLI)
+
+A cross-platform desktop GUI client for CLIProxyAPI. 
+
+#### [Cli-Proxy-API-Management-Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center)
+
+A web-based management center for CLIProxyAPI.  
+
 ### Authentication
 
 You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the same `auth-dir` and will be load balanced.
@@ -626,8 +636,11 @@ see [MANAGEMENT_API.md](MANAGEMENT_API.md)
 
 ## SDK Docs
 
-- Usage: `docs/sdk-usage.md` (中文: `docs/sdk-usage_CN.md`)
-- Advanced (executors & translators): `docs/sdk-advanced.md` (中文: `docs/sdk-advanced_CN.md`)
+- Usage: [docs/sdk-usage.md](docs/sdk-usage.md)
+- Advanced (executors & translators): [docs/sdk-advanced.md](docs/sdk-advanced.md)
+- Access: [docs/sdk-access.md](docs/sdk-access.md)
+- Watcher: [docs/sdk-watcher.md](docs/sdk-watcher.md)
+- Custom Provider Example: `examples/custom-provider`
 
 ## Contributing
 

@@ -75,6 +75,16 @@
 
 ## 使用方法
 
+### 图形客户端与官方 WebUI
+
+#### [EasyCLI](https://github.com/router-for-me/EasyCLI)
+
+CLIProxyAPI 的跨平台桌面图形客户端。
+
+#### [Cli-Proxy-API-Management-Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center)
+
+CLIProxyAPI 的基于 Web 的管理中心。
+
 ### 身份验证
 
 您可以分别为 Gemini、OpenAI 和 Claude 进行身份验证，三者可同时存在于同一个 `auth-dir` 中并参与负载均衡。
@@ -635,8 +645,10 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 
 ## SDK 文档
 
-- 使用文档：`docs/sdk-usage_CN.md`（English: `docs/sdk-usage.md`）
-- 高级（执行器与翻译器）：`docs/sdk-advanced_CN.md`（English: `docs/sdk-advanced.md`）
+- 使用文档：[docs/sdk-usage_CN.md](docs/sdk-usage_CN.md)
+- 高级（执行器与翻译器）：[docs/sdk-advanced_CN.md](docs/sdk-advanced_CN.md)
+- 认证: [docs/sdk-access_CN.md](docs/sdk-access_CN.md)
+- 凭据加载/更新: [docs/sdk-watcher_CN.md](docs/sdk-watcher_CN.md)
 - 自定义 Provider 示例：`examples/custom-provider`
 
 ## 贡献
