@@ -57,21 +57,32 @@ func isAuthBlockedForModel(auth *Auth, model string, now time.Time) bool {
 	if auth.Disabled || auth.Status == StatusDisabled {
 		return true
 	}
-	if model != "" && len(auth.ModelStates) > 0 {
-		if state, ok := auth.ModelStates[model]; ok && state != nil {
-			if state.Status == StatusDisabled {
-				return true
-			}
-			if state.Unavailable {
-				if state.NextRetryAfter.IsZero() {
-					return false
-				}
-				if state.NextRetryAfter.After(now) {
+	// If a specific model is requested, prefer its per-model state over any aggregated
+	// auth-level unavailable flag. This prevents a failure on one model (e.g., 429 quota)
+	// from blocking other models of the same provider that have no errors.
+	if model != "" {
+		if len(auth.ModelStates) > 0 {
+			if state, ok := auth.ModelStates[model]; ok && state != nil {
+				if state.Status == StatusDisabled {
 					return true
 				}
+				if state.Unavailable {
+					if state.NextRetryAfter.IsZero() {
+						return false
+					}
+					if state.NextRetryAfter.After(now) {
+						return true
+					}
+				}
+				// Explicit state exists and is not blocking.
+				return false
 			}
 		}
+		// No explicit state for this model; do not block based on aggregated
+		// auth-level unavailable status. Allow trying this model.
+		return false
 	}
+	// No specific model context: fall back to auth-level unavailable window.
 	if auth.Unavailable && auth.NextRetryAfter.After(now) {
 		return true
 	}
