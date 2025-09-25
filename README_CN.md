@@ -289,7 +289,6 @@ console.log(await claudeResponse.json());
 | `auth.providers.*.api-keys`             | string[] | []                 | `config-api-key` 提供方使用的内联密钥。                                          |
 | `api-keys`                              | string[] | []                 | 兼容旧配置的简写，会自动同步到默认 `config-api-key` 提供方。                     |
 | `generative-language-api-key`           | string[] | []                 | 生成式语言API密钥列表。                                                       |
-| `force-gpt-5-codex`                     | bool     | false              | 强制将 GPT-5 调用转换成 GPT-5 Codex。                                        |
 | `codex-api-key`                         | object   | {}                 | Codex API密钥列表。                                                      |
 | `codex-api-key.api-key`                 | string   | ""                 | Codex API密钥。                                                        |
 | `codex-api-key.base-url`                | string   | ""                 | 自定义的Codex API端点                                                     |
@@ -364,9 +363,6 @@ generative-language-api-key:
   - "AIzaSy...02"
   - "AIzaSy...03"
   - "AIzaSy...04"
-
-# 强制将 GPT-5 调用转换成 GPT-5 Codex.
-force-gpt-5-codex: true
 
 # Codex API 密钥
 codex-api-key:

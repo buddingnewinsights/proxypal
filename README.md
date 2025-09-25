@@ -277,7 +277,6 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `auth.providers.*.api-keys`             | string[] | []                 | Inline API keys consumed by the `config-api-key` provider.                                                                                                                                |
 | `api-keys`                              | string[] | []                 | Legacy shorthand for inline API keys. Values are mirrored into the `config-api-key` provider for backwards compatibility.                                                                 |
 | `generative-language-api-key`           | string[] | []                 | List of Generative Language API keys.                                                                                                                                                     |
-| `force-gpt-5-codex`                     | bool     | false              | Force the conversion of GPT-5 calls to GPT-5 Codex.                                                                                                                                       |
 | `codex-api-key`                         | object   | {}                 | List of Codex API keys.                                                                                                                                                                   |
 | `codex-api-key.api-key`                 | string   | ""                 | Codex API key.                                                                                                                                                                            |
 | `codex-api-key.base-url`                | string   | ""                 | Custom Codex API endpoint, if you use a third-party API endpoint.                                                                                                                         |
@@ -352,9 +351,6 @@ generative-language-api-key:
   - "AIzaSy...02"
   - "AIzaSy...03"
   - "AIzaSy...04"
-
-# Force the conversion of GPT-5 calls to GPT-5 Codex.
-force-gpt-5-codex: true
 
 # Codex API keys
 codex-api-key:
