@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -35,6 +36,10 @@ func (s *RoundRobinSelector) Pick(ctx context.Context, provider, model string, o
 	}
 	if len(available) == 0 {
 		return nil, &Error{Code: "auth_unavailable", Message: "no auth available"}
+	}
+	// Make round-robin deterministic even if caller's candidate order is unstable.
+	if len(available) > 1 {
+		sort.Slice(available, func(i, j int) bool { return available[i].ID < available[j].ID })
 	}
 	key := provider + ":" + model
 	s.mu.Lock()
