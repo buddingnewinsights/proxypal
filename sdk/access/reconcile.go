@@ -31,6 +31,16 @@ func ReconcileProviders(oldCfg, newCfg *config.Config, existing []Provider) (res
 	result = make([]Provider, 0, len(newEntries))
 	finalIDs := make(map[string]struct{}, len(newEntries))
 
+	isInlineProvider := func(id string) bool {
+		return strings.EqualFold(id, config.DefaultAccessProviderName)
+	}
+	appendChange := func(list *[]string, id string) {
+		if isInlineProvider(id) {
+			return
+		}
+		*list = append(*list, id)
+	}
+
 	for _, providerCfg := range newEntries {
 		key := providerIdentifier(providerCfg)
 		if key == "" {
@@ -54,12 +64,12 @@ func ReconcileProviders(oldCfg, newCfg *config.Config, existing []Provider) (res
 		}
 		if _, ok := oldCfgMap[key]; ok {
 			if _, existed := existingMap[key]; existed {
-				updated = append(updated, key)
+				appendChange(&updated, key)
 			} else {
-				added = append(added, key)
+				appendChange(&added, key)
 			}
 		} else {
-			added = append(added, key)
+			appendChange(&added, key)
 		}
 		result = append(result, provider)
 		finalIDs[key] = struct{}{}
@@ -81,9 +91,9 @@ func ReconcileProviders(oldCfg, newCfg *config.Config, existing []Provider) (res
 								return nil, nil, nil, nil, buildErr
 							}
 							if _, existed := existingMap[key]; existed {
-								updated = append(updated, key)
+								appendChange(&updated, key)
 							} else {
-								added = append(added, key)
+								appendChange(&added, key)
 							}
 							result = append(result, provider)
 						}
@@ -93,9 +103,9 @@ func ReconcileProviders(oldCfg, newCfg *config.Config, existing []Provider) (res
 							return nil, nil, nil, nil, buildErr
 						}
 						if _, existed := existingMap[key]; existed {
-							updated = append(updated, key)
+							appendChange(&updated, key)
 						} else {
-							added = append(added, key)
+							appendChange(&added, key)
 						}
 						result = append(result, provider)
 					}
@@ -104,7 +114,7 @@ func ReconcileProviders(oldCfg, newCfg *config.Config, existing []Provider) (res
 					if buildErr != nil {
 						return nil, nil, nil, nil, buildErr
 					}
-					added = append(added, key)
+					appendChange(&added, key)
 					result = append(result, provider)
 				}
 				finalIDs[key] = struct{}{}
@@ -115,6 +125,9 @@ func ReconcileProviders(oldCfg, newCfg *config.Config, existing []Provider) (res
 	removedSet := make(map[string]struct{})
 	for id := range existingMap {
 		if _, ok := finalIDs[id]; !ok {
+			if isInlineProvider(id) {
+				continue
+			}
 			removedSet[id] = struct{}{}
 		}
 	}
