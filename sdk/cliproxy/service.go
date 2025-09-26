@@ -110,12 +110,23 @@ func (s *Service) refreshAccessProviders(cfg *config.Config) {
 	if s == nil || s.accessManager == nil || cfg == nil {
 		return
 	}
-	providers, err := sdkaccess.BuildProviders(cfg)
+	s.cfgMu.RLock()
+	oldCfg := s.cfg
+	s.cfgMu.RUnlock()
+
+	existing := s.accessManager.Providers()
+	providers, added, updated, removed, err := sdkaccess.ReconcileProviders(oldCfg, cfg, existing)
 	if err != nil {
-		log.Errorf("failed to rebuild request auth providers: %v", err)
+		log.Errorf("failed to reconcile request auth providers: %v", err)
 		return
 	}
 	s.accessManager.SetProviders(providers)
+	if len(added)+len(updated)+len(removed) > 0 {
+		log.Infof("request auth providers reconciled (added=%d updated=%d removed=%d)", len(added), len(updated), len(removed))
+		log.Debugf("provider changes details - added=%v updated=%v removed=%v", added, updated, removed)
+	} else {
+		log.Debug("request auth providers unchanged after config reload")
+	}
 }
 
 func (s *Service) ensureAuthUpdateQueue(ctx context.Context) {
