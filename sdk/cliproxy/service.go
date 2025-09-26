@@ -122,10 +122,10 @@ func (s *Service) refreshAccessProviders(cfg *config.Config) {
 	}
 	s.accessManager.SetProviders(providers)
 	if len(added)+len(updated)+len(removed) > 0 {
-		log.Infof("request auth providers reconciled (added=%d updated=%d removed=%d)", len(added), len(updated), len(removed))
-		log.Debugf("provider changes details - added=%v updated=%v removed=%v", added, updated, removed)
+		log.Debugf("auth providers reconciled (added=%d updated=%d removed=%d)", len(added), len(updated), len(removed))
+		log.Debugf("auth provider changes details - added=%v updated=%v removed=%v", added, updated, removed)
 	} else {
-		log.Debug("request auth providers unchanged after config reload")
+		log.Debug("auth providers unchanged after config reload")
 	}
 }
 
