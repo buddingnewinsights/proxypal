@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
 )
 
 // Provider validates credentials for incoming requests.
@@ -23,7 +23,7 @@ type Result struct {
 }
 
 // ProviderFactory builds a provider from configuration data.
-type ProviderFactory func(cfg *config.AccessProvider, root *config.Config) (Provider, error)
+type ProviderFactory func(cfg *config.AccessProvider, root *config.SDKConfig) (Provider, error)
 
 var (
 	registryMu sync.RWMutex
@@ -40,7 +40,7 @@ func RegisterProvider(typ string, factory ProviderFactory) {
 	registryMu.Unlock()
 }
 
-func buildProvider(cfg *config.AccessProvider, root *config.Config) (Provider, error) {
+func BuildProvider(cfg *config.AccessProvider, root *config.SDKConfig) (Provider, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("access: nil provider config")
 	}
@@ -58,7 +58,7 @@ func buildProvider(cfg *config.AccessProvider, root *config.Config) (Provider, e
 }
 
 // BuildProviders constructs providers declared in configuration.
-func BuildProviders(root *config.Config) ([]Provider, error) {
+func BuildProviders(root *config.SDKConfig) ([]Provider, error) {
 	if root == nil {
 		return nil, nil
 	}
@@ -68,7 +68,7 @@ func BuildProviders(root *config.Config) ([]Provider, error) {
 		if providerCfg.Type == "" {
 			continue
 		}
-		provider, err := buildProvider(providerCfg, root)
+		provider, err := BuildProvider(providerCfg, root)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func BuildProviders(root *config.Config) ([]Provider, error) {
 	if len(providers) == 0 && len(root.APIKeys) > 0 {
 		config.SyncInlineAPIKeys(root, root.APIKeys)
 		if providerCfg := root.ConfigAPIKeyProvider(); providerCfg != nil {
-			provider, err := buildProvider(providerCfg, root)
+			provider, err := BuildProvider(providerCfg, root)
 			if err != nil {
 				return nil, err
 			}

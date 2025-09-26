@@ -184,7 +184,7 @@ func (b *Builder) Build() (*Service, error) {
 	if accessManager == nil {
 		accessManager = sdkaccess.NewManager()
 	}
-	providers, err := sdkaccess.BuildProviders(b.cfg)
+	providers, err := sdkaccess.BuildProviders(&b.cfg.SDKConfig)
 	if err != nil {
 		return nil, err
 	}

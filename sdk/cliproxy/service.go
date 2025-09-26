@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/access"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/api"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	geminiwebclient "github.com/router-for-me/CLIProxyAPI/v6/internal/provider/gemini-web"
@@ -115,7 +116,7 @@ func (s *Service) refreshAccessProviders(cfg *config.Config) {
 	s.cfgMu.RUnlock()
 
 	existing := s.accessManager.Providers()
-	providers, added, updated, removed, err := sdkaccess.ReconcileProviders(oldCfg, cfg, existing)
+	providers, added, updated, removed, err := access.ReconcileProviders(oldCfg, cfg, existing)
 	if err != nil {
 		log.Errorf("failed to reconcile request auth providers: %v", err)
 		return

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
+	"github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
 )
 
 type provider struct {
@@ -18,7 +18,7 @@ func init() {
 	sdkaccess.RegisterProvider(config.AccessProviderTypeConfigAPIKey, newProvider)
 }
 
-func newProvider(cfg *config.AccessProvider, _ *config.Config) (sdkaccess.Provider, error) {
+func newProvider(cfg *config.AccessProvider, _ *config.SDKConfig) (sdkaccess.Provider, error) {
 	name := cfg.Name
 	if name == "" {
 		name = config.DefaultAccessProviderName
