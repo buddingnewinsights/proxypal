@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
@@ -123,22 +122,10 @@ func main() {
 	// Set the log level based on the configuration.
 	util.SetLogLevel(cfg)
 
-	// Expand the tilde (~) in the auth directory path to the user's home directory.
-	if strings.HasPrefix(cfg.AuthDir, "~") {
-		home, errUserHomeDir := os.UserHomeDir()
-		if errUserHomeDir != nil {
-			log.Fatalf("failed to get home directory: %v", errUserHomeDir)
-		}
-		// Reconstruct the path by replacing the tilde with the user's home directory.
-		remainder := strings.TrimPrefix(cfg.AuthDir, "~")
-		remainder = strings.TrimLeft(remainder, "/\\")
-		if remainder == "" {
-			cfg.AuthDir = home
-		} else {
-			// Normalize any slash style in the remainder so Windows paths keep nested directories.
-			normalized := strings.ReplaceAll(remainder, "\\", "/")
-			cfg.AuthDir = filepath.Join(home, filepath.FromSlash(normalized))
-		}
+	if resolvedAuthDir, errResolveAuthDir := util.ResolveAuthDir(cfg.AuthDir); errResolveAuthDir != nil {
+		log.Fatalf("failed to resolve auth directory: %v", errResolveAuthDir)
+	} else {
+		cfg.AuthDir = resolvedAuthDir
 	}
 
 	// Create login options to be used in authentication flows.
