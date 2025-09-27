@@ -294,11 +294,6 @@ console.log(await claudeResponse.json());
 | `debug`                                 | boolean  | false              | 启用调试模式以获取详细日志。                                                      |
 | `logging-to-file`                       | boolean  | true               | 是否将应用日志写入滚动文件；设为 false 时输出到 stdout/stderr。                           |
 | `usage-statistics-enabled`              | boolean  | true               | 是否启用内存中的使用统计；设为 false 时直接丢弃所有统计数据。                               |
-| `auth`                                  | object   | {}                 | 请求鉴权配置。                                                                  |
-| `auth.providers`                        | object[] | []                 | 鉴权提供方列表，内置 `config-api-key` 支持内联密钥。                             |
-| `auth.providers.*.name`                 | string   | ""                 | 提供方实例名称。                                                                |
-| `auth.providers.*.type`                 | string   | ""                 | 提供方实现标识（例如 `config-api-key`）。                                       |
-| `auth.providers.*.api-keys`             | string[] | []                 | `config-api-key` 提供方使用的内联密钥。                                          |
 | `api-keys`                              | string[] | []                 | 兼容旧配置的简写，会自动同步到默认 `config-api-key` 提供方。                     |
 | `generative-language-api-key`           | string[] | []                 | 生成式语言API密钥列表。                                                       |
 | `codex-api-key`                         | object   | {}                 | Codex API密钥列表。                                                      |
@@ -365,15 +360,6 @@ gemini-web:
   context: true # 启用会话上下文重用
   code-mode: false # 启用代码模式
   max-chars-per-request: 1000000 # 单次请求最大字符数
-
-# 请求鉴权提供方
-auth:
-  providers:
-    - name: "default"
-      type: "config-api-key"
-      api-keys:
-        - "your-api-key-1"
-        - "your-api-key-2"
 
 # AIStduio Gemini API 的 API 密钥
 generative-language-api-key:

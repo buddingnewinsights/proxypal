@@ -21,7 +21,6 @@ import (
 	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
-	_ "github.com/router-for-me/CLIProxyAPI/v6/sdk/access/providers/configapikey"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"

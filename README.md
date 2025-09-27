@@ -282,11 +282,6 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `debug`                                 | boolean  | false              | Enable debug mode for verbose logging.                                                                                                                                                    |
 | `logging-to-file`                       | boolean  | true               | Write application logs to rotating files instead of stdout. Set to `false` to log to stdout/stderr.                                                                                      |
 | `usage-statistics-enabled`              | boolean  | true               | Enable in-memory usage aggregation for management APIs. Disable to drop all collected usage metrics.                                                                                    |
-| `auth`                                  | object   | {}                 | Request authentication configuration.                                                                                                                                                     |
-| `auth.providers`                        | object[] | []                 | Authentication providers. Includes built-in `config-api-key` for inline keys.                                                                                                             |
-| `auth.providers.*.name`                 | string   | ""                 | Provider instance name.                                                                                                                                                                   |
-| `auth.providers.*.type`                 | string   | ""                 | Provider implementation identifier (for example `config-api-key`).                                                                                                                        |
-| `auth.providers.*.api-keys`             | string[] | []                 | Inline API keys consumed by the `config-api-key` provider.                                                                                                                                |
 | `api-keys`                              | string[] | []                 | Legacy shorthand for inline API keys. Values are mirrored into the `config-api-key` provider for backwards compatibility.                                                                 |
 | `generative-language-api-key`           | string[] | []                 | List of Generative Language API keys.                                                                                                                                                     |
 | `codex-api-key`                         | object   | {}                 | List of Codex API keys.                                                                                                                                                                   |
@@ -353,15 +348,6 @@ gemini-web:
   context: true # Enable conversation context reuse
   code-mode: false # Enable code mode
   max-chars-per-request: 1000000 # Max characters per request
-
-# Request authentication providers
-auth:
-  providers:
-    - name: "default"
-      type: "config-api-key"
-      api-keys:
-        - "your-api-key-1"
-        - "your-api-key-2"
 
 # API keys for official Generative Language API
 generative-language-api-key:
