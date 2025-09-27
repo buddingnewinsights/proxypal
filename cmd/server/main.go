@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	configaccess "github.com/router-for-me/CLIProxyAPI/v6/internal/access/config_access"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
@@ -66,7 +67,7 @@ func main() {
 				return
 			}
 			s := fmt.Sprintf("  -%s", f.Name)
-			name, usage := flag.UnquoteUsage(f)
+			name, unquoteUsage := flag.UnquoteUsage(f)
 			if name != "" {
 				s += " " + name
 			}
@@ -75,8 +76,8 @@ func main() {
 			} else {
 				s += "\n    "
 			}
-			if usage != "" {
-				s += usage
+			if unquoteUsage != "" {
+				s += unquoteUsage
 			}
 			if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" {
 				s += fmt.Sprintf(" (default %s)", f.DefValue)
@@ -135,6 +136,9 @@ func main() {
 
 	// Register the shared token store once so all components use the same persistence backend.
 	sdkAuth.RegisterTokenStore(sdkAuth.NewFileTokenStore())
+
+	// Register built-in access providers before constructing services.
+	configaccess.Register()
 
 	// Handle different command modes based on the provided flags.
 

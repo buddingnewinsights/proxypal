@@ -6,7 +6,6 @@ package cliproxy
 import (
 	"fmt"
 
-	configaccess "github.com/router-for-me/CLIProxyAPI/v6/internal/access/config_access"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/api"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
@@ -185,7 +184,6 @@ func (b *Builder) Build() (*Service, error) {
 	if accessManager == nil {
 		accessManager = sdkaccess.NewManager()
 	}
-	configaccess.Register()
 
 	providers, err := sdkaccess.BuildProviders(&b.cfg.SDKConfig)
 	if err != nil {
