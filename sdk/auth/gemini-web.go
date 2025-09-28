@@ -24,6 +24,6 @@ func (a *GeminiWebAuthenticator) Login(ctx context.Context, cfg *config.Config, 
 }
 
 func (a *GeminiWebAuthenticator) RefreshLead() *time.Duration {
-	d := 15 * time.Minute
+	d := time.Hour
 	return &d
 }
