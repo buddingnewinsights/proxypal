@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/access"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/api"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	geminiwebclient "github.com/router-for-me/CLIProxyAPI/v6/internal/provider/gemini-web"
@@ -104,19 +103,6 @@ func newDefaultAuthManager() *sdkAuth.Manager {
 		sdkAuth.NewClaudeAuthenticator(),
 		sdkAuth.NewQwenAuthenticator(),
 	)
-}
-
-func (s *Service) refreshAccessProviders(cfg *config.Config) {
-	if s == nil || s.accessManager == nil || cfg == nil {
-		return
-	}
-	s.cfgMu.RLock()
-	oldCfg := s.cfg
-	s.cfgMu.RUnlock()
-
-	if _, err := access.ApplyAccessProviders(s.accessManager, oldCfg, cfg); err != nil {
-		return
-	}
 }
 
 func (s *Service) ensureAuthUpdateQueue(ctx context.Context) {
@@ -310,7 +296,6 @@ func (s *Service) Run(ctx context.Context) error {
 	// legacy clients removed; no caches to refresh
 
 	// handlers no longer depend on legacy clients; pass nil slice initially
-	s.refreshAccessProviders(s.cfg)
 	s.server = api.NewServer(s.cfg, s.coreManager, s.accessManager, s.configPath, s.serverOptions...)
 
 	if s.authManager == nil {
@@ -347,7 +332,6 @@ func (s *Service) Run(ctx context.Context) error {
 		if newCfg == nil {
 			return
 		}
-		s.refreshAccessProviders(newCfg)
 		if s.server != nil {
 			s.server.UpdateClients(newCfg)
 		}
