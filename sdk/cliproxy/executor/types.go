@@ -33,6 +33,8 @@ type Options struct {
 	OriginalRequest []byte
 	// SourceFormat identifies the inbound schema.
 	SourceFormat sdktranslator.Format
+	// Metadata carries extra execution hints shared across selection and executors.
+	Metadata map[string]any
 }
 
 // Response wraps either a full provider response or metadata for streaming flows.
