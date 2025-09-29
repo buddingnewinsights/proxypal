@@ -10,6 +10,7 @@ auths/*
 .serena/*
 AGENTS.md
 CLAUDE.md
+GEMINI.md
 *.exe
 temp/*
 cli-proxy-api
