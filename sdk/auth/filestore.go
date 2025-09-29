@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
 
@@ -35,27 +34,71 @@ func (s *FileTokenStore) SetBaseDir(dir string) {
 	s.dirLock.Unlock()
 }
 
-// Save writes the token storage to the resolved file path.
-func (s *FileTokenStore) Save(ctx context.Context, cfg *config.Config, record *TokenRecord) (string, error) {
-	if record == nil || record.Storage == nil {
-		return "", fmt.Errorf("cliproxy auth: token record is incomplete")
+// Save persists token storage and metadata to the resolved auth file path.
+func (s *FileTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (string, error) {
+	if auth == nil {
+		return "", fmt.Errorf("auth filestore: auth is nil")
 	}
-	target := strings.TrimSpace(record.FileName)
-	if target == "" {
-		return "", fmt.Errorf("cliproxy auth: missing file name for provider %s", record.Provider)
-	}
-	if !filepath.IsAbs(target) {
-		baseDir := s.baseDirFromConfig(cfg)
-		if baseDir != "" {
-			target = filepath.Join(baseDir, target)
-		}
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := record.Storage.SaveTokenToFile(target); err != nil {
+
+	path, err := s.resolveAuthPath(auth)
+	if err != nil {
 		return "", err
 	}
-	return target, nil
+	if path == "" {
+		return "", fmt.Errorf("auth filestore: missing file path attribute for %s", auth.ID)
+	}
+
+	if auth.Disabled {
+		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+			return "", nil
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", fmt.Errorf("auth filestore: create dir failed: %w", err)
+	}
+
+	switch {
+	case auth.Storage != nil:
+		if err = auth.Storage.SaveTokenToFile(path); err != nil {
+			return "", err
+		}
+	case auth.Metadata != nil:
+		raw, errMarshal := json.Marshal(auth.Metadata)
+		if errMarshal != nil {
+			return "", fmt.Errorf("auth filestore: marshal metadata failed: %w", errMarshal)
+		}
+		if existing, errRead := os.ReadFile(path); errRead == nil {
+			if jsonEqual(existing, raw) {
+				return path, nil
+			}
+		} else if errRead != nil && !os.IsNotExist(errRead) {
+			return "", fmt.Errorf("auth filestore: read existing failed: %w", errRead)
+		}
+		tmp := path + ".tmp"
+		if errWrite := os.WriteFile(tmp, raw, 0o600); errWrite != nil {
+			return "", fmt.Errorf("auth filestore: write temp failed: %w", errWrite)
+		}
+		if errRename := os.Rename(tmp, path); errRename != nil {
+			return "", fmt.Errorf("auth filestore: rename failed: %w", errRename)
+		}
+	default:
+		return "", fmt.Errorf("auth filestore: nothing to persist for %s", auth.ID)
+	}
+
+	if auth.Attributes == nil {
+		auth.Attributes = make(map[string]string)
+	}
+	auth.Attributes["path"] = path
+
+	if strings.TrimSpace(auth.FileName) == "" {
+		auth.FileName = auth.ID
+	}
+
+	return path, nil
 }
 
 // List enumerates all auth JSON files under the configured directory.
@@ -88,50 +131,6 @@ func (s *FileTokenStore) List(ctx context.Context) ([]*cliproxyauth.Auth, error)
 		return nil, err
 	}
 	return entries, nil
-}
-
-// SaveAuth writes the auth metadata back to its source file location.
-func (s *FileTokenStore) SaveAuth(ctx context.Context, auth *cliproxyauth.Auth) error {
-	if auth == nil {
-		return fmt.Errorf("auth filestore: auth is nil")
-	}
-	path, err := s.resolveAuthPath(auth)
-	if err != nil {
-		return err
-	}
-	if path == "" {
-		return fmt.Errorf("auth filestore: missing file path attribute for %s", auth.ID)
-	}
-	// If the auth has been disabled and the original file was removed, avoid recreating it on disk.
-	if auth.Disabled {
-		if _, statErr := os.Stat(path); statErr != nil {
-			if os.IsNotExist(statErr) {
-				return nil
-			}
-		}
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("auth filestore: create dir failed: %w", err)
-	}
-	raw, err := json.Marshal(auth.Metadata)
-	if err != nil {
-		return fmt.Errorf("auth filestore: marshal metadata failed: %w", err)
-	}
-	if existing, errRead := os.ReadFile(path); errRead == nil {
-		if jsonEqual(existing, raw) {
-			return nil
-		}
-	}
-	tmp := path + ".tmp"
-	if err = os.WriteFile(tmp, raw, 0o600); err != nil {
-		return fmt.Errorf("auth filestore: write temp failed: %w", err)
-	}
-	if err = os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("auth filestore: rename failed: %w", err)
-	}
-	return nil
 }
 
 // Delete removes the auth file.
@@ -185,6 +184,7 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 	auth := &cliproxyauth.Auth{
 		ID:               id,
 		Provider:         provider,
+		FileName:         id,
 		Label:            s.labelFor(metadata),
 		Status:           cliproxyauth.StatusActive,
 		Attributes:       map[string]string{"path": path},
@@ -220,6 +220,15 @@ func (s *FileTokenStore) resolveAuthPath(auth *cliproxyauth.Auth) (string, error
 			return p, nil
 		}
 	}
+	if fileName := strings.TrimSpace(auth.FileName); fileName != "" {
+		if filepath.IsAbs(fileName) {
+			return fileName, nil
+		}
+		if dir := s.baseDirSnapshot(); dir != "" {
+			return filepath.Join(dir, fileName), nil
+		}
+		return fileName, nil
+	}
 	if auth.ID == "" {
 		return "", fmt.Errorf("auth filestore: missing id")
 	}
@@ -247,13 +256,6 @@ func (s *FileTokenStore) labelFor(metadata map[string]any) string {
 		return project
 	}
 	return ""
-}
-
-func (s *FileTokenStore) baseDirFromConfig(cfg *config.Config) string {
-	if cfg != nil && strings.TrimSpace(cfg.AuthDir) != "" {
-		return strings.TrimSpace(cfg.AuthDir)
-	}
-	return s.baseDirSnapshot()
 }
 
 func (s *FileTokenStore) baseDirSnapshot() string {

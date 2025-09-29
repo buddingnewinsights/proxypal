@@ -160,11 +160,7 @@ func main() {
 	if dirSetter, ok := tokenStore.(interface{ SetBaseDir(string) }); ok {
 		dirSetter.SetBaseDir(cfg.AuthDir)
 	}
-	store, ok := tokenStore.(coreauth.Store)
-	if !ok {
-		panic("token store does not implement coreauth.Store")
-	}
-	core := coreauth.NewManager(store, nil, nil)
+	core := coreauth.NewManager(tokenStore, nil, nil)
 	core.RegisterExecutor(MyExecutor{})
 
 	hooks := cliproxy.Hooks{

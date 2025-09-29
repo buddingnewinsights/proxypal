@@ -10,6 +10,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/browser"
 	// legacy client removed
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,7 +31,7 @@ func (a *QwenAuthenticator) RefreshLead() *time.Duration {
 	return &d
 }
 
-func (a *QwenAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*TokenRecord, error) {
+func (a *QwenAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cliproxy auth: configuration is required")
 	}
@@ -97,13 +98,14 @@ func (a *QwenAuthenticator) Login(ctx context.Context, cfg *config.Config, opts 
 	// no legacy client construction
 
 	fileName := fmt.Sprintf("qwen-%s.json", tokenStorage.Email)
-	metadata := map[string]string{
+	metadata := map[string]any{
 		"email": tokenStorage.Email,
 	}
 
 	fmt.Println("Qwen authentication successful")
 
-	return &TokenRecord{
+	return &coreauth.Auth{
+		ID:       fileName,
 		Provider: a.Provider(),
 		FileName: fileName,
 		Storage:  tokenStorage,

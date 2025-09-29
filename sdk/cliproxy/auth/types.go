@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	baseauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth"
 )
 
 // Auth encapsulates the runtime state and metadata associated with a single credential.
@@ -14,6 +16,10 @@ type Auth struct {
 	ID string `json:"id"`
 	// Provider is the upstream provider key (e.g. "gemini", "claude").
 	Provider string `json:"provider"`
+	// FileName stores the relative or absolute path of the backing auth file.
+	FileName string `json:"-"`
+	// Storage holds the token persistence implementation used during login flows.
+	Storage baseauth.TokenStorage `json:"-"`
 	// Label is an optional human readable label for logging.
 	Label string `json:"label,omitempty"`
 	// Status is the lifecycle status managed by the AuthManager.

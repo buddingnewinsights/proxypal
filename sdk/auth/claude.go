@@ -13,6 +13,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,7 +36,7 @@ func (a *ClaudeAuthenticator) RefreshLead() *time.Duration {
 	return &d
 }
 
-func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*TokenRecord, error) {
+func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cliproxy auth: configuration is required")
 	}
@@ -127,7 +128,7 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 	}
 
 	fileName := fmt.Sprintf("claude-%s.json", tokenStorage.Email)
-	metadata := map[string]string{
+	metadata := map[string]any{
 		"email": tokenStorage.Email,
 	}
 
@@ -136,7 +137,8 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 		fmt.Println("Claude API key obtained and stored")
 	}
 
-	return &TokenRecord{
+	return &coreauth.Auth{
+		ID:       fileName,
 		Provider: a.Provider(),
 		FileName: fileName,
 		Storage:  tokenStorage,

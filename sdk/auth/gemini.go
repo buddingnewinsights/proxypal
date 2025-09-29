@@ -8,6 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/gemini"
 	// legacy client removed
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
 
 // GeminiAuthenticator implements the login flow for Google Gemini CLI accounts.
@@ -26,7 +27,7 @@ func (a *GeminiAuthenticator) RefreshLead() *time.Duration {
 	return nil
 }
 
-func (a *GeminiAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*TokenRecord, error) {
+func (a *GeminiAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cliproxy auth: configuration is required")
 	}
@@ -51,14 +52,15 @@ func (a *GeminiAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 	// Skip onboarding here; rely on upstream configuration
 
 	fileName := fmt.Sprintf("%s-%s.json", ts.Email, ts.ProjectID)
-	metadata := map[string]string{
+	metadata := map[string]any{
 		"email":      ts.Email,
 		"project_id": ts.ProjectID,
 	}
 
 	fmt.Println("Gemini authentication successful")
 
-	return &TokenRecord{
+	return &coreauth.Auth{
+		ID:       fileName,
 		Provider: a.Provider(),
 		FileName: fileName,
 		Storage:  &ts,

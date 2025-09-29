@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
 
 // GeminiWebAuthenticator provides a minimal wrapper so core components can treat
@@ -16,7 +17,7 @@ func NewGeminiWebAuthenticator() *GeminiWebAuthenticator { return &GeminiWebAuth
 
 func (a *GeminiWebAuthenticator) Provider() string { return "gemini-web" }
 
-func (a *GeminiWebAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*TokenRecord, error) {
+func (a *GeminiWebAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	_ = ctx
 	_ = cfg
 	_ = opts
