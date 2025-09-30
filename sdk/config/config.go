@@ -16,13 +16,13 @@ type SDKConfig struct {
 	APIKeys []string `yaml:"api-keys" json:"api-keys"`
 
 	// Access holds request authentication provider configuration.
-	Access AccessConfig `yaml:"auth" json:"auth"`
+	Access AccessConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
 }
 
 // AccessConfig groups request authentication providers.
 type AccessConfig struct {
 	// Providers lists configured authentication providers.
-	Providers []AccessProvider `yaml:"providers" json:"providers"`
+	Providers []AccessProvider `yaml:"providers,omitempty" json:"providers,omitempty"`
 }
 
 // AccessProvider describes a request authentication provider entry.
@@ -51,27 +51,6 @@ const (
 	DefaultAccessProviderName = "config-inline"
 )
 
-// SyncInlineAPIKeys updates the inline API key provider and top-level APIKeys field.
-func SyncInlineAPIKeys(cfg *SDKConfig, keys []string) {
-	if cfg == nil {
-		return
-	}
-	cloned := append([]string(nil), keys...)
-	cfg.APIKeys = cloned
-	if provider := cfg.ConfigAPIKeyProvider(); provider != nil {
-		if provider.Name == "" {
-			provider.Name = DefaultAccessProviderName
-		}
-		provider.APIKeys = cloned
-		return
-	}
-	cfg.Access.Providers = append(cfg.Access.Providers, AccessProvider{
-		Name:    DefaultAccessProviderName,
-		Type:    AccessProviderTypeConfigAPIKey,
-		APIKeys: cloned,
-	})
-}
-
 // ConfigAPIKeyProvider returns the first inline API key provider if present.
 func (c *SDKConfig) ConfigAPIKeyProvider() *AccessProvider {
 	if c == nil {
@@ -86,4 +65,18 @@ func (c *SDKConfig) ConfigAPIKeyProvider() *AccessProvider {
 		}
 	}
 	return nil
+}
+
+// MakeInlineAPIKeyProvider constructs an inline API key provider configuration.
+// It returns nil when no keys are supplied.
+func MakeInlineAPIKeyProvider(keys []string) *AccessProvider {
+	if len(keys) == 0 {
+		return nil
+	}
+	provider := &AccessProvider{
+		Name:    DefaultAccessProviderName,
+		Type:    AccessProviderTypeConfigAPIKey,
+		APIKeys: append([]string(nil), keys...),
+	}
+	return provider
 }

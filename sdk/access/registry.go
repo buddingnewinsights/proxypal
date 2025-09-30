@@ -74,10 +74,9 @@ func BuildProviders(root *config.SDKConfig) ([]Provider, error) {
 		}
 		providers = append(providers, provider)
 	}
-	if len(providers) == 0 && len(root.APIKeys) > 0 {
-		config.SyncInlineAPIKeys(root, root.APIKeys)
-		if providerCfg := root.ConfigAPIKeyProvider(); providerCfg != nil {
-			provider, err := BuildProvider(providerCfg, root)
+	if len(providers) == 0 {
+		if inline := config.MakeInlineAPIKeyProvider(root.APIKeys); inline != nil {
+			provider, err := BuildProvider(inline, root)
 			if err != nil {
 				return nil, err
 			}
