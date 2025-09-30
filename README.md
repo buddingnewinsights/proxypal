@@ -72,6 +72,8 @@ A cross-platform desktop GUI client for CLIProxyAPI.
 
 A web-based management center for CLIProxyAPI.  
 
+Set `remote-management.disable-control-panel` to `true` if you prefer to host the management UI elsewhere; the server will skip downloading `management.html` and `/management.html` will return 404.
+
 ### Authentication
 
 You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the same `auth-dir` and will be load balanced.
@@ -277,6 +279,7 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `request-retry`                         | integer  | 0                  | Number of times to retry a request. Retries will occur if the HTTP response code is 403, 408, 500, 502, 503, or 504.                                                                      |
 | `remote-management.allow-remote`        | boolean  | false              | Whether to allow remote (non-localhost) access to the management API. If false, only localhost can access. A management key is still required for localhost.                              |
 | `remote-management.secret-key`          | string   | ""                 | Management key. If a plaintext value is provided, it will be hashed on startup using bcrypt and persisted back to the config file. If empty, the entire management API is disabled (404). |
+| `remote-management.disable-control-panel` | boolean  | false              | When true, skip downloading `management.html` and return 404 for `/management.html`, effectively disabling the bundled management UI.                                                        |
 | `quota-exceeded`                        | object   | {}                 | Configuration for handling quota exceeded.                                                                                                                                                |
 | `quota-exceeded.switch-project`         | boolean  | true               | Whether to automatically switch to another project when a quota is exceeded.                                                                                                              |
 | `quota-exceeded.switch-preview-model`   | boolean  | true               | Whether to automatically switch to a preview model when a quota is exceeded.                                                                                                              |
@@ -325,6 +328,9 @@ remote-management:
   # All management requests (even from localhost) require this key.
   # Leave empty to disable the Management API entirely (404 for all /v0/management routes).
   secret-key: ""
+
+  # Disable the bundled management control panel asset download and HTTP route when true.
+  disable-control-panel: false
 
 # Authentication directory (supports ~ for home directory). If you use Windows, please set the directory like this: `C:/cli-proxy-api/`
 auth-dir: "~/.cli-proxy-api"

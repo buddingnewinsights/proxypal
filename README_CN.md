@@ -85,6 +85,8 @@ CLIProxyAPI 的跨平台桌面图形客户端。
 
 CLIProxyAPI 的基于 Web 的管理中心。
 
+如果希望自行托管管理页面，可在配置中将 `remote-management.disable-control-panel` 设为 `true`，服务器将停止下载 `management.html`，并让 `/management.html` 返回 404。
+
 ### 身份验证
 
 您可以分别为 Gemini、OpenAI 和 Claude 进行身份验证，三者可同时存在于同一个 `auth-dir` 中并参与负载均衡。
@@ -289,6 +291,7 @@ console.log(await claudeResponse.json());
 | `request-retry`                         | integer  | 0                  | 请求重试次数。如果HTTP响应码为403、408、500、502、503或504，将会触发重试。                    |
 | `remote-management.allow-remote`        | boolean  | false              | 是否允许远程（非localhost）访问管理接口。为false时仅允许本地访问；本地访问同样需要管理密钥。               |
 | `remote-management.secret-key`          | string   | ""                 | 管理密钥。若配置为明文，启动时会自动进行bcrypt加密并写回配置文件。若为空，管理接口整体不可用（404）。             |
+| `remote-management.disable-control-panel` | boolean  | false              | 当为 true 时，不再下载 `management.html`，且 `/management.html` 会返回 404，从而禁用内置管理界面。             |
 | `quota-exceeded`                        | object   | {}                 | 用于处理配额超限的配置。                                                        |
 | `quota-exceeded.switch-project`         | boolean  | true               | 当配额超限时，是否自动切换到另一个项目。                                                |
 | `quota-exceeded.switch-preview-model`   | boolean  | true               | 当配额超限时，是否自动切换到预览模型。                                                 |
@@ -336,6 +339,9 @@ remote-management:
   # 所有管理请求（包括本地）都需要该密钥。
   # 若为空，/v0/management 整体处于 404（禁用）。
   secret-key: ""
+
+  # 当设为 true 时，不下载管理面板文件，/management.html 将直接返回 404。
+  disable-control-panel: false
 
 # 身份验证目录（支持 ~ 表示主目录）。如果你使用Windows，建议设置成`C:/cli-proxy-api/`。
 auth-dir: "~/.cli-proxy-api"
