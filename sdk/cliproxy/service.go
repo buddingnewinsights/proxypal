@@ -534,8 +534,13 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 					ms := make([]*ModelInfo, 0, len(compat.Models))
 					for j := range compat.Models {
 						m := compat.Models[j]
+						// Use alias as model ID, fallback to name if alias is empty
+						modelID := m.Alias
+						if modelID == "" {
+							modelID = m.Name
+						}
 						ms = append(ms, &ModelInfo{
-							ID:          m.Alias,
+							ID:          modelID,
 							Object:      "model",
 							Created:     time.Now().Unix(),
 							OwnedBy:     compat.Name,
