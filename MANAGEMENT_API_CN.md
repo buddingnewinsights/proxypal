@@ -663,6 +663,17 @@
     { "status": "ok", "url": "https://..." }
     ```
 
+- GET `/iflow-auth-url` — 开始 iFlow 登录
+  - 请求：
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      http://localhost:8317/v0/management/iflow-auth-url
+    ```
+  - 响应：
+    ```json
+    { "status": "ok", "url": "https://..." }
+    ```
+
 - GET `/get-auth-status?state=<state>` — 轮询 OAuth 流程状态
   - 请求：
     ```bash

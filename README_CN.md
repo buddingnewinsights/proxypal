@@ -28,7 +28,7 @@
 
 您可以使用本地或多账户的CLI方式，通过任何与 OpenAI（包括Responses）/Gemini/Claude 兼容的客户端和SDK进行访问。
 
-现已新增首个中国提供商：[Qwen Code](https://github.com/QwenLM/qwen-code)。
+现已新增国内提供商：[Qwen Code](https://github.com/QwenLM/qwen-code)、[iFlow](https://iflow.cn/)。
 
 ## 功能特性
 
@@ -36,19 +36,21 @@
 - 新增 OpenAI Codex（GPT 系列）支持（OAuth 登录）
 - 新增 Claude Code 支持（OAuth 登录）
 - 新增 Qwen Code 支持（OAuth 登录）
+- 新增 iFlow 支持（OAuth 登录）
 - 新增 Gemini Web 支持（通过 Cookie 登录）
 - 支持流式与非流式响应
 - 函数调用/工具支持
 - 多模态输入（文本、图片）
-- 多账户支持与轮询负载均衡（Gemini、OpenAI、Claude 与 Qwen）
-- 简单的 CLI 身份验证流程（Gemini、OpenAI、Claude 与 Qwen）
+- 多账户支持与轮询负载均衡（Gemini、OpenAI、Claude、Qwen 与 iFlow）
+- 简单的 CLI 身份验证流程（Gemini、OpenAI、Claude、Qwen 与 iFlow）
 - 支持 Gemini AIStudio API 密钥
 - 支持 Gemini CLI 多账户轮询
 - 支持 Claude Code 多账户轮询
 - 支持 Qwen Code 多账户轮询
+- 支持 iFlow 多账户轮询
 - 支持 OpenAI Codex 多账户轮询
 - 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
-- 可复用的 Go SDK（见 `docs/sdk-usage.md`）
+- 可复用的 Go SDK（见 `docs/sdk-usage_CN.md`）
 
 ## 安装
 
@@ -59,6 +61,7 @@
 - 有权访问 OpenAI Codex/GPT 的 OpenAI 账户（可选）
 - 有权访问 Claude Code 的 Anthropic 账户（可选）
 - 有权访问 Qwen Code 的 Qwen Chat 账户（可选）
+- 有权访问 iFlow 的 iFlow 账户（可选）
 
 ### 从源码构建
 
@@ -89,7 +92,7 @@ CLIProxyAPI 的基于 Web 的管理中心。
 
 ### 身份验证
 
-您可以分别为 Gemini、OpenAI 和 Claude 进行身份验证，三者可同时存在于同一个 `auth-dir` 中并参与负载均衡。
+您可以分别为 Gemini、OpenAI、Claude、Qwen 和 iFlow 进行身份验证，它们可同时存在于同一个 `auth-dir` 中并参与负载均衡。
 
 - Gemini（Google）：
   ```bash
@@ -127,6 +130,12 @@ CLIProxyAPI 的基于 Web 的管理中心。
   ./cli-proxy-api --qwen-login
   ```
   选项：加上 `--no-browser` 可打印登录地址而不自动打开浏览器。使用 Qwen Chat 的 OAuth 设备登录流程。
+
+- iFlow（iFlow，OAuth）：
+  ```bash
+  ./cli-proxy-api --iflow-login
+  ```
+  选项：加上 `--no-browser` 可打印登录地址而不自动打开浏览器。本地 OAuth 回调端口为 `11451`。
 
 ### 启动服务器
 
@@ -168,7 +177,7 @@ POST http://localhost:8317/v1/chat/completions
 ```
 
 说明：
-- 使用 "gemini-*" 模型（例如 "gemini-2.5-pro"）来调用 Gemini，使用 "gpt-*" 模型（例如 "gpt-5"）来调用 OpenAI，使用 "claude-*" 模型（例如 "claude-3-5-sonnet-20241022"）来调用 Claude，或者使用 "qwen-*" 模型（例如 "qwen3-coder-plus"）来调用 Qwen。代理服务会自动将请求路由到相应的提供商。
+- 使用 "gemini-*" 模型（例如 "gemini-2.5-pro"）来调用 Gemini，使用 "gpt-*" 模型（例如 "gpt-5"）来调用 OpenAI，使用 "claude-*" 模型（例如 "claude-3-5-sonnet-20241022"）来调用 Claude，使用 "qwen-*" 模型（例如 "qwen3-coder-plus"）来调用 Qwen，或者使用 iFlow 支持的模型（例如 "tstars2.0"、"deepseek-v3.1"、"kimi-k2" 等）来调用 iFlow。代理服务会自动将请求路由到相应的提供商。
 
 #### Claude 消息（SSE 兼容）
 
@@ -271,6 +280,16 @@ console.log(await claudeResponse.json());
 - claude-3-5-haiku-20241022
 - qwen3-coder-plus
 - qwen3-coder-flash
+- qwen3-max
+- qwen3-vl-plus
+- deepseek-v3.2
+- deepseek-v3.1
+- deepseek-r1
+- deepseek-v3
+- kimi-k2
+- glm-4.5
+- tstars2.0
+- 以及其他 iFlow 支持的模型
 - Gemini 模型在需要时自动切换到对应的 preview 版本
 
 ## 配置
@@ -540,6 +559,14 @@ export ANTHROPIC_MODEL=qwen3-coder-plus
 export ANTHROPIC_SMALL_FAST_MODEL=qwen3-coder-flash
 ```
 
+使用 iFlow 模型：
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=qwen3-max
+export ANTHROPIC_SMALL_FAST_MODEL=qwen3-235b-a22b-instruct
+```
+
 ## Codex 多账户负载均衡
 
 启动 CLI Proxy API 服务器, 修改 `~/.codex/config.toml` 和 `~/.codex/auth.json` 文件。
@@ -593,6 +620,12 @@ docker run --rm -p 54545:54545 -v /path/to/your/config.yaml:/CLIProxyAPI/config.
 
 ```bash
 docker run -it -rm -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --qwen-login
+```
+
+运行以下命令进行登录（iFlow OAuth，端口 11451）：
+
+```bash
+docker run --rm -p 11451:11451 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --iflow-login
 ```
 
 
@@ -657,6 +690,10 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
     - **Qwen**:
     ```bash
     docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --qwen-login
+    ```
+    - **iFlow**:
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --iflow-login
     ```
 
 5.  查看服务器日志：

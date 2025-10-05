@@ -663,6 +663,17 @@ These endpoints initiate provider login flows and return a URL to open in a brow
     { "status": "ok", "url": "https://..." }
     ```
 
+- GET `/iflow-auth-url` — Start iFlow login
+  - Request:
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      http://localhost:8317/v0/management/iflow-auth-url
+    ```
+  - Response:
+    ```json
+    { "status": "ok", "url": "https://..." }
+    ```
+
 - GET `/get-auth-status?state=<state>` — Poll OAuth flow status
   - Request:
     ```bash

@@ -8,7 +8,7 @@ It now also supports OpenAI Codex (GPT models) and Claude Code via OAuth.
 
 So you can use local or multi-account CLI access with OpenAI(include Responses)/Gemini/Claude-compatible clients and SDKs.
 
-The first Chinese provider has now been added: [Qwen Code](https://github.com/QwenLM/qwen-code).
+Chinese providers have now been added: [Qwen Code](https://github.com/QwenLM/qwen-code), [iFlow](https://iflow.cn/).
 
 ## Features
 
@@ -16,19 +16,21 @@ The first Chinese provider has now been added: [Qwen Code](https://github.com/Qw
 - OpenAI Codex support (GPT models) via OAuth login
 - Claude Code support via OAuth login
 - Qwen Code support via OAuth login
+- iFlow support via OAuth login
 - Gemini Web support via cookie-based login
 - Streaming and non-streaming responses
 - Function calling/tools support
 - Multimodal input support (text and images)
-- Multiple accounts with round-robin load balancing (Gemini, OpenAI, Claude and Qwen)
-- Simple CLI authentication flows (Gemini, OpenAI, Claude and Qwen)
+- Multiple accounts with round-robin load balancing (Gemini, OpenAI, Claude, Qwen and iFlow)
+- Simple CLI authentication flows (Gemini, OpenAI, Claude, Qwen and iFlow)
 - Generative Language API Key support
 - Gemini CLI multi-account load balancing
 - Claude Code multi-account load balancing
 - Qwen Code multi-account load balancing
+- iFlow multi-account load balancing
 - OpenAI Codex multi-account load balancing
 - OpenAI-compatible upstream providers via config (e.g., OpenRouter)
-- Reusable Go SDK for embedding the proxy (see `docs/sdk-usage.md`, 中文: `docs/sdk-usage_CN.md`)
+- Reusable Go SDK for embedding the proxy (see `docs/sdk-usage.md`)
 
 ## Installation
 
@@ -39,6 +41,7 @@ The first Chinese provider has now been added: [Qwen Code](https://github.com/Qw
 - An OpenAI account for Codex/GPT access (optional)
 - An Anthropic account for Claude Code access (optional)
 - A Qwen Chat account for Qwen Code access (optional)
+- An iFlow account for iFlow access (optional)
 
 ### Building from Source
 
@@ -76,7 +79,7 @@ Set `remote-management.disable-control-panel` to `true` if you prefer to host th
 
 ### Authentication
 
-You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the same `auth-dir` and will be load balanced.
+You can authenticate for Gemini, OpenAI, Claude, Qwen, and/or iFlow. All can coexist in the same `auth-dir` and will be load balanced.
 
 - Gemini (Google):
   ```bash
@@ -114,6 +117,12 @@ You can authenticate for Gemini, OpenAI, and/or Claude. All can coexist in the s
   ./cli-proxy-api --qwen-login
   ```
   Options: add `--no-browser` to print the login URL instead of opening a browser. Use the Qwen Chat's OAuth device flow.
+
+- iFlow (iFlow via OAuth):
+  ```bash
+  ./cli-proxy-api --iflow-login
+  ```
+  Options: add `--no-browser` to print the login URL instead of opening a browser. The local OAuth callback uses port `11451`.
 
 
 ### Starting the Server
@@ -156,7 +165,7 @@ Request body example:
 ```
 
 Notes:
-- Use a `gemini-*` model for Gemini (e.g., "gemini-2.5-pro"), a `gpt-*` model for OpenAI (e.g., "gpt-5"), a `claude-*` model for Claude (e.g., "claude-3-5-sonnet-20241022"), or a `qwen-*` model for Qwen (e.g., "qwen3-coder-plus"). The proxy will route to the correct provider automatically.
+- Use a `gemini-*` model for Gemini (e.g., "gemini-2.5-pro"), a `gpt-*` model for OpenAI (e.g., "gpt-5"), a `claude-*` model for Claude (e.g., "claude-3-5-sonnet-20241022"), a `qwen-*` model for Qwen (e.g., "qwen3-coder-plus"), or an iFlow-supported model (e.g., "tstars2.0", "deepseek-v3.1", "kimi-k2", etc.). The proxy will route to the correct provider automatically.
 
 #### Claude Messages (SSE-compatible)
 
@@ -259,6 +268,16 @@ console.log(await claudeResponse.json());
 - claude-3-5-haiku-20241022
 - qwen3-coder-plus
 - qwen3-coder-flash
+- qwen3-max
+- qwen3-vl-plus
+- deepseek-v3.2
+- deepseek-v3.1
+- deepseek-r1
+- deepseek-v3
+- kimi-k2
+- glm-4.5
+- tstars2.0
+- And other iFlow-supported models
 - Gemini models auto-switch to preview variants when needed
 
 ## Configuration
@@ -532,6 +551,14 @@ export ANTHROPIC_MODEL=qwen3-coder-plus
 export ANTHROPIC_SMALL_FAST_MODEL=qwen3-coder-flash
 ```
 
+Using iFlow models:
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8317
+export ANTHROPIC_AUTH_TOKEN=sk-dummy
+export ANTHROPIC_MODEL=qwen3-max
+export ANTHROPIC_SMALL_FAST_MODEL=qwen3-235b-a22b-instruct
+```
+
 ## Codex with multiple account load balancing
 
 Start CLI Proxy API server, and then edit the `~/.codex/config.toml` and `~/.codex/auth.json` files.
@@ -585,6 +612,12 @@ Run the following command to login (Qwen OAuth):
 
 ```bash
 docker run -it -rm -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --qwen-login
+```
+
+Run the following command to login (iFlow OAuth on port 11451):
+
+```bash
+docker run --rm -p 11451:11451 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --iflow-login
 ```
 
 Run the following command to start the server:
@@ -645,9 +678,13 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
     ```bash
     docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --claude-login
     ```
-    - **Qwen**: 
+    - **Qwen**:
     ```bash
     docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --qwen-login
+    ```
+    - **iFlow**:
+    ```bash
+    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --iflow-login
     ```
 
 5.  To view the server logs:
