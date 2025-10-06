@@ -729,6 +729,18 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
 4. 推送到分支（`git push origin feature/amazing-feature`）
 5. 打开 Pull Request
 
+## 谁与我们在一起？
+
+这些项目基于 CLIProxyAPI:
+
+### [vibeproxy](https://github.com/automazeio/vibeproxy)
+
+一个原生 macOS 菜单栏应用，让您可以使用 Claude Code & ChatGPT 订阅服务和 AI 编程工具，无需 API 密钥。
+
+> [!NOTE]  
+> 如果你开发了基于 CLIProxyAPI 的项目，请提交一个 PR（拉取请求）将其添加到此列表中。
+
+
 ## 许可证
 
 此项目根据 MIT 许可证授权 - 有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
