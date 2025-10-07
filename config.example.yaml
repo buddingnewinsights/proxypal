@@ -90,10 +90,8 @@ quota-exceeded:
 #    # Disable the short continuation hint appended to intermediate chunks
 #    # when splitting long prompts. Default is false (hint enabled by default).
 #    disable-continuation-hint: false
-#    # Code mode:
-#    #   - true: enable XML wrapping hint and attach the coding-partner Gem.
-#    #           Thought merging (<think> into visible content) applies to STREAMING only;
-#    #           non-stream responses keep reasoning/thought parts separate for clients
-#    #           that expect explicit reasoning fields.
-#    #   - false: disable XML hint and keep <think> separate
-#    code-mode: false
+#    # Gem selection (Gem Mode):
+#    #   - "coding-partner": attach the predefined Coding partner Gem
+#    #   - "writing-editor": attach the predefined Writing editor Gem
+#    #   - empty: do not attach any Gem
+#    gem-mode: ""

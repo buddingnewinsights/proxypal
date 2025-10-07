@@ -328,7 +328,7 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `openai-compatibility.*.models.*.alias`            | string   | ""                 | The alias used in the API.                                                                                                                                                                |
 | `gemini-web`                            | object   | {}                 | Configuration specific to the Gemini Web client.                                                                                                                                          |
 | `gemini-web.context`                    | boolean  | true               | Enables conversation context reuse for continuous dialogue.                                                                                                                               |
-| `gemini-web.code-mode`                  | boolean  | false              | Enables code mode for optimized responses in coding-related tasks.                                                                                                                        |
+| `gemini-web.gem-mode`                   | string   | ""                | Selects a predefined Gem to attach for Gemini Web requests; allowed values: `coding-partner`, `writing-editor`. When empty, no Gem is attached.                                           |
 | `gemini-web.max-chars-per-request`      | integer  | 1,000,000          | The maximum number of characters to send to Gemini Web in a single request.                                                                                                               |
 | `gemini-web.disable-continuation-hint`  | boolean  | false              | Disables the continuation hint for split prompts.                                                                                                                                         |
 
@@ -378,7 +378,7 @@ quota-exceeded:
 # Gemini Web client configuration
 gemini-web:
   context: true # Enable conversation context reuse
-  code-mode: false # Enable code mode
+  gem-mode: "" # Select Gem: "coding-partner" or "writing-editor"; empty means no Gem
   max-chars-per-request: 1000000 # Max characters per request
 
 # API keys for official Generative Language API

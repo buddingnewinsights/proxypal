@@ -340,7 +340,7 @@ console.log(await claudeResponse.json());
 | `openai-compatibility.*.models.*.alias`               | string   | ""                 | 在API中使用的别名。                                                         |
 | `gemini-web`                            | object   | {}                 | Gemini Web 客户端的特定配置。                                                 |
 | `gemini-web.context`                    | boolean  | true               | 是否启用会话上下文重用，以实现连续对话。                                        |
-| `gemini-web.code-mode`                  | boolean  | false              | 是否启用代码模式，优化代码相关任务的响应。                                      |
+| `gemini-web.gem-mode`                   | string   | ""                | 选择要附加的预设 Gem（`coding-partner` 或 `writing-editor`）；为空表示不附加。 |
 | `gemini-web.max-chars-per-request`      | integer  | 1,000,000          | 单次请求发送给 Gemini Web 的最大字符数。                                        |
 | `gemini-web.disable-continuation-hint`  | boolean  | false              | 当提示被拆分时，是否禁用连续提示的暗示。                                        |
 
@@ -390,7 +390,7 @@ quota-exceeded:
 # Gemini Web 客户端配置
 gemini-web:
   context: true # 启用会话上下文重用
-  code-mode: false # 启用代码模式
+  gem-mode: "" # 选择 Gem："coding-partner" 或 "writing-editor"；为空表示不附加
   max-chars-per-request: 1000000 # 单次请求最大字符数
 
 # AIStduio Gemini API 的 API 密钥
