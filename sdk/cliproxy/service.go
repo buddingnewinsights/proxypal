@@ -291,6 +291,17 @@ func (s *Service) ensureExecutorsForAuth(a *coreauth.Auth) {
 	}
 }
 
+// rebindExecutors refreshes provider executors so they observe the latest configuration.
+func (s *Service) rebindExecutors() {
+	if s == nil || s.coreManager == nil {
+		return
+	}
+	auths := s.coreManager.List()
+	for _, auth := range auths {
+		s.ensureExecutorsForAuth(auth)
+	}
+}
+
 // Run starts the service and blocks until the context is cancelled or the server stops.
 // It initializes all components including authentication, file watching, HTTP server,
 // and starts processing requests. The method blocks until the context is cancelled.
@@ -389,6 +400,7 @@ func (s *Service) Run(ctx context.Context) error {
 		s.cfgMu.Lock()
 		s.cfg = newCfg
 		s.cfgMu.Unlock()
+		s.rebindExecutors()
 
 	}
 
