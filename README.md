@@ -62,6 +62,12 @@ Chinese providers have now been added: [Qwen Code](https://github.com/QwenLM/qwe
    go build -o cli-proxy-api.exe ./cmd/server
    ```
 
+### Installation via Homebrew
+
+```bash
+brew install cliproxyapi
+brew services start cliproxyapi
+```
 
 ## Usage
 

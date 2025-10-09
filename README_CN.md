@@ -76,6 +76,13 @@
    go build -o cli-proxy-api ./cmd/server
    ```
 
+### 通过 Homebrew 安装
+
+```bash
+brew install cliproxyapi
+brew services start cliproxyapi
+```
+
 ## 使用方法
 
 ### 图形客户端与官方 WebUI
