@@ -22,5 +22,4 @@ services:
       - ./config.yaml:/CLIProxyAPI/config.yaml
       - ./auths:/root/.cli-proxy-api
       - ./logs:/CLIProxyAPI/logs
-      - ./conv:/CLIProxyAPI/conv
     restart: unless-stopped

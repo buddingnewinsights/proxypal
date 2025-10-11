@@ -4,15 +4,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	configaccess "github.com/router-for-me/CLIProxyAPI/v6/internal/access/config_access"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/store"
 	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
@@ -93,8 +99,45 @@ func main() {
 	// Core application variables.
 	var err error
 	var cfg *config.Config
-	var wd string
 	var isCloudDeploy bool
+	var (
+		gitStoreLocalPath string
+		useGitStore       bool
+		gitStoreRemoteURL string
+		gitStoreUser      string
+		gitStorePassword  string
+		gitStoreInst      *store.GitTokenStore
+		gitStoreRoot      string
+	)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("failed to get working directory: %v", err)
+	}
+
+	lookupEnv := func(keys ...string) (string, bool) {
+		for _, key := range keys {
+			if value, ok := os.LookupEnv(key); ok {
+				if trimmed := strings.TrimSpace(value); trimmed != "" {
+					return trimmed, true
+				}
+			}
+		}
+		return "", false
+	}
+	if value, ok := lookupEnv("GITSTORE_GIT_URL", "gitstore_git_url"); ok {
+		useGitStore = true
+		gitStoreRemoteURL = value
+	}
+	if value, ok := lookupEnv("GITSTORE_GIT_USERNAME", "gitstore_git_username"); ok {
+		gitStoreUser = value
+	}
+	if value, ok := lookupEnv("GITSTORE_GIT_TOKEN", "gitstore_git_token"); ok {
+		gitStorePassword = value
+	}
+	if value, ok := lookupEnv("GITSTORE_LOCAL_PATH", "gitstore_local_path"); ok {
+		gitStoreLocalPath = value
+	}
 
 	// Check for cloud deploy mode only on first execution
 	// Read env var name in uppercase: DEPLOY
@@ -104,10 +147,44 @@ func main() {
 	}
 
 	// Determine and load the configuration file.
-	// If a config path is provided via flags, it is used directly.
-	// Otherwise, it defaults to "config.yaml" in the current working directory.
+	// If gitstore is configured, load from the cloned repository; otherwise use the provided path or default.
 	var configFilePath string
-	if configPath != "" {
+	if useGitStore {
+		if gitStoreLocalPath == "" {
+			gitStoreLocalPath = wd
+		}
+		gitStoreRoot = filepath.Join(gitStoreLocalPath, "remote")
+		authDir := filepath.Join(gitStoreRoot, "auths")
+		gitStoreInst = store.NewGitTokenStore(gitStoreRemoteURL, gitStoreUser, gitStorePassword)
+		gitStoreInst.SetBaseDir(authDir)
+		if errRepo := gitStoreInst.EnsureRepository(); errRepo != nil {
+			log.Fatalf("failed to prepare git token store: %v", errRepo)
+		}
+		configFilePath = gitStoreInst.ConfigPath()
+		if configFilePath == "" {
+			configFilePath = filepath.Join(gitStoreRoot, "config", "config.yaml")
+		}
+		if _, statErr := os.Stat(configFilePath); errors.Is(statErr, fs.ErrNotExist) {
+			examplePath := filepath.Join(wd, "config.example.yaml")
+			if _, errExample := os.Stat(examplePath); errExample != nil {
+				log.Fatalf("failed to find template config file: %v", errExample)
+			}
+			if errCopy := misc.CopyConfigTemplate(examplePath, configFilePath); errCopy != nil {
+				log.Fatalf("failed to bootstrap git-backed config: %v", errCopy)
+			}
+			if errCommit := gitStoreInst.CommitConfig(context.Background()); errCommit != nil {
+				log.Fatalf("failed to commit initial git-backed config: %v", errCommit)
+			}
+			log.Infof("git-backed config initialized from template: %s", configFilePath)
+		} else if statErr != nil {
+			log.Fatalf("failed to inspect git-backed config: %v", statErr)
+		}
+		cfg, err = config.LoadConfigOptional(configFilePath, isCloudDeploy)
+		if err == nil {
+			cfg.AuthDir = gitStoreInst.AuthDir()
+			log.Infof("git-backed token store enabled, repository path: %s", gitStoreRoot)
+		}
+	} else if configPath != "" {
 		configFilePath = configPath
 		cfg, err = config.LoadConfigOptional(configPath, isCloudDeploy)
 	} else {
@@ -120,6 +197,9 @@ func main() {
 	}
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
+	}
+	if cfg == nil {
+		cfg = &config.Config{}
 	}
 
 	// In cloud deploy mode, check if we have a valid configuration
@@ -165,7 +245,11 @@ func main() {
 	}
 
 	// Register the shared token store once so all components use the same persistence backend.
-	sdkAuth.RegisterTokenStore(sdkAuth.NewFileTokenStore())
+	if useGitStore {
+		sdkAuth.RegisterTokenStore(gitStoreInst)
+	} else {
+		sdkAuth.RegisterTokenStore(sdkAuth.NewFileTokenStore())
+	}
 
 	// Register built-in access providers before constructing services.
 	configaccess.Register()
