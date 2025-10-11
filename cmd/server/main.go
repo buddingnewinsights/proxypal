@@ -44,7 +44,6 @@ func main() {
 	var claudeLogin bool
 	var qwenLogin bool
 	var iflowLogin bool
-	var geminiWebAuth bool
 	var noBrowser bool
 	var projectID string
 	var configPath string
@@ -56,7 +55,6 @@ func main() {
 	flag.BoolVar(&claudeLogin, "claude-login", false, "Login to Claude using OAuth")
 	flag.BoolVar(&qwenLogin, "qwen-login", false, "Login to Qwen using OAuth")
 	flag.BoolVar(&iflowLogin, "iflow-login", false, "Login to iFlow using OAuth")
-	flag.BoolVar(&geminiWebAuth, "gemini-web-auth", false, "Auth Gemini Web using cookies")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Don't open browser automatically for OAuth")
 	flag.StringVar(&projectID, "project_id", "", "Project ID (Gemini only, not required)")
 	flag.StringVar(&configPath, "config", DefaultConfigPath, "Configure File Path")
@@ -182,8 +180,6 @@ func main() {
 		cmd.DoQwenLogin(cfg, options)
 	} else if iflowLogin {
 		cmd.DoIFlowLogin(cfg, options)
-	} else if geminiWebAuth {
-		cmd.DoGeminiWebAuth(cfg)
 	} else {
 		// In cloud deploy mode without config file, just wait for shutdown signals
 		if isCloudDeploy && !configFileExists {

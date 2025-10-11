@@ -37,7 +37,6 @@
 - 新增 Claude Code 支持（OAuth 登录）
 - 新增 Qwen Code 支持（OAuth 登录）
 - 新增 iFlow 支持（OAuth 登录）
-- 新增 Gemini Web 支持（通过 Cookie 登录）
 - 支持流式与非流式响应
 - 函数调用/工具支持
 - 多模态输入（文本、图片）
@@ -112,13 +111,6 @@ CLIProxyAPI 的基于 Web 的管理中心。
   本地 OAuth 回调端口为 `8085`。
 
   选项：加上 `--no-browser` 可打印登录地址而不自动打开浏览器。本地 OAuth 回调端口为 `8085`。
-
-- Gemini Web (通过 Cookie):
-  此方法通过模拟浏览器行为，使用从 Gemini 网站获取的 Cookie 进行身份验证。
-  ```bash
-  ./cli-proxy-api --gemini-web-auth
-  ```
-  程序将提示您输入 `__Secure-1PSID` 和 `__Secure-1PSIDTS` 的值。请从您的浏览器开发者工具中获取这些 Cookie。
 
 - OpenAI（Codex/GPT，OAuth）：
   ```bash
@@ -347,11 +339,6 @@ console.log(await claudeResponse.json());
 | `openai-compatibility.*.models`                       | object[] | []                 | 实际的模型名称。                                                            |
 | `openai-compatibility.*.models.*.name`                | string   | ""                 | 提供商支持的模型。                                                           |
 | `openai-compatibility.*.models.*.alias`               | string   | ""                 | 在API中使用的别名。                                                         |
-| `gemini-web`                            | object   | {}                 | Gemini Web 客户端的特定配置。                                                 |
-| `gemini-web.context`                    | boolean  | true               | 是否启用会话上下文重用，以实现连续对话。                                        |
-| `gemini-web.gem-mode`                   | string   | ""                | 选择要附加的预设 Gem（`coding-partner` 或 `writing-editor`）；为空表示不附加。 |
-| `gemini-web.max-chars-per-request`      | integer  | 1,000,000          | 单次请求发送给 Gemini Web 的最大字符数。                                        |
-| `gemini-web.disable-continuation-hint`  | boolean  | false              | 当提示被拆分时，是否禁用连续提示的暗示。                                        |
 
 ### 配置文件示例
 
@@ -400,12 +387,6 @@ request-retry: 3
 quota-exceeded:
    switch-project: true # 当配额超限时是否自动切换到另一个项目
    switch-preview-model: true # 当配额超限时是否自动切换到预览模型
-
-# Gemini Web 客户端配置
-gemini-web:
-  context: true # 启用会话上下文重用
-  gem-mode: "" # 选择 Gem："coding-partner" 或 "writing-editor"；为空表示不附加
-  max-chars-per-request: 1000000 # 单次请求最大字符数
 
 # AIStduio Gemini API 的 API 密钥
 generative-language-api-key:
@@ -613,12 +594,6 @@ auth.json:
 docker run --rm -p 8085:8085 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --login
 ```
 
-运行以下命令进行登录（Gemini Web Cookie）：
-
-```bash
-docker run -it --rm -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest /CLIProxyAPI/CLIProxyAPI --gemini-web-auth
-```
-
 运行以下命令进行登录（OpenAI OAuth，端口 1455）：
 
 ```bash
@@ -689,10 +664,6 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
     - **Gemini**: 
     ```bash
     docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI -no-browser --login
-    ```
-    - **Gemini Web**:
-    ```bash
-    docker compose exec cli-proxy-api /CLIProxyAPI/CLIProxyAPI --gemini-web-auth
     ```
     - **OpenAI (Codex)**:
     ```bash

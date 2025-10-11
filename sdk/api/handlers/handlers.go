@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
-	conversation "github.com/router-for-me/CLIProxyAPI/v6/internal/provider/gemini-web/conversation"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	coreexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
@@ -48,8 +47,6 @@ type BaseAPIHandler struct {
 	// Cfg holds the current application configuration.
 	Cfg *config.SDKConfig
 }
-
-const geminiWebProvider = "gemini-web"
 
 // NewBaseAPIHandlers creates a new API handlers instance.
 // It takes a slice of clients and configuration as input.
@@ -140,7 +137,6 @@ func (h *BaseAPIHandler) ExecuteWithAuthManager(ctx context.Context, handlerType
 	if len(providers) == 0 {
 		return nil, &interfaces.ErrorMessage{StatusCode: http.StatusBadRequest, Error: fmt.Errorf("unknown provider for model %s", modelName)}
 	}
-	metadata := h.buildGeminiWebMetadata(handlerType, providers, rawJSON)
 	req := coreexecutor.Request{
 		Model:   modelName,
 		Payload: cloneBytes(rawJSON),
@@ -150,7 +146,6 @@ func (h *BaseAPIHandler) ExecuteWithAuthManager(ctx context.Context, handlerType
 		Alt:             alt,
 		OriginalRequest: cloneBytes(rawJSON),
 		SourceFormat:    sdktranslator.FromString(handlerType),
-		Metadata:        metadata,
 	}
 	resp, err := h.AuthManager.Execute(ctx, providers, req, opts)
 	if err != nil {
@@ -166,7 +161,6 @@ func (h *BaseAPIHandler) ExecuteCountWithAuthManager(ctx context.Context, handle
 	if len(providers) == 0 {
 		return nil, &interfaces.ErrorMessage{StatusCode: http.StatusBadRequest, Error: fmt.Errorf("unknown provider for model %s", modelName)}
 	}
-	metadata := h.buildGeminiWebMetadata(handlerType, providers, rawJSON)
 	req := coreexecutor.Request{
 		Model:   modelName,
 		Payload: cloneBytes(rawJSON),
@@ -176,7 +170,6 @@ func (h *BaseAPIHandler) ExecuteCountWithAuthManager(ctx context.Context, handle
 		Alt:             alt,
 		OriginalRequest: cloneBytes(rawJSON),
 		SourceFormat:    sdktranslator.FromString(handlerType),
-		Metadata:        metadata,
 	}
 	resp, err := h.AuthManager.ExecuteCount(ctx, providers, req, opts)
 	if err != nil {
@@ -195,7 +188,6 @@ func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handl
 		close(errChan)
 		return nil, errChan
 	}
-	metadata := h.buildGeminiWebMetadata(handlerType, providers, rawJSON)
 	req := coreexecutor.Request{
 		Model:   modelName,
 		Payload: cloneBytes(rawJSON),
@@ -205,7 +197,6 @@ func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handl
 		Alt:             alt,
 		OriginalRequest: cloneBytes(rawJSON),
 		SourceFormat:    sdktranslator.FromString(handlerType),
-		Metadata:        metadata,
 	}
 	chunks, err := h.AuthManager.ExecuteStream(ctx, providers, req, opts)
 	if err != nil {
@@ -239,18 +230,6 @@ func cloneBytes(src []byte) []byte {
 	dst := make([]byte, len(src))
 	copy(dst, src)
 	return dst
-}
-
-func (h *BaseAPIHandler) buildGeminiWebMetadata(handlerType string, providers []string, rawJSON []byte) map[string]any {
-	if !util.InArray(providers, geminiWebProvider) {
-		return nil
-	}
-	meta := make(map[string]any)
-	msgs := conversation.ExtractMessages(handlerType, rawJSON)
-	if len(msgs) > 0 {
-		meta[conversation.MetadataMessagesKey] = msgs
-	}
-	return meta
 }
 
 // WriteErrorResponse writes an error message to the response writer using the HTTP status embedded in the message.
