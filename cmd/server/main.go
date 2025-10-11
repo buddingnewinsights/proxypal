@@ -122,15 +122,20 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	// Log if we're running without a config file in cloud deploy mode
+	// In cloud deploy mode, check if we have a valid configuration
 	var configFileExists bool
 	if isCloudDeploy {
 		if info, errStat := os.Stat(configFilePath); errStat != nil {
 			// Don't mislead: API server will not start until configuration is provided.
-			log.Info("Cloud deploy mode: No configuration file detected; standing by for configuration (API server not started)")
+			log.Info("Cloud deploy mode: No configuration file detected; standing by for configuration")
 			configFileExists = false
 		} else if info.IsDir() {
-			log.Info("Cloud deploy mode: Config path is a directory; standing by for configuration (API server not started)")
+			log.Info("Cloud deploy mode: Config path is a directory; standing by for configuration")
+			configFileExists = false
+		} else if cfg.Port == 0 {
+			// LoadConfigOptional returns empty config when file is empty or invalid.
+			// Config file exists but is empty or invalid; treat as missing config
+			log.Info("Cloud deploy mode: Configuration file is empty or invalid; standing by for valid configuration")
 			configFileExists = false
 		} else {
 			log.Info("Cloud deploy mode: Configuration file detected; starting service")
