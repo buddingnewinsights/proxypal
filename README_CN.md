@@ -426,6 +426,28 @@ openai-compatibility:
         alias: "kimi-k2" # 在API中使用的别名。
 ```
 
+### Git 支持的配置与令牌存储
+
+应用程序可配置为使用 Git 仓库作为后端，用于存储 `config.yaml` 配置文件和来自 `auth-dir` 目录的身份验证令牌。这允许对您的配置进行集中管理和版本控制。
+
+要启用此功能，请将 `GITSTORE_GIT_URL` 环境变量设置为您的 Git 仓库的 URL。
+
+**环境变量**
+
+| 变量                    | 必需 | 默认值                | 描述                                                                                                   |
+| ----------------------- | ---- | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GITSTORE_GIT_URL`      | 是   |                       | 要使用的 Git 仓库的 HTTPS URL。                                                                          |
+| `GITSTORE_LOCAL_PATH`   | 否   | 当前工作目录          | 将克隆 Git 仓库的本地路径。在 Docker 内部，此路径默认为 `/CLIProxyAPI`。                               |
+| `GITSTORE_GIT_USERNAME` | 否   |                       | 用于 Git 身份验证的用户名。                                                                              |
+| `GITSTORE_GIT_TOKEN`    | 否   |                       | 用于 Git 身份验证的个人访问令牌（或密码）。                                                            |
+
+**工作原理**
+
+1.  **克隆：** 启动时，应用程序会将远程 Git 仓库克隆到 `GITSTORE_LOCAL_PATH`。
+2.  **配置：** 然后，它会在克隆的仓库内的 `config` 目录中查找 `config.yaml` 文件。
+3.  **引导：** 如果仓库中不存在 `config/config.yaml`，应用程序会将本地的 `config.example.yaml` 复制到该位置，然后提交并推送到远程仓库作为初始配置。您必须确保 `config.example.yaml` 文件可用。
+4.  **令牌同步：** `auth-dir` 也在此仓库中管理。对身份验证令牌的任何更改（例如，通过新的登录）都会自动提交并推送到远程 Git 仓库。
+
 ### OpenAI 兼容上游提供商
 
 通过 `openai-compatibility` 配置上游 OpenAI 兼容提供商（例如 OpenRouter）。
@@ -625,6 +647,18 @@ docker run --rm -p 11451:11451 -v /path/to/your/config.yaml:/CLIProxyAPI/config.
 docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest
 ```
 
+> [!NOTE]
+> 要在 Docker 中使用 Git 支持的配置存储，您可以使用 `-e` 标志传递 `GITSTORE_*` 环境变量。例如：
+>
+> ```bash
+> docker run --rm -p 8317:8317 \
+>   -e GITSTORE_GIT_URL="https://github.com/your/config-repo.git" \
+>   -e GITSTORE_GIT_TOKEN="your_personal_access_token" \
+>   -v /path/to/your/git-store:/CLIProxyAPI/remote \
+>   eceasy/cli-proxy-api:latest
+> ```
+> 在这种情况下，您可能不需要直接挂载 `config.yaml` 或 `auth-dir`，因为它们将由容器内的 Git 存储在 `GITSTORE_LOCAL_PATH`（默认为 `/CLIProxyAPI`，在此示例中我们将其设置为 `/CLIProxyAPI/remote`）进行管理。
+
 ## 使用 Docker Compose 运行
 
 1.  克隆仓库并进入目录：
@@ -639,6 +673,27 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
     cp config.example.yaml config.yaml
     ```
     *（Windows 用户请注意：您可以在 CMD 或 PowerShell 中使用 `copy config.example.yaml config.yaml`。）*
+
+    要在 Docker Compose 中使用 Git 支持的配置存储，您可以将 `GITSTORE_*` 环境变量添加到 `docker-compose.yml` 文件中的 `cli-proxy-api` 服务定义下。例如：
+    ```yaml
+    services:
+      cli-proxy-api:
+        image: eceasy/cli-proxy-api:latest
+        container_name: cli-proxy-api
+        ports:
+          - "8317:8317"
+          - "8085:8085"
+          - "1455:1455"
+          - "54545:54545"
+          - "11451:11451"
+        environment:
+          - GITSTORE_GIT_URL=https://github.com/your/config-repo.git
+          - GITSTORE_GIT_TOKEN=your_personal_access_token
+        volumes:
+          - ./git-store:/CLIProxyAPI/remote # GITSTORE_LOCAL_PATH
+        restart: unless-stopped
+    ```
+    在使用 Git 存储时，您可能不需要直接挂载 `config.yaml` 或 `auth-dir`。
 
 3.  启动服务：
     -   **适用于大多数用户（推荐）：**

@@ -413,6 +413,28 @@ openai-compatibility:
         alias: "kimi-k2" # The alias used in the API.
 ```
 
+### Git-backed Configuration and Token Store
+
+The application can be configured to use a Git repository as a backend for storing both the `config.yaml` file and the authentication tokens from the `auth-dir`. This allows for centralized management and versioning of your configuration.
+
+To enable this feature, set the `GITSTORE_GIT_URL` environment variable to the URL of your Git repository.
+
+**Environment Variables**
+
+| Variable                | Required | Default                   | Description                                                                                              |
+| ----------------------- | -------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `GITSTORE_GIT_URL`      | Yes      |                           | The HTTPS URL of the Git repository to use.                                                              |
+| `GITSTORE_LOCAL_PATH`   | No       | Current working directory | The local path where the Git repository will be cloned. Inside Docker, this defaults to `/CLIProxyAPI`.    |
+| `GITSTORE_GIT_USERNAME` | No       |                           | The username for Git authentication.                                                                     |
+| `GITSTORE_GIT_TOKEN`    | No       |                           | The personal access token (or password) for Git authentication.                                          |
+
+**How it Works**
+
+1.  **Cloning:** On startup, the application clones the remote Git repository to the `GITSTORE_LOCAL_PATH`.
+2.  **Configuration:** It then looks for a `config.yaml` inside a `config` directory within the cloned repository.
+3.  **Bootstrapping:** If `config/config.yaml` does not exist in the repository, the application will copy the local `config.example.yaml` to that location, commit, and push it to the remote repository as an initial configuration. You must have `config.example.yaml` available.
+4.  **Token Sync:** The `auth-dir` is also managed within this repository. Any changes to authentication tokens (e.g., through a new login) are automatically committed and pushed to the remote Git repository.
+
 ### OpenAI Compatibility Providers
 
 Configure upstream OpenAI-compatible providers (e.g., OpenRouter) via `openai-compatibility`.
@@ -615,6 +637,18 @@ Run the following command to start the server:
 docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.yaml -v /path/to/your/auth-dir:/root/.cli-proxy-api eceasy/cli-proxy-api:latest
 ```
 
+> [!NOTE]
+> To use the Git-backed configuration store with Docker, you can pass the `GITSTORE_*` environment variables using the `-e` flag. For example:
+>
+> ```bash
+> docker run --rm -p 8317:8317 \
+>   -e GITSTORE_GIT_URL="https://github.com/your/config-repo.git" \
+>   -e GITSTORE_GIT_TOKEN="your_personal_access_token" \
+>   -v /path/to/your/git-store:/CLIProxyAPI/remote \
+>   eceasy/cli-proxy-api:latest
+> ```
+> In this case, you may not need to mount `config.yaml` or `auth-dir` directly, as they will be managed by the Git store inside the container at the `GITSTORE_LOCAL_PATH` (which defaults to `/CLIProxyAPI` and we are setting it to `/CLIProxyAPI/remote` in this example).
+
 ## Run with Docker Compose
 
 1.  Clone the repository and navigate into the directory:
@@ -629,6 +663,27 @@ docker run --rm -p 8317:8317 -v /path/to/your/config.yaml:/CLIProxyAPI/config.ya
     cp config.example.yaml config.yaml
     ```
     *(Note for Windows users: You can use `copy config.example.yaml config.yaml` in CMD or PowerShell.)*
+
+    To use the Git-backed configuration store, you can add the `GITSTORE_*` environment variables to your `docker-compose.yml` file under the `cli-proxy-api` service definition. For example:
+    ```yaml
+    services:
+      cli-proxy-api:
+        image: eceasy/cli-proxy-api:latest
+        container_name: cli-proxy-api
+        ports:
+          - "8317:8317"
+          - "8085:8085"
+          - "1455:1455"
+          - "54545:54545"
+          - "11451:11451"
+        environment:
+          - GITSTORE_GIT_URL=https://github.com/your/config-repo.git
+          - GITSTORE_GIT_TOKEN=your_personal_access_token
+        volumes:
+          - ./git-store:/CLIProxyAPI/remote # GITSTORE_LOCAL_PATH
+        restart: unless-stopped
+    ```
+    When using the Git store, you may not need to mount `config.yaml` or `auth-dir` directly.
 
 3.  Start the service:
     -   **For most users (recommended):**
