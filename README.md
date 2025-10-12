@@ -421,12 +421,15 @@ To enable this feature, set the `GITSTORE_GIT_URL` environment variable to the U
 
 **Environment Variables**
 
-| Variable                | Required | Default                   | Description                                                                                              |
-| ----------------------- | -------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `GITSTORE_GIT_URL`      | Yes      |                           | The HTTPS URL of the Git repository to use.                                                              |
-| `GITSTORE_LOCAL_PATH`   | No       | Current working directory | The local path where the Git repository will be cloned. Inside Docker, this defaults to `/CLIProxyAPI`.    |
-| `GITSTORE_GIT_USERNAME` | No       |                           | The username for Git authentication.                                                                     |
-| `GITSTORE_GIT_TOKEN`    | No       |                           | The personal access token (or password) for Git authentication.                                          |
+| Variable                | Required | Default                   | Description                                                                                             |
+|-------------------------|----------|---------------------------|---------------------------------------------------------------------------------------------------------|
+| `MANAGEMENT_PASSWORD`   | Yes      |                           | The password for management webui.                                                                      |
+| `GITSTORE_GIT_URL`      | Yes      |                           | The HTTPS URL of the Git repository to use.                                                             |
+| `GITSTORE_LOCAL_PATH`   | No       | Current working directory | The local path where the Git repository will be cloned. Inside Docker, this defaults to `/CLIProxyAPI`. |
+| `GITSTORE_GIT_USERNAME` | No       |                           | The username for Git authentication.                                                                    |
+| `GITSTORE_GIT_TOKEN`    | No       |                           | The personal access token (or password) for Git authentication.                                         |
+
+
 
 **How it Works**
 

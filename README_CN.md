@@ -434,12 +434,13 @@ openai-compatibility:
 
 **环境变量**
 
-| 变量                    | 必需 | 默认值                | 描述                                                                                                   |
-| ----------------------- | ---- | --------------------- | ------------------------------------------------------------------------------------------------------ |
-| `GITSTORE_GIT_URL`      | 是   |                       | 要使用的 Git 仓库的 HTTPS URL。                                                                          |
-| `GITSTORE_LOCAL_PATH`   | 否   | 当前工作目录          | 将克隆 Git 仓库的本地路径。在 Docker 内部，此路径默认为 `/CLIProxyAPI`。                               |
-| `GITSTORE_GIT_USERNAME` | 否   |                       | 用于 Git 身份验证的用户名。                                                                              |
-| `GITSTORE_GIT_TOKEN`    | 否   |                       | 用于 Git 身份验证的个人访问令牌（或密码）。                                                            |
+| 变量                      | 必需 | 默认值    | 描述                                                 |
+|-------------------------|----|--------|----------------------------------------------------|
+| `MANAGEMENT_PASSWORD`   | 是  |        | 控制面板密码                                             |
+| `GITSTORE_GIT_URL`      | 是  |        | 要使用的 Git 仓库的 HTTPS URL。                            |
+| `GITSTORE_LOCAL_PATH`   | 否  | 当前工作目录 | 将克隆 Git 仓库的本地路径。在 Docker 内部，此路径默认为 `/CLIProxyAPI`。 |
+| `GITSTORE_GIT_USERNAME` | 否  |        | 用于 Git 身份验证的用户名。                                   |
+| `GITSTORE_GIT_TOKEN`    | 否  |        | 用于 Git 身份验证的个人访问令牌（或密码）。                           |
 
 **工作原理**
 
