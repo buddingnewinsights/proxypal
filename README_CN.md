@@ -449,6 +449,26 @@ openai-compatibility:
 3.  **引导：** 如果仓库中不存在 `config/config.yaml`，应用程序会将本地的 `config.example.yaml` 复制到该位置，然后提交并推送到远程仓库作为初始配置。您必须确保 `config.example.yaml` 文件可用。
 4.  **令牌同步：** `auth-dir` 也在此仓库中管理。对身份验证令牌的任何更改（例如，通过新的登录）都会自动提交并推送到远程 Git 仓库。
 
+### PostgreSQL 支持的配置与令牌存储
+
+在托管环境中运行服务时，可以选择使用 PostgreSQL 来保存配置与令牌，借助托管数据库减轻本地文件管理压力。
+
+**环境变量**
+
+| 变量                      | 必需 | 默认值          | 描述                                                                 |
+|-------------------------|----|---------------|----------------------------------------------------------------------|
+| `MANAGEMENT_PASSWORD`   | 是  |               | 管理面板密码（启用远程管理时必需）。                                          |
+| `PGSTORE_DSN`           | 是  |               | PostgreSQL 连接串，例如 `postgresql://user:pass@host:5432/db`。       |
+| `PGSTORE_SCHEMA`        | 否  | public        | 创建表时使用的 schema；留空则使用默认 schema。                               |
+| `PGSTORE_CACHE_DIR`     | 否  | 当前工作目录       | 本地镜像根目录，服务将在 `<值>/pgstore` 下写入缓存；若无法获取工作目录则退回 `/tmp/pgstore`。 |
+
+**工作原理**
+
+1.  **初始化：** 启动时通过 `PGSTORE_DSN` 连接数据库，确保 schema 存在，并在缺失时创建 `config_store` 与 `auth_store`。
+2.  **本地镜像：** 在 `<PGSTORE_CACHE_DIR 或当前工作目录>/pgstore` 下建立可写缓存，复用 `config/config.yaml` 与 `auths/` 目录。
+3.  **引导：** 若数据库中无配置记录，会使用 `config.example.yaml` 初始化，并以固定标识 `config` 写入。
+4.  **令牌同步：** 配置与令牌的更改会写入 PostgreSQL，同时数据库中的内容也会反向同步至本地镜像，便于文件监听与管理接口继续工作。
+
 ### OpenAI 兼容上游提供商
 
 通过 `openai-compatibility` 配置上游 OpenAI 兼容提供商（例如 OpenRouter）。

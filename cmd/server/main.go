@@ -105,7 +105,6 @@ func main() {
 		usePostgresStore  bool
 		pgStoreDSN        string
 		pgStoreSchema     string
-		pgStoreConfigKey  string
 		pgStoreCacheDir   string
 		pgStoreInst       *store.PostgresStore
 		gitStoreLocalPath string
@@ -139,9 +138,6 @@ func main() {
 	if usePostgresStore {
 		if value, ok := lookupEnv("PGSTORE_SCHEMA", "pgstore_schema"); ok {
 			pgStoreSchema = value
-		}
-		if value, ok := lookupEnv("PGSTORE_CONFIG_KEY", "pgstore_config_key"); ok {
-			pgStoreConfigKey = value
 		}
 		if value, ok := lookupEnv("PGSTORE_CACHE_DIR", "pgstore_cache_dir"); ok {
 			pgStoreCacheDir = value
@@ -179,10 +175,9 @@ func main() {
 		pgStoreCacheDir = filepath.Join(pgStoreCacheDir, "pgstore")
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		pgStoreInst, err = store.NewPostgresStore(ctx, store.PostgresStoreConfig{
-			DSN:       pgStoreDSN,
-			Schema:    pgStoreSchema,
-			ConfigKey: pgStoreConfigKey,
-			SpoolDir:  pgStoreCacheDir,
+			DSN:      pgStoreDSN,
+			Schema:   pgStoreSchema,
+			SpoolDir: pgStoreCacheDir,
 		})
 		cancel()
 		if err != nil {

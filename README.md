@@ -429,14 +429,32 @@ To enable this feature, set the `GITSTORE_GIT_URL` environment variable to the U
 | `GITSTORE_GIT_USERNAME` | No       |                           | The username for Git authentication.                                                                    |
 | `GITSTORE_GIT_TOKEN`    | No       |                           | The personal access token (or password) for Git authentication.                                         |
 
-
-
 **How it Works**
 
 1.  **Cloning:** On startup, the application clones the remote Git repository to the `GITSTORE_LOCAL_PATH`.
 2.  **Configuration:** It then looks for a `config.yaml` inside a `config` directory within the cloned repository.
 3.  **Bootstrapping:** If `config/config.yaml` does not exist in the repository, the application will copy the local `config.example.yaml` to that location, commit, and push it to the remote repository as an initial configuration. You must have `config.example.yaml` available.
 4.  **Token Sync:** The `auth-dir` is also managed within this repository. Any changes to authentication tokens (e.g., through a new login) are automatically committed and pushed to the remote Git repository.
+
+### PostgreSQL-backed Configuration and Token Store
+
+You can also persist configuration and authentication data in PostgreSQL when running CLIProxyAPI in hosted environments that favor managed databases over local files.
+
+**Environment Variables**
+
+| Variable              | Required | Default               | Description                                                                                                   |
+|-----------------------|----------|-----------------------|---------------------------------------------------------------------------------------------------------------|
+| `MANAGEMENT_PASSWORD` | Yes      |                       | Password for the management web UI (required when remote management is enabled).                              |
+| `PGSTORE_DSN`         | Yes      |                       | PostgreSQL connection string (e.g. `postgresql://user:pass@host:5432/db`).                                     |
+| `PGSTORE_SCHEMA`      | No       | public                | Schema where the tables will be created. Leave empty to use the default schema.                                |
+| `PGSTORE_CACHE_DIR`   | No       | Current working directory  | Root directory for the local mirror; the server writes to `<value>/pgstore`. If unset and CWD is unavailable, `/tmp/pgstore` is used. |
+
+**How it Works**
+
+1.  **Initialization:** On startup the server connects via `PGSTORE_DSN`, ensures the schema exists, and creates the `config_store` / `auth_store` tables when missing.
+2.  **Local Mirror:** A writable cache at `<PGSTORE_CACHE_DIR or CWD>/pgstore` mirrors `config/config.yaml` and `auths/` so the rest of the application can reuse the existing file-based logic.
+3.  **Bootstrapping:** If no configuration row exists, `config.example.yaml` seeds the database using the fixed identifier `config`.
+4.  **Token Sync:** Changes flow both ways—file updates are written to PostgreSQL and database records are mirrored back to disk so watchers and management APIs continue to operate.
 
 ### OpenAI Compatibility Providers
 
