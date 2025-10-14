@@ -16,3 +16,5 @@ temp/*
 cli-proxy-api
 static/*
 .env
+pgstore/*
+gitstore/*

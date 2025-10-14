@@ -460,12 +460,12 @@ openai-compatibility:
 | `MANAGEMENT_PASSWORD`   | 是  |               | 管理面板密码（启用远程管理时必需）。                                          |
 | `PGSTORE_DSN`           | 是  |               | PostgreSQL 连接串，例如 `postgresql://user:pass@host:5432/db`。       |
 | `PGSTORE_SCHEMA`        | 否  | public        | 创建表时使用的 schema；留空则使用默认 schema。                               |
-| `PGSTORE_CACHE_DIR`     | 否  | 当前工作目录       | 本地镜像根目录，服务将在 `<值>/pgstore` 下写入缓存；若无法获取工作目录则退回 `/tmp/pgstore`。 |
+| `PGSTORE_LOCAL_PATH`    | 否  | 当前工作目录       | 本地镜像根目录，服务将在 `<值>/pgstore` 下写入缓存；若无法获取工作目录则退回 `/tmp/pgstore`。 |
 
 **工作原理**
 
 1.  **初始化：** 启动时通过 `PGSTORE_DSN` 连接数据库，确保 schema 存在，并在缺失时创建 `config_store` 与 `auth_store`。
-2.  **本地镜像：** 在 `<PGSTORE_CACHE_DIR 或当前工作目录>/pgstore` 下建立可写缓存，复用 `config/config.yaml` 与 `auths/` 目录。
+2.  **本地镜像：** 在 `<PGSTORE_LOCAL_PATH 或当前工作目录>/pgstore` 下建立可写缓存，复用 `config/config.yaml` 与 `auths/` 目录。
 3.  **引导：** 若数据库中无配置记录，会使用 `config.example.yaml` 初始化，并以固定标识 `config` 写入。
 4.  **令牌同步：** 配置与令牌的更改会写入 PostgreSQL，同时数据库中的内容也会反向同步至本地镜像，便于文件监听与管理接口继续工作。
 

@@ -105,7 +105,7 @@ func main() {
 		usePostgresStore  bool
 		pgStoreDSN        string
 		pgStoreSchema     string
-		pgStoreCacheDir   string
+		pgStoreLocalPath  string
 		pgStoreInst       *store.PostgresStore
 		gitStoreLocalPath string
 		useGitStore       bool
@@ -139,8 +139,8 @@ func main() {
 		if value, ok := lookupEnv("PGSTORE_SCHEMA", "pgstore_schema"); ok {
 			pgStoreSchema = value
 		}
-		if value, ok := lookupEnv("PGSTORE_CACHE_DIR", "pgstore_cache_dir"); ok {
-			pgStoreCacheDir = value
+		if value, ok := lookupEnv("PGSTORE_LOCAL_PATH", "pgstore_local_path"); ok {
+			pgStoreLocalPath = value
 		}
 		useGitStore = false
 	}
@@ -169,15 +169,15 @@ func main() {
 	// Prefer the Postgres store when configured, otherwise fallback to git or local files.
 	var configFilePath string
 	if usePostgresStore {
-		if pgStoreCacheDir == "" {
-			pgStoreCacheDir = wd
+		if pgStoreLocalPath == "" {
+			pgStoreLocalPath = wd
 		}
-		pgStoreCacheDir = filepath.Join(pgStoreCacheDir, "pgstore")
+		pgStoreLocalPath = filepath.Join(pgStoreLocalPath, "pgstore")
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		pgStoreInst, err = store.NewPostgresStore(ctx, store.PostgresStoreConfig{
 			DSN:      pgStoreDSN,
 			Schema:   pgStoreSchema,
-			SpoolDir: pgStoreCacheDir,
+			SpoolDir: pgStoreLocalPath,
 		})
 		cancel()
 		if err != nil {
