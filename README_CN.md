@@ -438,7 +438,7 @@ openai-compatibility:
 
 | 变量                      | 必需 | 默认值    | 描述                                                 |
 |-------------------------|----|--------|----------------------------------------------------|
-| `MANAGEMENT_PASSWORD`   | 是  |        | 控制面板密码                                             |
+| `MANAGEMENT_PASSWORD`   | 是  |        | 管理面板密码                                             |
 | `GITSTORE_GIT_URL`      | 是  |        | 要使用的 Git 仓库的 HTTPS URL。                            |
 | `GITSTORE_LOCAL_PATH`   | 否  | 当前工作目录 | 将克隆 Git 仓库的本地路径。在 Docker 内部，此路径默认为 `/CLIProxyAPI`。 |
 | `GITSTORE_GIT_USERNAME` | 否  |        | 用于 Git 身份验证的用户名。                                   |
@@ -479,6 +479,7 @@ openai-compatibility:
 
 | 变量                     | 是否必填 | 默认值             | 说明                                                                                                                     |
 |--------------------------|----------|--------------------|--------------------------------------------------------------------------------------------------------------------------|
+| `MANAGEMENT_PASSWORD`    | 是       |                    | 管理面板密码（启用远程管理时必需）。                                                                             |
 | `OBJECTSTORE_ENDPOINT`   | 是       |                    | 对象存储访问端点。可带 `http://` 或 `https://` 前缀指定协议（省略则默认 HTTPS）。                                      |
 | `OBJECTSTORE_BUCKET`     | 是       |                    | 用于存放 `config/config.yaml` 与 `auths/*.json` 的 Bucket 名称。                                                        |
 | `OBJECTSTORE_ACCESS_KEY` | 是       |                    | 对象存储账号的访问密钥 ID。                                                                                              |
@@ -538,21 +539,6 @@ openai-compatibility:
 ### 身份验证目录
 
 `auth-dir` 参数指定身份验证令牌的存储位置。当您运行登录命令时，应用程序将在此目录中创建包含 Google 账户身份验证令牌的 JSON 文件。多个账户可用于轮询。
-
-### 请求鉴权提供方
-
-通过 `auth.providers` 配置接入请求鉴权。内置的 `config-api-key` 提供方支持内联密钥：
-
-```
-auth:
-  providers:
-    - name: default
-      type: config-api-key
-      api-keys:
-        - your-api-key-1
-```
-
-调用时可在 `Authorization` 标头中携带密钥（或继续使用 `X-Goog-Api-Key`、`X-Api-Key`、查询参数 `key`）。为了兼容旧版本，顶层的 `api-keys` 字段仍然可用，并会自动同步到默认的 `config-api-key` 提供方。
 
 ### 官方生成式语言 API
 

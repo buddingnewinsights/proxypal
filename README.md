@@ -466,6 +466,7 @@ An S3-compatible object storage service can host configuration and authenticatio
 
 | Variable                 | Required | Default                        | Description                                                                                                              |
 |--------------------------|----------|--------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| `MANAGEMENT_PASSWORD`    | Yes      |                                | Password for the management web UI (required when remote management is enabled).                                        |
 | `OBJECTSTORE_ENDPOINT`   | Yes      |                                | Object storage endpoint. Include `http://` or `https://` to force the protocol (omitted scheme → HTTPS).                |
 | `OBJECTSTORE_BUCKET`     | Yes      |                                | Bucket that stores `config/config.yaml` and `auths/*.json`.                                                             |
 | `OBJECTSTORE_ACCESS_KEY` | Yes      |                                | Access key ID for the object storage account.                                                                           |
@@ -530,21 +531,6 @@ And you can always use Gemini CLI with `CODE_ASSIST_ENDPOINT` set to `http://127
 ### Authentication Directory
 
 The `auth-dir` parameter specifies where authentication tokens are stored. When you run the login command, the application will create JSON files in this directory containing the authentication tokens for your Google accounts. Multiple accounts can be used for load balancing.
-
-### Request Authentication Providers
-
-Configure inbound authentication through the `auth.providers` section. The built-in `config-api-key` provider works with inline keys:
-
-```
-auth:
-  providers:
-    - name: default
-      type: config-api-key
-      api-keys:
-        - your-api-key-1
-```
-
-Clients should send requests with an `Authorization: Bearer your-api-key-1` header (or `X-Goog-Api-Key`, `X-Api-Key`, or `?key=` as before). The legacy top-level `api-keys` array is still accepted and automatically synced to the default provider for backwards compatibility.
 
 ### Official Generative Language API
 
