@@ -82,6 +82,14 @@ brew install cliproxyapi
 brew services start cliproxyapi
 ```
 
+### 通过 CLIProxyAPI Linux Installer 安装
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brokechubb/cliproxyapi-installer/refs/heads/master/cliproxyapi-installer | bash
+```
+
+感谢 [brokechubb](https://github.com/brokechubb) 构建了 Linux installer！
+
 ## 使用方法
 
 ### 图形客户端与官方 WebUI

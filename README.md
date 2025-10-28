@@ -68,6 +68,14 @@ brew install cliproxyapi
 brew services start cliproxyapi
 ```
 
+### Installation via CLIProxyAPI Linux Installer
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brokechubb/cliproxyapi-installer/refs/heads/master/cliproxyapi-installer | bash
+```
+
+Thanks to [brokechubb](https://github.com/brokechubb) for building the Linux installer!
+
 ## Usage
 
 ### GUI Client & Official WebUI
