@@ -95,7 +95,7 @@
       ```
     - 响应:
       ```json
-      {"debug":true,"proxy-url":"","api-keys":["1...5","JS...W"],"quota-exceeded":{"switch-project":true,"switch-preview-model":true},"generative-language-api-key":["AI...01","AI...02","AI...03"],"request-log":true,"request-retry":3,"claude-api-key":[{"api-key":"cr...56","base-url":"https://example.com/api","proxy-url":"socks5://proxy.example.com:1080","models":[{"name":"claude-3-5-sonnet-20241022","alias":"claude-sonnet-latest"}]},{"api-key":"cr...e3","base-url":"http://example.com:3000/api","proxy-url":""},{"api-key":"sk-...q2","base-url":"https://example.com","proxy-url":""}],"codex-api-key":[{"api-key":"sk...01","base-url":"https://example/v1","proxy-url":""}],"openai-compatibility":[{"name":"openrouter","base-url":"https://openrouter.ai/api/v1","api-key-entries":[{"api-key":"sk...01","proxy-url":""}],"models":[{"name":"moonshotai/kimi-k2:free","alias":"kimi-k2"}]},{"name":"iflow","base-url":"https://apis.iflow.cn/v1","api-key-entries":[{"api-key":"sk...7e","proxy-url":"socks5://proxy.example.com:1080"}],"models":[{"name":"deepseek-v3.1","alias":"deepseek-v3.1"},{"name":"glm-4.5","alias":"glm-4.5"},{"name":"kimi-k2","alias":"kimi-k2"}]}]}
+      {"debug":true,"proxy-url":"","api-keys":["1...5","JS...W"],"quota-exceeded":{"switch-project":true,"switch-preview-model":true},"gemini-api-key":[{"api-key":"AI...01","base-url":"https://generativelanguage.googleapis.com","headers":{"X-Custom-Header":"custom-value"},"proxy-url":""},{"api-key":"AI...02","proxy-url":"socks5://proxy.example.com:1080"}],"request-log":true,"request-retry":3,"claude-api-key":[{"api-key":"cr...56","base-url":"https://example.com/api","proxy-url":"socks5://proxy.example.com:1080","models":[{"name":"claude-3-5-sonnet-20241022","alias":"claude-sonnet-latest"}]},{"api-key":"cr...e3","base-url":"http://example.com:3000/api","proxy-url":""},{"api-key":"sk-...q2","base-url":"https://example.com","proxy-url":""}],"codex-api-key":[{"api-key":"sk...01","base-url":"https://example/v1","proxy-url":""}],"openai-compatibility":[{"name":"openrouter","base-url":"https://openrouter.ai/api/v1","api-key-entries":[{"api-key":"sk...01","proxy-url":""}],"models":[{"name":"moonshotai/kimi-k2:free","alias":"kimi-k2"}]},{"name":"iflow","base-url":"https://apis.iflow.cn/v1","api-key-entries":[{"api-key":"sk...7e","proxy-url":"socks5://proxy.example.com:1080"}],"models":[{"name":"deepseek-v3.1","alias":"deepseek-v3.1"},{"name":"glm-4.5","alias":"glm-4.5"},{"name":"kimi-k2","alias":"kimi-k2"}]}]}
       ```
 
 ### Debug
@@ -283,7 +283,69 @@
     { "status": "ok" }
     ```
 
-### Gemini API Key（生成式语言）
+### Gemini API Key
+- GET `/gemini-api-key`
+  - 请求：
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' http://localhost:8317/v0/management/gemini-api-key
+    ```
+  - 响应：
+    ```json
+    {
+      "gemini-api-key": [
+        {"api-key":"AIzaSy...01","base-url":"https://generativelanguage.googleapis.com","headers":{"X-Custom-Header":"custom-value"},"proxy-url":""},
+        {"api-key":"AIzaSy...02","proxy-url":"socks5://proxy.example.com:1080"}
+      ]
+    }
+    ```
+- PUT `/gemini-api-key`
+  - 请求（数组形式）：
+    ```bash
+    curl -X PUT -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '[{"api-key":"AIzaSy-1","headers":{"X-Custom-Header":"vendor-value"}},{"api-key":"AIzaSy-2","base-url":"https://custom.example.com"}]' \
+      http://localhost:8317/v0/management/gemini-api-key
+    ```
+  - 响应：
+    ```json
+    { "status": "ok" }
+    ```
+- PATCH `/gemini-api-key`
+  - 请求（按索引更新）：
+    ```bash
+    curl -X PATCH -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '{"index":0,"value":{"api-key":"AIzaSy-1","base-url":"https://custom.example.com","headers":{"X-Custom-Header":"custom-value"},"proxy-url":""}}' \
+      http://localhost:8317/v0/management/gemini-api-key
+    ```
+  - 请求（按 api-key 匹配更新）：
+    ```bash
+    curl -X PATCH -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer <MANAGEMENT_KEY>' \
+      -d '{"match":"AIzaSy-1","value":{"api-key":"AIzaSy-1","headers":{"X-Custom-Header":"custom-value"},"proxy-url":"socks5://proxy.example.com:1080"}}' \
+      http://localhost:8317/v0/management/gemini-api-key
+    ```
+  - 响应：
+    ```json
+    { "status": "ok" }
+    ```
+- DELETE `/gemini-api-key`
+  - 请求（按 api-key 删除）：
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' -X DELETE \
+      'http://localhost:8317/v0/management/gemini-api-key?api-key=AIzaSy-1'
+    ```
+  - 请求（按索引删除）：
+    ```bash
+    curl -H 'Authorization: Bearer <MANAGEMENT_KEY>' -X DELETE \
+      'http://localhost:8317/v0/management/gemini-api-key?index=0'
+    ```
+  - 响应：
+    ```json
+    { "status": "ok" }
+    ```
+
+### Generative Language API Key（兼容接口）
 - GET `/generative-language-api-key`
   - 请求：
     ```bash
@@ -326,6 +388,8 @@
     ```json
     { "status": "ok" }
     ```
+- 说明：
+  - 该接口只读写纯字符串列表，实际上会映射到 `gemini-api-key`。
 
 ### Codex API KEY（对象数组）
 - GET `/codex-api-key` — 列出全部

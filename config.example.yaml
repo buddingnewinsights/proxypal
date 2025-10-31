@@ -46,12 +46,19 @@ quota-exceeded:
 # When true, enable authentication for the WebSocket API (/v1/ws).
 ws-auth: false
 
-# API keys for official Generative Language API
+# Gemini API keys (preferred)
+#gemini-api-key:
+#  - api-key: "AIzaSy...01"
+#    # base-url: "https://generativelanguage.googleapis.com"
+#    # headers:
+#    #   X-Custom-Header: "custom-value"
+#    # proxy-url: "socks5://proxy.example.com:1080"
+#  - api-key: "AIzaSy...02"
+
+# API keys for official Generative Language API (legacy compatibility)
 #generative-language-api-key:
 #  - "AIzaSy...01"
 #  - "AIzaSy...02"
-#  - "AIzaSy...03"
-#  - "AIzaSy...04"
 
 # Codex API keys
 #codex-api-key:

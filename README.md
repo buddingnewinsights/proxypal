@@ -321,7 +321,12 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `logging-to-file`                       | boolean  | true               | Write application logs to rotating files instead of stdout. Set to `false` to log to stdout/stderr.                                                                                      |
 | `usage-statistics-enabled`              | boolean  | true               | Enable in-memory usage aggregation for management APIs. Disable to drop all collected usage metrics.                                                                                    |
 | `api-keys`                              | string[] | []                 | Legacy shorthand for inline API keys. Values are mirrored into the `config-api-key` provider for backwards compatibility.                                                                 |
-| `generative-language-api-key`           | string[] | []                 | List of Generative Language API keys.                                                                                                                                                     |
+| `gemini-api-key`                        | object[] | []                 | Gemini API key entries with optional per-key `base-url` and `proxy-url` overrides.                                                                                                       |
+| `gemini-api-key.*.api-key`              | string   | ""                 | Gemini API key.                                                                                                                                                                          |
+| `gemini-api-key.*.base-url`             | string   | ""                 | Optional Gemini API endpoint override.                                                                                                                                                   |
+| `gemini-api-key.*.headers`              | object   | {}                 | Optional extra HTTP headers sent to the overridden Gemini endpoint only.                                                                                                                 |
+| `gemini-api-key.*.proxy-url`            | string   | ""                 | Optional per-key proxy override for the Gemini API key.                                                                                                                                  |
+| `generative-language-api-key`           | string[] | []                 | (Legacy alias) View-only list mirrored from `gemini-api-key`. Writes through the legacy management endpoint update the underlying Gemini entries.          |
 | `codex-api-key`                                    | object   | {}                 | List of Codex API keys.                                                                                                                                                                   |
 | `codex-api-key.api-key`                            | string   | ""                 | Codex API key.                                                                                                                                                                            |
 | `codex-api-key.base-url`                           | string   | ""                 | Custom Codex API endpoint, if you use a third-party API endpoint.                                                                                                                         |
@@ -394,12 +399,14 @@ quota-exceeded:
    switch-project: true # Whether to automatically switch to another project when a quota is exceeded
    switch-preview-model: true # Whether to automatically switch to a preview model when a quota is exceeded
 
-# API keys for official Generative Language API
-generative-language-api-key:
-  - "AIzaSy...01"
-  - "AIzaSy...02"
-  - "AIzaSy...03"
-  - "AIzaSy...04"
+# Gemini API keys
+gemini-api-key:
+  - api-key: "AIzaSy...01"
+    base-url: "https://generativelanguage.googleapis.com"
+    headers:
+      X-Custom-Header: "custom-value"
+    proxy-url: "socks5://proxy.example.com:1080"
+  - api-key: "AIzaSy...02"
 
 # Codex API keys
 codex-api-key:
@@ -558,9 +565,9 @@ By default, WebSocket connections to CLIProxyAPI do not require authentication.
 
 The `auth-dir` parameter specifies where authentication tokens are stored. When you run the login command, the application will create JSON files in this directory containing the authentication tokens for your Google accounts. Multiple accounts can be used for load balancing.
 
-### Official Generative Language API
+### Gemini API Configuration
 
-The `generative-language-api-key` parameter allows you to define a list of API keys that can be used to authenticate requests to the official Generative Language API.
+Use the `gemini-api-key` parameter to configure Gemini API keys. Each entry accepts optional `base-url`, `headers`, and `proxy-url` values; headers are only attached to requests sent to the overridden Gemini endpoint and are never forwarded to proxy servers. The legacy `generative-language-api-key` endpoint exposes a mirrored, key-only view for backwards compatibility—writes through that endpoint update the Gemini list but drop any per-key overrides, and the legacy field is no longer persisted in `config.yaml`.
 
 ## Hot Reloading
 
