@@ -326,7 +326,7 @@ The server uses a YAML configuration file (`config.yaml`) located in the project
 | `gemini-api-key.*.base-url`             | string   | ""                 | Optional Gemini API endpoint override.                                                                                                                                                   |
 | `gemini-api-key.*.headers`              | object   | {}                 | Optional extra HTTP headers sent to the overridden Gemini endpoint only.                                                                                                                 |
 | `gemini-api-key.*.proxy-url`            | string   | ""                 | Optional per-key proxy override for the Gemini API key.                                                                                                                                  |
-| `generative-language-api-key`           | string[] | []                 | (Legacy) List of Generative Language API keys without per-key overrides.                                                                                                                 |
+| `generative-language-api-key`           | string[] | []                 | (Legacy alias) View-only list mirrored from `gemini-api-key`. Writes through the legacy management endpoint update the underlying Gemini entries.          |
 | `codex-api-key`                                    | object   | {}                 | List of Codex API keys.                                                                                                                                                                   |
 | `codex-api-key.api-key`                            | string   | ""                 | Codex API key.                                                                                                                                                                            |
 | `codex-api-key.base-url`                           | string   | ""                 | Custom Codex API endpoint, if you use a third-party API endpoint.                                                                                                                         |
@@ -399,7 +399,7 @@ quota-exceeded:
    switch-project: true # Whether to automatically switch to another project when a quota is exceeded
    switch-preview-model: true # Whether to automatically switch to a preview model when a quota is exceeded
 
-# Gemini API keys (preferred)
+# Gemini API keys
 gemini-api-key:
   - api-key: "AIzaSy...01"
     base-url: "https://generativelanguage.googleapis.com"
@@ -407,10 +407,6 @@ gemini-api-key:
       X-Custom-Header: "custom-value"
     proxy-url: "socks5://proxy.example.com:1080"
   - api-key: "AIzaSy...02"
-
-# API keys for official Generative Language API (legacy compatibility)
-generative-language-api-key:
-  - "AIzaSy...01"
 
 # Codex API keys
 codex-api-key:
@@ -571,7 +567,7 @@ The `auth-dir` parameter specifies where authentication tokens are stored. When 
 
 ### Gemini API Configuration
 
-Use the `gemini-api-key` parameter to configure Gemini API keys. Each entry accepts optional `base-url`, `headers`, and `proxy-url` values; headers are only attached to requests sent to the overridden Gemini endpoint and are never forwarded to proxy servers. When `base-url` is omitted the server behaves the same as the legacy `generative-language-api-key` list. The legacy array remains supported for backwards compatibility and is automatically mirrored into the new structure.
+Use the `gemini-api-key` parameter to configure Gemini API keys. Each entry accepts optional `base-url`, `headers`, and `proxy-url` values; headers are only attached to requests sent to the overridden Gemini endpoint and are never forwarded to proxy servers. The legacy `generative-language-api-key` endpoint exposes a mirrored, key-only view for backwards compatibility—writes through that endpoint update the Gemini list but drop any per-key overrides, and the legacy field is no longer persisted in `config.yaml`.
 
 ## Hot Reloading
 

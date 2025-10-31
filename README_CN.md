@@ -339,7 +339,7 @@ console.log(await claudeResponse.json());
 | `gemini-api-key.*.base-url`             | string   | ""                 | 可选的 Gemini API 端点覆盖地址。                                              |
 | `gemini-api-key.*.headers`              | object   | {}                 | 可选的额外 HTTP 头部，仅在访问覆盖后的 Gemini 端点时发送。                     |
 | `gemini-api-key.*.proxy-url`            | string   | ""                 | 可选的单独代理设置，会覆盖全局 `proxy-url`。                                   |
-| `generative-language-api-key`           | string[] | []                 | （兼容项）不带扩展配置的生成式语言 API 密钥列表。                              |
+| `generative-language-api-key`           | string[] | []                 | （兼容别名）旧管理接口返回的纯密钥列表。通过该接口写入会更新 `gemini-api-key`。 |
 | `codex-api-key`                                       | object   | {}                 | Codex API密钥列表。                                                      |
 | `codex-api-key.api-key`                               | string   | ""                 | Codex API密钥。                                                        |
 | `codex-api-key.base-url`                              | string   | ""                 | 自定义的Codex API端点                                                     |
@@ -412,7 +412,7 @@ quota-exceeded:
    switch-project: true # 当配额超限时是否自动切换到另一个项目
    switch-preview-model: true # 当配额超限时是否自动切换到预览模型
 
-# Gemini API 密钥（推荐）
+# Gemini API 密钥
 gemini-api-key:
   - api-key: "AIzaSy...01"
     base-url: "https://generativelanguage.googleapis.com"
@@ -420,10 +420,6 @@ gemini-api-key:
       X-Custom-Header: "custom-value"
     proxy-url: "socks5://proxy.example.com:1080"
   - api-key: "AIzaSy...02"
-
-# AIStudio Gemini API 的遗留密钥配置
-generative-language-api-key:
-  - "AIzaSy...01"
 
 # Codex API 密钥
 codex-api-key:
@@ -582,7 +578,7 @@ openai-compatibility:
 
 ### Gemini API 配置
 
-使用 `gemini-api-key` 参数来配置 Gemini API 密钥；每个条目都可以选择性地提供 `base-url`、`headers` 与 `proxy-url`。`headers` 仅会附加到访问覆盖后 Gemini 端点的请求，不会转发给代理服务器。当 `base-url` 留空时，其行为与遗留的 `generative-language-api-key` 列表一致。旧字段仍受支持，会自动同步到新的结构中以保持兼容性。
+使用 `gemini-api-key` 参数来配置 Gemini API 密钥；每个条目都可以选择性地提供 `base-url`、`headers` 与 `proxy-url`。`headers` 仅会附加到访问覆盖后 Gemini 端点的请求，不会转发给代理服务器。旧的 `generative-language-api-key` 管理接口仍提供纯密钥视图以保持兼容——通过该接口写入会替换整个 Gemini 列表，并丢弃任何额外配置，同时该字段不再持久化到 `config.yaml`。
 
 ## 热更新
 
