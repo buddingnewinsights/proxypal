@@ -11,6 +11,7 @@ type ModelRegistry interface {
 	UnregisterClient(clientID string)
 	SetModelQuotaExceeded(clientID, modelID string)
 	ClearModelQuotaExceeded(clientID, modelID string)
+	ClientSupportsModel(clientID, modelID string) bool
 	GetAvailableModels(handlerType string) []map[string]any
 }
 
