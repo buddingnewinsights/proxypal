@@ -34,7 +34,7 @@
 
 ## 新手入门
 
-CLIProxyAPI 用户手册： [https://help.router-for.me/](https://help.router-for.me/)
+CLIProxyAPI 用户手册： [https://help.router-for.me/](https://help.router-for.me/cn/)
 
 ## 管理 API 文档
 
