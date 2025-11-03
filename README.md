@@ -36,7 +36,7 @@ CLIProxyAPI Guides: [https://help.router-for.me/](https://help.router-for.me/)
 
 ## Management API
 
-see [MANAGEMENT_API.md](MANAGEMENT_API.md)
+see [MANAGEMENT_API.md](https://help.router-for.me/management/api)
 
 ## SDK Docs
 

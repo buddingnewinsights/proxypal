@@ -38,7 +38,7 @@ CLIProxyAPI 用户手册： [https://help.router-for.me/](https://help.router-fo
 
 ## 管理 API 文档
 
-请参见 [MANAGEMENT_API_CN.md](MANAGEMENT_API_CN.md)
+请参见 [MANAGEMENT_API_CN.md](https://help.router-for.me/cn/management/api)
 
 ## SDK 文档
 
