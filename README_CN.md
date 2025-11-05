@@ -8,7 +8,7 @@
 
 您可以使用本地或多账户的CLI方式，通过任何与 OpenAI（包括Responses）/Gemini/Claude 兼容的客户端和SDK进行访问。
 
-![bigmodel.cn](asset/ad/chinese.png)
+[![bigmodel.cn](https://assets.router-for.me/chinese.png)](https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII)
 
 ## 赞助商
 
