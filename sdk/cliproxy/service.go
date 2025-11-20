@@ -629,7 +629,7 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 		models = registry.GetGeminiModels()
 	case "vertex":
 		// Vertex AI Gemini supports the same model identifiers as Gemini.
-		models = registry.GetGeminiModels()
+		models = registry.GetGeminiVertexModels()
 	case "gemini-cli":
 		models = registry.GetGeminiCLIModels()
 	case "aistudio":
