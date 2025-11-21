@@ -59,6 +59,8 @@ func (AntigravityAuthenticator) Login(ctx context.Context, cfg *config.Config, o
 		opts = &LoginOptions{}
 	}
 
+	httpClient := util.SetProxy(&cfg.SDKConfig, &http.Client{})
+
 	state, err := misc.GenerateRandomState()
 	if err != nil {
 		return nil, fmt.Errorf("antigravity: failed to generate state: %w", err)
@@ -113,14 +115,14 @@ func (AntigravityAuthenticator) Login(ctx context.Context, cfg *config.Config, o
 		return nil, fmt.Errorf("antigravity: missing authorization code")
 	}
 
-	tokenResp, errToken := exchangeAntigravityCode(ctx, cbRes.Code, redirectURI)
+	tokenResp, errToken := exchangeAntigravityCode(ctx, cbRes.Code, redirectURI, httpClient)
 	if errToken != nil {
 		return nil, fmt.Errorf("antigravity: token exchange failed: %w", errToken)
 	}
 
 	email := ""
 	if tokenResp.AccessToken != "" {
-		if info, errInfo := fetchAntigravityUserInfo(ctx, tokenResp.AccessToken); errInfo == nil && strings.TrimSpace(info.Email) != "" {
+		if info, errInfo := fetchAntigravityUserInfo(ctx, tokenResp.AccessToken, httpClient); errInfo == nil && strings.TrimSpace(info.Email) != "" {
 			email = strings.TrimSpace(info.Email)
 		}
 	}
@@ -202,7 +204,7 @@ type antigravityTokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-func exchangeAntigravityCode(ctx context.Context, code, redirectURI string) (*antigravityTokenResponse, error) {
+func exchangeAntigravityCode(ctx context.Context, code, redirectURI string, httpClient *http.Client) (*antigravityTokenResponse, error) {
 	data := url.Values{}
 	data.Set("code", code)
 	data.Set("client_id", antigravityClientID)
@@ -216,7 +218,7 @@ func exchangeAntigravityCode(ctx context.Context, code, redirectURI string) (*an
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, errDo := http.DefaultClient.Do(req)
+	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
 		return nil, errDo
 	}
@@ -240,7 +242,7 @@ type antigravityUserInfo struct {
 	Email string `json:"email"`
 }
 
-func fetchAntigravityUserInfo(ctx context.Context, accessToken string) (*antigravityUserInfo, error) {
+func fetchAntigravityUserInfo(ctx context.Context, accessToken string, httpClient *http.Client) (*antigravityUserInfo, error) {
 	if strings.TrimSpace(accessToken) == "" {
 		return &antigravityUserInfo{}, nil
 	}
@@ -250,7 +252,7 @@ func fetchAntigravityUserInfo(ctx context.Context, accessToken string) (*antigra
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, errDo := http.DefaultClient.Do(req)
+	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
 		return nil, errDo
 	}
