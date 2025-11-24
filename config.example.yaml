@@ -1,6 +1,12 @@
 # Server port
 port: 8317
 
+# TLS settings for HTTPS. When enabled, the server listens with the provided certificate and key.
+tls:
+  enable: false
+  cert: ""
+  key: ""
+
 # Management API settings
 remote-management:
   # Whether to allow remote (non-localhost) management access.
