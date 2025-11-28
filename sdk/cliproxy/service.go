@@ -617,6 +617,7 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 	if a == nil || a.ID == "" {
 		return
 	}
+	authKind := strings.ToLower(strings.TrimSpace(a.Attributes["auth_kind"]))
 	if a.Attributes != nil {
 		if v := strings.TrimSpace(a.Attributes["gemini_virtual_primary"]); strings.EqualFold(v, "true") {
 			GlobalModelRegistry().UnregisterClient(a.ID)
@@ -636,41 +637,57 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 	if compatDetected {
 		provider = "openai-compatibility"
 	}
+	blacklist := s.oauthBlacklist(provider, authKind)
 	var models []*ModelInfo
 	switch provider {
 	case "gemini":
 		models = registry.GetGeminiModels()
 		if entry := s.resolveConfigGeminiKey(a); entry != nil {
-			models = applyModelBlacklist(models, entry.ModelBlacklist)
+			if authKind == "apikey" {
+				blacklist = entry.ModelBlacklist
+			}
 		}
+		models = applyModelBlacklist(models, blacklist)
 	case "vertex":
 		// Vertex AI Gemini supports the same model identifiers as Gemini.
 		models = registry.GetGeminiVertexModels()
+		models = applyModelBlacklist(models, blacklist)
 	case "gemini-cli":
 		models = registry.GetGeminiCLIModels()
+		models = applyModelBlacklist(models, blacklist)
 	case "aistudio":
 		models = registry.GetAIStudioModels()
+		models = applyModelBlacklist(models, blacklist)
 	case "antigravity":
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		models = executor.FetchAntigravityModels(ctx, a, s.cfg)
 		cancel()
+		models = applyModelBlacklist(models, blacklist)
 	case "claude":
 		models = registry.GetClaudeModels()
 		if entry := s.resolveConfigClaudeKey(a); entry != nil {
 			if len(entry.Models) > 0 {
 				models = buildClaudeConfigModels(entry)
 			}
-			models = applyModelBlacklist(models, entry.ModelBlacklist)
+			if authKind == "apikey" {
+				blacklist = entry.ModelBlacklist
+			}
 		}
+		models = applyModelBlacklist(models, blacklist)
 	case "codex":
 		models = registry.GetOpenAIModels()
 		if entry := s.resolveConfigCodexKey(a); entry != nil {
-			models = applyModelBlacklist(models, entry.ModelBlacklist)
+			if authKind == "apikey" {
+				blacklist = entry.ModelBlacklist
+			}
 		}
+		models = applyModelBlacklist(models, blacklist)
 	case "qwen":
 		models = registry.GetQwenModels()
+		models = applyModelBlacklist(models, blacklist)
 	case "iflow":
 		models = registry.GetIFlowModels()
+		models = applyModelBlacklist(models, blacklist)
 	default:
 		// Handle OpenAI-compatibility providers by name using config
 		if s.cfg != nil {
@@ -853,6 +870,19 @@ func (s *Service) resolveConfigCodexKey(auth *coreauth.Auth) *config.CodexKey {
 		}
 	}
 	return nil
+}
+
+func (s *Service) oauthBlacklist(provider, authKind string) []string {
+	cfg := s.cfg
+	if cfg == nil {
+		return nil
+	}
+	authKindKey := strings.ToLower(strings.TrimSpace(authKind))
+	providerKey := strings.ToLower(strings.TrimSpace(provider))
+	if authKindKey == "apikey" {
+		return nil
+	}
+	return cfg.OAuthModelBlacklist[providerKey]
 }
 
 func applyModelBlacklist(models []*ModelInfo, blacklist []string) []*ModelInfo {

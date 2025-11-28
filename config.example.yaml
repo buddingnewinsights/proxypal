@@ -127,3 +127,22 @@ ws-auth: false
 #          protocol: "codex" # restricts the rule to a specific protocol, options: openai, gemini, claude, codex
 #      params: # JSON path (gjson/sjson syntax) -> value
 #        "reasoning.effort": "high"
+
+# OAuth provider model blacklist
+#oauth-model-blacklist:
+#  gemini-cli:
+#    - "gemini-3-pro-preview"
+#  vertex:
+#    - "gemini-3-pro-preview"
+#  aistudio:
+#    - "gemini-3-pro-preview"
+#  antigravity:
+#    - "gemini-3-pro-preview"
+#  claude:
+#    - "claude-3-5-haiku-20241022"
+#  codex:
+#    - "gpt-5-codex-mini"
+#  qwen:
+#    - "vision-model"
+#  iflow:
+#    - "tstars2.0"
