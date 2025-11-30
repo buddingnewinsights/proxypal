@@ -92,7 +92,7 @@ Browser-based tool to translate SRT subtitles using your Gemini subscription via
 
 ### [CCS (Claude Code Switch)](https://github.com/kaitranntt/ccs)
 
-CLI wrapper for instant switching between multiple Claude accounts and alternative models (Gemini, Codex, AGY) via CLIProxyAPI OAuth - no API keys needed
+CLI wrapper for instant switching between multiple Claude accounts and alternative models (Gemini, Codex, Antigravity) via CLIProxyAPI OAuth - no API keys needed
 
 > [!NOTE]  
 > If you developed a project based on CLIProxyAPI, please open a PR to add it to this list.
