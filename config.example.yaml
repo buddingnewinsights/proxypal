@@ -63,7 +63,10 @@ ws-auth: false
 #      X-Custom-Header: "custom-value"
 #    proxy-url: "socks5://proxy.example.com:1080"
 #    excluded-models:
-#      - "gemini-2.0-pro-exp" # exclude specific models from this provider
+#      - "gemini-2.5-pro"     # exclude specific models from this provider (exact match)
+#      - "gemini-2.5-*"       # wildcard matching prefix (e.g. gemini-2.5-flash, gemini-2.5-pro)
+#      - "*-preview"          # wildcard matching suffix (e.g. gemini-3-pro-preview)
+#      - "*flash*"            # wildcard matching substring (e.g. gemini-2.5-flash-lite)
 #  - api-key: "AIzaSy...02"
 
 # API keys for official Generative Language API (legacy compatibility)
@@ -79,7 +82,10 @@ ws-auth: false
 #      X-Custom-Header: "custom-value"
 #    proxy-url: "socks5://proxy.example.com:1080" # optional: per-key proxy override
 #    excluded-models:
-#      - "gpt-5" # exclude specific models from this provider
+#      - "gpt-5.1"         # exclude specific models (exact match)
+#      - "gpt-5-*"         # wildcard matching prefix (e.g. gpt-5-medium, gpt-5-codex)
+#      - "*-mini"          # wildcard matching suffix (e.g. gpt-5-codex-mini)
+#      - "*codex*"         # wildcard matching substring (e.g. gpt-5-codex-low)
 
 # Claude API keys
 #claude-api-key:
@@ -93,7 +99,10 @@ ws-auth: false
 #      - name: "claude-3-5-sonnet-20241022" # upstream model name
 #        alias: "claude-sonnet-latest" # client alias mapped to the upstream model
 #    excluded-models:
-#      - "claude-3-5-sonnet-20241022" # exclude specific models from this provider
+#      - "claude-opus-4-5-20251101" # exclude specific models (exact match)
+#      - "claude-3-*"               # wildcard matching prefix (e.g. claude-3-7-sonnet-20250219)
+#      - "*-think"                  # wildcard matching suffix (e.g. claude-opus-4-5-thinking)
+#      - "*haiku*"                  # wildcard matching substring (e.g. claude-3-5-haiku-20241022)
 
 # OpenAI compatibility providers
 #openai-compatibility:
@@ -131,7 +140,10 @@ ws-auth: false
 # OAuth provider excluded models
 #oauth-excluded-models:
 #  gemini-cli:
-#    - "gemini-3-pro-preview"
+#    - "gemini-2.5-pro"     # exclude specific models (exact match)
+#    - "gemini-2.5-*"       # wildcard matching prefix (e.g. gemini-2.5-flash, gemini-2.5-pro)
+#    - "*-preview"          # wildcard matching suffix (e.g. gemini-3-pro-preview)
+#    - "*flash*"            # wildcard matching substring (e.g. gemini-2.5-flash-lite)
 #  vertex:
 #    - "gemini-3-pro-preview"
 #  aistudio:
