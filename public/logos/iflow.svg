@@ -1,0 +1,15 @@
+<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- iFlow logo - flowing gradient waves -->
+  <rect width="48" height="48" rx="10" fill="#0F172A"/>
+  <defs>
+    <linearGradient id="iflow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="50%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+  </defs>
+  <!-- Flowing wave shapes -->
+  <path d="M12 20 Q18 14 24 20 T36 20" stroke="url(#iflow-grad)" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M12 28 Q18 22 24 28 T36 28" stroke="url(#iflow-grad)" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M12 36 Q18 30 24 36 T36 36" stroke="url(#iflow-grad)" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.4"/>
+</svg>

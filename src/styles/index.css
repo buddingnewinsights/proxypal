@@ -246,3 +246,49 @@ body,
 .dark .hover-lift:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
+
+/* Slide down animation for expandable sections */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+/* Number counter glow effect */
+@keyframes number-glow {
+  0%,
+  100% {
+    text-shadow: none;
+  }
+  50% {
+    text-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+  }
+}
+
+.animate-number-glow {
+  animation: number-glow 0.5s ease-out;
+}
+
+/* Success checkmark animation */
+@keyframes check-stroke {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-check {
+  stroke-dasharray: 100;
+  animation: check-stroke 0.5s ease-out forwards;
+}

@@ -38,8 +38,8 @@ export function Switch(props: SwitchProps) {
         )}
       </div>
       <KobalteSwitch.Input class="sr-only" />
-      <KobalteSwitch.Control class="w-11 h-6 bg-gray-200 dark:bg-gray-700 rounded-full relative transition-colors data-[checked]:bg-brand-600 cursor-pointer">
-        <KobalteSwitch.Thumb class="block w-5 h-5 bg-white rounded-full shadow-md transform transition-transform translate-x-0.5 data-[checked]:translate-x-[22px] mt-0.5" />
+      <KobalteSwitch.Control class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full relative transition-colors ui-checked:bg-green-500 dark:ui-checked:bg-green-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+        <KobalteSwitch.Thumb class="block w-5 h-5 bg-white rounded-full shadow-md transform transition-transform translate-x-0.5 ui-checked:translate-x-[22px] mt-0.5" />
       </KobalteSwitch.Control>
     </KobalteSwitch>
   );

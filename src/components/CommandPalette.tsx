@@ -12,8 +12,14 @@ interface Command {
   category: "proxy" | "navigation" | "providers";
 }
 
+// Export signal for external control
+const [isOpen, setIsOpen] = createSignal(false);
+
+export function openCommandPalette() {
+  setIsOpen(true);
+}
+
 export function CommandPalette() {
-  const [isOpen, setIsOpen] = createSignal(false);
   const [search, setSearch] = createSignal("");
   const [selectedIndex, setSelectedIndex] = createSignal(0);
 

@@ -118,6 +118,17 @@ export function HealthPanel() {
     { id: "openai" as const, name: "ChatGPT", connected: authStatus().openai },
     { id: "gemini" as const, name: "Gemini", connected: authStatus().gemini },
     { id: "qwen" as const, name: "Qwen", connected: authStatus().qwen },
+    { id: "iflow" as const, name: "iFlow", connected: authStatus().iflow },
+    {
+      id: "vertex" as const,
+      name: "Vertex AI",
+      connected: authStatus().vertex,
+    },
+    {
+      id: "antigravity" as const,
+      name: "Antigravity",
+      connected: authStatus().antigravity,
+    },
   ];
 
   const connectedProviders = () => providers.filter((p) => p.connected);

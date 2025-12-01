@@ -2,12 +2,13 @@ import { createSignal, onCleanup, Show } from "solid-js";
 import { Button } from "../components/ui";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { ApiEndpoint } from "../components/ApiEndpoint";
-import { SetupModal } from "../components/SetupModal";
 import { UsageSummary } from "../components/UsageSummary";
 import { GettingStartedEmptyState } from "../components/EmptyState";
 import { ThemeToggleCompact } from "../components/ThemeToggle";
 import { RequestMonitor } from "../components/RequestMonitor";
 import { HealthIndicator } from "../components/HealthIndicator";
+import { AgentSetup } from "../components/AgentSetup";
+import { openCommandPalette } from "../components/CommandPalette";
 import { appStore } from "../stores/app";
 import { toastStore } from "../stores/toast";
 import {
@@ -20,8 +21,6 @@ import {
   type Provider,
 } from "../lib/tauri";
 
-type SetupTool = "cursor" | "cline" | "continue" | null;
-
 const providers = [
   { name: "Claude", provider: "claude" as Provider, logo: "/logos/claude.svg" },
   {
@@ -31,12 +30,17 @@ const providers = [
   },
   { name: "Gemini", provider: "gemini" as Provider, logo: "/logos/gemini.svg" },
   { name: "Qwen", provider: "qwen" as Provider, logo: "/logos/qwen.png" },
-];
-
-const setupTools = [
-  { id: "cursor" as const, name: "Cursor", logo: "/logos/cursor.svg" },
-  { id: "cline" as const, name: "Cline", logo: "/logos/cline.svg" },
-  { id: "continue" as const, name: "Continue", logo: "/logos/continue.svg" },
+  { name: "iFlow", provider: "iflow" as Provider, logo: "/logos/iflow.svg" },
+  {
+    name: "Vertex AI",
+    provider: "vertex" as Provider,
+    logo: "/logos/vertex.svg",
+  },
+  {
+    name: "Antigravity",
+    provider: "antigravity" as Provider,
+    logo: "/logos/antigravity.webp",
+  },
 ];
 
 export function DashboardPage() {
@@ -49,7 +53,9 @@ export function DashboardPage() {
   } = appStore;
   const [toggling, setToggling] = createSignal(false);
   const [connecting, setConnecting] = createSignal<Provider | null>(null);
-  const [setupTool, setSetupTool] = createSignal<SetupTool>(null);
+  const [recentlyConnected, setRecentlyConnected] = createSignal<Set<Provider>>(
+    new Set(),
+  );
 
   const toggleProxy = async () => {
     if (toggling()) return;
@@ -106,6 +112,18 @@ export function DashboardPage() {
             const newAuth = await refreshAuthStatus();
             setAuthStatus(newAuth);
             setConnecting(null);
+
+            // Add to recently connected for animation
+            setRecentlyConnected((prev) => new Set([...prev, provider]));
+            // Remove from recently connected after animation
+            setTimeout(() => {
+              setRecentlyConnected((prev) => {
+                const next = new Set(prev);
+                next.delete(provider);
+                return next;
+              });
+            }, 2000);
+
             toastStore.success(
               `${provider} connected!`,
               "You can now use this provider",
@@ -172,6 +190,50 @@ export function DashboardPage() {
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3">
+            {/* Command Palette Button - Mobile (icon only) */}
+            <button
+              onClick={openCommandPalette}
+              class="sm:hidden p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              title="Command Palette"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </button>
+            {/* Command Palette Button - Desktop (with label) */}
+            <button
+              onClick={openCommandPalette}
+              class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors"
+              title="Command Palette (⌘K)"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <span class="text-xs">Search</span>
+              <kbd class="px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 dark:bg-gray-700 rounded">
+                ⌘K
+              </kbd>
+            </button>
             <ThemeToggleCompact />
             <StatusIndicator
               running={proxyStatus().running}
@@ -240,12 +302,37 @@ export function DashboardPage() {
               </h2>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-stagger">
                 {connectedProviders().map((provider) => (
-                  <div class="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 group hover-lift">
-                    <img
-                      src={provider.logo}
-                      alt={provider.name}
-                      class="w-6 h-6 rounded"
-                    />
+                  <div
+                    class={`flex items-center gap-3 p-3 rounded-lg border group hover-lift transition-all duration-300 ${
+                      recentlyConnected().has(provider.provider)
+                        ? "bg-green-100 dark:bg-green-900/40 border-green-400 dark:border-green-600 animate-bounce-in"
+                        : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                    }`}
+                  >
+                    <div class="relative">
+                      <img
+                        src={provider.logo}
+                        alt={provider.name}
+                        class="w-6 h-6 rounded"
+                      />
+                      {recentlyConnected().has(provider.provider) && (
+                        <div class="absolute -right-1 -bottom-1 w-3.5 h-3.5 bg-green-500 rounded-full flex items-center justify-center animate-bounce-in">
+                          <svg
+                            class="w-2 h-2 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="3"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                     <span class="font-medium text-green-800 dark:text-green-300">
                       {provider.name}
                     </span>
@@ -368,41 +455,12 @@ export function DashboardPage() {
             </div>
           </Show>
 
-          {/* Quick setup guides */}
-          <div>
-            <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-3">
-              Quick Setup
-            </h2>
-            <div class="grid grid-cols-3 gap-2 sm:gap-3 animate-stagger">
-              {setupTools.map((tool) => (
-                <button
-                  class="p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover-lift transition-all text-center group"
-                  onClick={() => setSetupTool(tool.id)}
-                >
-                  <img
-                    src={tool.logo}
-                    alt={tool.name}
-                    class="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 rounded group-hover:scale-110 transition-transform"
-                  />
-                  <span class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {tool.name}
-                  </span>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden sm:block">
-                    View setup
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* CLI Agents Setup */}
+          <Show when={hasAnyProvider()}>
+            <AgentSetup />
+          </Show>
         </div>
       </main>
-
-      {/* Setup Modal */}
-      <SetupModal
-        tool={setupTool()}
-        endpoint={proxyStatus().endpoint}
-        onClose={() => setSetupTool(null)}
-      />
     </div>
   );
 }

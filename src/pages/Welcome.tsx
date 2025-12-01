@@ -28,6 +28,24 @@ const providers = [
     logo: "/logos/qwen.png",
     description: "Alibaba's Qwen models via Qwen Code",
   },
+  {
+    name: "iFlow",
+    provider: "iflow" as Provider,
+    logo: "/logos/iflow.svg",
+    description: "iFlow AI models via iFlow subscription",
+  },
+  {
+    name: "Vertex AI",
+    provider: "vertex" as Provider,
+    logo: "/logos/vertex.svg",
+    description: "Google Cloud Vertex AI via service account",
+  },
+  {
+    name: "Antigravity",
+    provider: "antigravity" as Provider,
+    logo: "/logos/antigravity.webp",
+    description: "Antigravity AI models via Antigravity subscription",
+  },
 ];
 
 export function WelcomePage() {
@@ -43,7 +61,15 @@ export function WelcomePage() {
 
   const hasAnyConnection = () => {
     const status = authStatus();
-    return status.claude || status.openai || status.gemini || status.qwen;
+    return (
+      status.claude ||
+      status.openai ||
+      status.gemini ||
+      status.qwen ||
+      status.iflow ||
+      status.vertex ||
+      status.antigravity
+    );
   };
 
   return (

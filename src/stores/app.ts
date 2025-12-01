@@ -34,6 +34,9 @@ function createAppStore() {
     openai: false,
     gemini: false,
     qwen: false,
+    iflow: false,
+    vertex: false,
+    antigravity: false,
   });
 
   // Config
@@ -96,7 +99,10 @@ function createAppStore() {
           authState.claude ||
           authState.openai ||
           authState.gemini ||
-          authState.qwen;
+          authState.qwen ||
+          authState.iflow ||
+          authState.vertex ||
+          authState.antigravity;
         if (hasAnyAuth) {
           setCurrentPage("dashboard");
         }
@@ -109,7 +115,10 @@ function createAppStore() {
           authState.claude ||
           authState.openai ||
           authState.gemini ||
-          authState.qwen;
+          authState.qwen ||
+          authState.iflow ||
+          authState.vertex ||
+          authState.antigravity;
         if (hasAnyAuth) {
           setCurrentPage("dashboard");
         }

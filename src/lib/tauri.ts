@@ -21,7 +21,14 @@ export async function getProxyStatus(): Promise<ProxyStatus> {
 }
 
 // OAuth management
-export type Provider = "claude" | "openai" | "gemini" | "qwen";
+export type Provider =
+  | "claude"
+  | "openai"
+  | "gemini"
+  | "qwen"
+  | "iflow"
+  | "vertex"
+  | "antigravity";
 
 export async function openOAuth(provider: Provider): Promise<string> {
   return invoke("open_oauth", { provider });
@@ -44,11 +51,20 @@ export async function disconnectProvider(
   return invoke("disconnect_provider", { provider });
 }
 
+export async function importVertexCredential(
+  filePath: string,
+): Promise<AuthStatus> {
+  return invoke("import_vertex_credential", { filePath });
+}
+
 export interface AuthStatus {
   claude: boolean;
   openai: boolean;
   gemini: boolean;
   qwen: boolean;
+  iflow: boolean;
+  vertex: boolean;
+  antigravity: boolean;
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {
@@ -169,8 +185,111 @@ export interface ProviderHealth {
   openai: HealthStatus;
   gemini: HealthStatus;
   qwen: HealthStatus;
+  iflow: HealthStatus;
+  vertex: HealthStatus;
+  antigravity: HealthStatus;
 }
 
 export async function checkProviderHealth(): Promise<ProviderHealth> {
   return invoke("check_provider_health");
+}
+
+// AI Tool Detection & Setup
+export interface DetectedTool {
+  id: string;
+  name: string;
+  installed: boolean;
+  configPath?: string;
+  canAutoConfigure: boolean;
+}
+
+export async function detectAiTools(): Promise<DetectedTool[]> {
+  return invoke("detect_ai_tools");
+}
+
+export async function configureContinue(): Promise<string> {
+  return invoke("configure_continue");
+}
+
+export interface ToolSetupStep {
+  title: string;
+  description: string;
+  copyable?: string;
+}
+
+export interface ToolSetupInfo {
+  name: string;
+  logo: string;
+  canAutoConfigure: boolean;
+  note?: string;
+  steps: ToolSetupStep[];
+  manualConfig?: string;
+  endpoint?: string;
+}
+
+export async function getToolSetupInfo(toolId: string): Promise<ToolSetupInfo> {
+  return invoke("get_tool_setup_info", { toolId });
+}
+
+// CLI Agent Types and Functions
+export interface AgentStatus {
+  id: string;
+  name: string;
+  description: string;
+  installed: boolean;
+  configured: boolean;
+  configType: "env" | "file" | "both";
+  configPath?: string;
+  logo: string;
+  docsUrl: string;
+}
+
+export interface AgentConfigResult {
+  success: boolean;
+  configType: "env" | "file" | "both";
+  configPath?: string;
+  authPath?: string;
+  shellConfig?: string;
+  instructions: string;
+}
+
+export async function detectCliAgents(): Promise<AgentStatus[]> {
+  return invoke("detect_cli_agents");
+}
+
+export async function configureCliAgent(
+  agentId: string,
+): Promise<AgentConfigResult> {
+  return invoke("configure_cli_agent", { agentId });
+}
+
+export async function getShellProfilePath(): Promise<string> {
+  return invoke("get_shell_profile_path");
+}
+
+export async function appendToShellProfile(content: string): Promise<string> {
+  return invoke("append_to_shell_profile", { content });
+}
+
+// Usage Statistics
+export interface ModelUsage {
+  model: string;
+  requests: number;
+  tokens: number;
+}
+
+export interface UsageStats {
+  totalRequests: number;
+  successCount: number;
+  failureCount: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  requestsToday: number;
+  tokensToday: number;
+  models: ModelUsage[];
+}
+
+export async function getUsageStats(): Promise<UsageStats> {
+  return invoke("get_usage_stats");
 }
