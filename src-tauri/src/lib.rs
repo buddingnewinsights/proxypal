@@ -265,12 +265,44 @@ fn save_auth_to_file(auth: &AuthStatus) -> Result<(), String> {
 
 // Parse CLIProxyAPI log output to extract request information
 fn parse_request_log(line: &str, counter: &mut u64) -> Option<RequestLog> {
-    // CLIProxyAPI outputs logs in formats like:
-    // - "2024/01/01 12:00:00 POST /v1/chat/completions 200 123ms"
+    // CLIProxyAPI outputs logs in various formats:
+    // - "2024/01/01 12:00:00 POST /v1/chat/completions 200 123ms model=gpt-4"
     // - "[INFO] POST /v1/chat/completions -> 200 (123ms)"
-    // - JSON: {"method": "POST", "path": "/v1/...", "status": 200, "duration": 123}
+    // - JSON: {"method": "POST", "path": "/v1/...", "status": 200, "duration": 123, "model": "..."}
+    // - "model=gpt-5-codex provider=openai tokens=1234"
     
     let line_trimmed = line.trim();
+    
+    // First, try to parse as JSON (CLIProxyAPI may output structured logs)
+    if line_trimmed.starts_with('{') && line_trimmed.ends_with('}') {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line_trimmed) {
+            let method = json.get("method").and_then(|v| v.as_str()).unwrap_or("POST");
+            let path = json.get("path").and_then(|v| v.as_str()).unwrap_or("/v1/chat/completions");
+            let status = json.get("status").and_then(|v| v.as_u64()).unwrap_or(200) as u16;
+            let duration = json.get("duration").or(json.get("duration_ms")).and_then(|v| v.as_u64()).unwrap_or(0);
+            let model = json.get("model").and_then(|v| v.as_str()).unwrap_or("auto");
+            let provider = json.get("provider").and_then(|v| v.as_str()).unwrap_or("unknown");
+            let tokens_in = json.get("input_tokens").or(json.get("tokens_in")).and_then(|v| v.as_u64()).map(|v| v as u32);
+            let tokens_out = json.get("output_tokens").or(json.get("tokens_out")).and_then(|v| v.as_u64()).map(|v| v as u32);
+            
+            *counter += 1;
+            return Some(RequestLog {
+                id: format!("req_{}", counter),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+                provider: provider.to_string(),
+                model: model.to_string(),
+                method: method.to_string(),
+                path: path.to_string(),
+                status,
+                duration_ms: duration,
+                tokens_in,
+                tokens_out,
+            });
+        }
+    }
     
     // Must contain an HTTP method AND a valid API path to be a request log
     // NOTE: Exclude /v1/models as it's used for health checks
@@ -317,49 +349,22 @@ fn parse_request_log(line: &str, counter: &mut u64) -> Option<RequestLog> {
         "/v1/chat/completions"
     };
     
+    // Try to extract model name from log line
+    // Look for patterns like: model=xxx, "model":"xxx", model: xxx
+    let model = extract_model_name(line_trimmed).unwrap_or_else(|| "auto".to_string());
+    
     // Try to identify provider from model names or keywords in the log
-    // CLIProxyAPI often logs which provider is being used
-    let provider = if line_trimmed.contains("claude") || line_trimmed.contains("anthropic") ||
-                      line_trimmed.contains("sonnet") || line_trimmed.contains("opus") || line_trimmed.contains("haiku") {
-        "claude"
-    } else if line_trimmed.contains("gpt") || line_trimmed.contains("codex") || line_trimmed.contains("openai") {
-        "openai"
-    } else if line_trimmed.contains("gemini") || line_trimmed.contains("google") {
-        "gemini"
-    } else if line_trimmed.contains("qwen") {
-        "qwen"
-    } else if line_trimmed.contains("iflow") {
-        "iflow"
-    } else if line_trimmed.contains("vertex") {
-        "vertex"
-    } else if line_trimmed.contains("antigravity") {
-        "antigravity"
-    } else {
-        // Try to extract from routed provider patterns like "-> claude" or "[claude]"
-        if line_lower.contains("-> claude") || line_lower.contains("[claude]") {
-            "claude"
-        } else if line_lower.contains("-> openai") || line_lower.contains("[openai]") || line_lower.contains("[codex]") {
-            "openai"
-        } else if line_lower.contains("-> gemini") || line_lower.contains("[gemini]") {
-            "gemini"
-        } else if line_lower.contains("-> qwen") || line_lower.contains("[qwen]") {
-            "qwen"
-        } else if line_lower.contains("-> iflow") || line_lower.contains("[iflow]") {
-            "iflow"
-        } else if line_lower.contains("-> vertex") || line_lower.contains("[vertex]") {
-            "vertex"
-        } else if line_lower.contains("-> antigravity") || line_lower.contains("[antigravity]") {
-            "antigravity"
-        } else {
-            "unknown"
-        }
-    };
+    let provider = detect_provider(line_trimmed, &model);
     
     // Extract status code - look for 3-digit codes
     let status = extract_status_code(line_trimmed).unwrap_or(200);
     
     // Extract duration if present
     let duration_ms = extract_duration(line_trimmed).unwrap_or(0);
+    
+    // Try to extract token counts
+    let tokens_in = extract_token_count(line_trimmed, "input").or_else(|| extract_token_count(line_trimmed, "in"));
+    let tokens_out = extract_token_count(line_trimmed, "output").or_else(|| extract_token_count(line_trimmed, "out"));
     
     *counter += 1;
     
@@ -370,14 +375,129 @@ fn parse_request_log(line: &str, counter: &mut u64) -> Option<RequestLog> {
             .unwrap()
             .as_millis() as u64,
         provider: provider.to_string(),
-        model: "auto".to_string(),
+        model,
         method: method.to_string(),
         path: path.to_string(),
         status,
         duration_ms,
-        tokens_in: None,
-        tokens_out: None,
+        tokens_in,
+        tokens_out,
     })
+}
+
+// Extract model name from log line
+fn extract_model_name(line: &str) -> Option<String> {
+    // Try various patterns for model name extraction
+    let patterns = [
+        // model=gpt-5-codex
+        r"model[=:][\s]*([^\s,\]}\)]+)",
+        // "model": "gpt-5-codex"
+        r#""model"[\s]*:[\s]*"([^"]+)""#,
+    ];
+    
+    for pattern in patterns {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            if let Some(caps) = re.captures(line) {
+                if let Some(model) = caps.get(1) {
+                    let model_str = model.as_str().to_string();
+                    if !model_str.is_empty() && model_str != "auto" {
+                        return Some(model_str);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Try to find common model names directly in the line
+    let known_models = [
+        "claude-sonnet-4-5-20250929", "claude-opus-4-1-20250805", "claude-3-5-haiku-20241022",
+        "gpt-5", "gpt-5-codex", "gpt-4o", "gpt-4", "o3", "o1",
+        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro",
+        "qwen3-coder-plus", "qwen-coder-plus", "qwen2.5-coder",
+        "deepseek-r1", "deepseek-v3",
+    ];
+    
+    let line_lower = line.to_lowercase();
+    for model in known_models {
+        if line_lower.contains(&model.to_lowercase()) {
+            return Some(model.to_string());
+        }
+    }
+    
+    None
+}
+
+// Detect provider from log line and model name
+fn detect_provider(line: &str, model: &str) -> String {
+    let line_lower = line.to_lowercase();
+    let model_lower = model.to_lowercase();
+    
+    // Check model name first (most reliable)
+    if model_lower.contains("claude") || model_lower.contains("sonnet") || 
+       model_lower.contains("opus") || model_lower.contains("haiku") {
+        return "claude".to_string();
+    }
+    if model_lower.contains("gpt") || model_lower.contains("codex") || model_lower.starts_with("o3") || model_lower.starts_with("o1") {
+        return "openai".to_string();
+    }
+    if model_lower.contains("gemini") {
+        return "gemini".to_string();
+    }
+    if model_lower.contains("qwen") {
+        return "qwen".to_string();
+    }
+    if model_lower.contains("deepseek") {
+        return "deepseek".to_string();
+    }
+    
+    // Check log line for provider keywords
+    if line_lower.contains("anthropic") || line_lower.contains("[claude]") || line_lower.contains("-> claude") {
+        return "claude".to_string();
+    }
+    if line_lower.contains("openai") || line_lower.contains("[openai]") || line_lower.contains("[codex]") {
+        return "openai".to_string();
+    }
+    if line_lower.contains("google") || line_lower.contains("[gemini]") || line_lower.contains("-> gemini") {
+        return "gemini".to_string();
+    }
+    if line_lower.contains("[qwen]") || line_lower.contains("-> qwen") {
+        return "qwen".to_string();
+    }
+    if line_lower.contains("iflow") {
+        return "iflow".to_string();
+    }
+    if line_lower.contains("vertex") {
+        return "vertex".to_string();
+    }
+    if line_lower.contains("antigravity") {
+        return "antigravity".to_string();
+    }
+    
+    "unknown".to_string()
+}
+
+// Extract token count from log line
+fn extract_token_count(line: &str, token_type: &str) -> Option<u32> {
+    // Look for patterns like: input_tokens=123, tokens_in=123, input: 123
+    let patterns = [
+        format!(r"{}_tokens[=:][\s]*(\d+)", token_type),
+        format!(r"tokens_{}[=:][\s]*(\d+)", token_type),
+        format!(r#""{}_tokens"[\s]*:[\s]*(\d+)"#, token_type),
+    ];
+    
+    for pattern in patterns {
+        if let Ok(re) = regex::Regex::new(&pattern) {
+            if let Some(caps) = re.captures(line) {
+                if let Some(count) = caps.get(1) {
+                    if let Ok(n) = count.as_str().parse::<u32>() {
+                        return Some(n);
+                    }
+                }
+            }
+        }
+    }
+    
+    None
 }
 
 // Helper to extract HTTP status code from log line
@@ -581,12 +701,13 @@ async fn get_usage_stats(state: State<'_, AppState>) -> Result<UsageStats, Strin
         state.config.lock().unwrap().port
     };
     
-    // Fetch from Management API
+    // Fetch from Management API with auth header
     let url = format!("http://127.0.0.1:{}/v0/management/usage", port);
     
     let client = reqwest::Client::new();
     let response = client
         .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
