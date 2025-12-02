@@ -460,9 +460,20 @@ async fn start_proxy(
     
     let proxy_config_path = config_dir.join("proxy-config.yaml");
     
-    // Generate a simple config for CLIProxyAPI with Management API enabled
-    let proxy_config = format!(
-        r#"# ProxyPal generated config
+    // Check if config exists and has correct port
+    // Don't overwrite if it exists (CLIProxyAPI modifies secret-key in place)
+    let should_write_config = if proxy_config_path.exists() {
+        // Only rewrite if port changed
+        let existing = std::fs::read_to_string(&proxy_config_path).unwrap_or_default();
+        !existing.contains(&format!("port: {}", config.port))
+    } else {
+        true
+    };
+    
+    if should_write_config {
+        // Generate a simple config for CLIProxyAPI with Management API enabled
+        let proxy_config = format!(
+            r#"# ProxyPal generated config
 port: {}
 auth-dir: "~/.cli-proxy-api"
 api-keys:
@@ -475,10 +486,11 @@ remote-management:
   secret-key: "proxypal-mgmt-key"
   disable-control-panel: true
 "#,
-        config.port
-    );
-    
-    std::fs::write(&proxy_config_path, proxy_config).map_err(|e| e.to_string())?;
+            config.port
+        );
+        
+        std::fs::write(&proxy_config_path, proxy_config).map_err(|e| e.to_string())?;
+    }
 
     // Spawn the sidecar process
     let sidecar = app
