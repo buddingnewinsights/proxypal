@@ -266,11 +266,33 @@ fn save_auth_to_file(auth: &AuthStatus) -> Result<(), String> {
 // Parse CLIProxyAPI log output to extract request information
 // CLIProxyAPI uses GIN framework log format:
 // [GIN] 2025/12/02 - 14:30:57 | 200 | 1.5s | ::1 | POST "/v1/chat/completions"
-fn parse_request_log(line: &str, counter: &mut u64) -> Option<RequestLog> {
+// With debug mode, additional lines show model info:
+// [info] [router.go:XX] Routing to gemini model=gemini-2.5-flash
+// [info] [router.go:XX] Response model=gemini-2.5-flash tokens=1234
+fn parse_request_log(line: &str, counter: &mut u64, last_model: &mut Option<String>, last_provider: &mut Option<String>) -> Option<RequestLog> {
     let line_trimmed = line.trim();
     
+    // Check for model/provider info in debug logs (capture for next GIN log)
+    // Patterns: "model=xxx", "Routing to xxx", "provider=xxx"
+    if line_trimmed.contains("model=") {
+        if let Some(model) = extract_key_value(line_trimmed, "model") {
+            *last_model = Some(model.clone());
+            // Detect provider from model name
+            *last_provider = Some(detect_provider_from_model(&model));
+        }
+    }
+    if line_trimmed.contains("Routing to") {
+        // Format: "Routing to gemini" or "Routing to openai"
+        let providers = ["gemini", "openai", "anthropic", "claude", "qwen", "deepseek", "vertex", "iflow"];
+        for p in providers {
+            if line_trimmed.to_lowercase().contains(&format!("routing to {}", p)) {
+                *last_provider = Some(p.to_string());
+                break;
+            }
+        }
+    }
+    
     // Must be a GIN log line with an API path we care about
-    // Skip /v1/models (health checks) and /v0/management/* (internal)
     if !line_trimmed.contains("[GIN]") {
         return None;
     }
@@ -308,9 +330,9 @@ fn parse_request_log(line: &str, counter: &mut u64) -> Option<RequestLog> {
     // Extract duration from GIN format: "| 1.5s |" or "| 150ms |"
     let duration_ms = extract_duration(line_trimmed).unwrap_or(0);
     
-    // CLIProxyAPI stdout doesn't include model/provider/tokens
-    // Those are only available from Management API /v0/management/usage
-    // We'll show "pending" and let the UI fetch details from Management API
+    // Use captured model/provider from previous debug lines, then reset
+    let model = last_model.take().unwrap_or_else(|| "unknown".to_string());
+    let provider = last_provider.take().unwrap_or_else(|| detect_provider_from_model(&model));
     
     *counter += 1;
     
@@ -320,15 +342,57 @@ fn parse_request_log(line: &str, counter: &mut u64) -> Option<RequestLog> {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64,
-        provider: "pending".to_string(), // Will be enriched by Management API
-        model: "pending".to_string(),    // Will be enriched by Management API
+        provider,
+        model,
         method: method.to_string(),
         path: path.to_string(),
         status,
         duration_ms,
-        tokens_in: None,  // Will be enriched by Management API
-        tokens_out: None, // Will be enriched by Management API
+        tokens_in: None,
+        tokens_out: None,
     })
+}
+
+// Extract value from "key=value" pattern
+fn extract_key_value(line: &str, key: &str) -> Option<String> {
+    let pattern = format!("{}=", key);
+    if let Some(start) = line.find(&pattern) {
+        let value_start = start + pattern.len();
+        let rest = &line[value_start..];
+        // Value ends at whitespace, comma, or end of line
+        let value_end = rest.find(|c: char| c.is_whitespace() || c == ',' || c == '}' || c == ']')
+            .unwrap_or(rest.len());
+        let value = rest[..value_end].trim_matches('"').to_string();
+        if !value.is_empty() {
+            return Some(value);
+        }
+    }
+    None
+}
+
+// Detect provider from model name
+fn detect_provider_from_model(model: &str) -> String {
+    let model_lower = model.to_lowercase();
+    
+    if model_lower.contains("claude") || model_lower.contains("sonnet") || 
+       model_lower.contains("opus") || model_lower.contains("haiku") {
+        return "claude".to_string();
+    }
+    if model_lower.contains("gpt") || model_lower.contains("codex") || 
+       model_lower.starts_with("o3") || model_lower.starts_with("o1") {
+        return "openai".to_string();
+    }
+    if model_lower.contains("gemini") {
+        return "gemini".to_string();
+    }
+    if model_lower.contains("qwen") {
+        return "qwen".to_string();
+    }
+    if model_lower.contains("deepseek") {
+        return "deepseek".to_string();
+    }
+    
+    "unknown".to_string()
 }
 
 // Helper to extract HTTP status code from GIN log line
@@ -403,7 +467,7 @@ port: {}
 auth-dir: "~/.cli-proxy-api"
 api-keys:
   - "proxypal-local"
-debug: false
+debug: true
 
 # Enable Management API for OAuth flows
 remote-management:
@@ -436,6 +500,9 @@ remote-management:
     tauri::async_runtime::spawn(async move {
         use tauri_plugin_shell::process::CommandEvent;
         let mut request_counter: u64 = 0;
+        // Track model/provider from debug lines for next GIN log
+        let mut last_model: Option<String> = None;
+        let mut last_provider: Option<String> = None;
         
         while let Some(event) = rx.recv().await {
             match event {
@@ -444,8 +511,7 @@ remote-management:
                     println!("[CLIProxyAPI] {}", text);
                     
                     // Try to parse request logs from CLIProxyAPI output
-                    // Format varies but typically includes: method, path, status, duration
-                    if let Some(log) = parse_request_log(&text, &mut request_counter) {
+                    if let Some(log) = parse_request_log(&text, &mut request_counter, &mut last_model, &mut last_provider) {
                         let _ = app_handle.emit("request-log", log);
                     }
                 }
