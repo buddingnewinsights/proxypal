@@ -56,7 +56,7 @@ function createAppStore() {
 
   // UI state
   const [currentPage, setCurrentPage] = createSignal<
-    "welcome" | "dashboard" | "settings"
+    "welcome" | "dashboard" | "settings" | "api-keys"
   >("welcome");
   const [isLoading, setIsLoading] = createSignal(false);
   const [isInitialized, setIsInitialized] = createSignal(false);

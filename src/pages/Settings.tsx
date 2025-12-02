@@ -299,6 +299,46 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* API Keys */}
+          <div class="space-y-4">
+            <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+              API Keys
+            </h2>
+
+            <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Manage API Keys
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Add Gemini, Claude, Codex, or OpenAI-compatible API keys
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage("api-keys")}
+                >
+                  <svg
+                    class="w-4 h-4 mr-1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                    />
+                  </svg>
+                  Configure
+                </Button>
+              </div>
+            </div>
+          </div>
+
           {/* About */}
           <div class="space-y-4">
             <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">

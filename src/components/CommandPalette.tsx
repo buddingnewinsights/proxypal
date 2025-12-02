@@ -62,6 +62,17 @@ export function CommandPalette() {
       },
     },
     {
+      id: "go-api-keys",
+      label: "Go to API Keys",
+      shortcut: "⌘2",
+      icon: "key",
+      category: "navigation",
+      action: () => {
+        setCurrentPage("api-keys");
+        setIsOpen(false);
+      },
+    },
+    {
       id: "go-settings",
       label: "Go to Settings",
       shortcut: "⌘,",
@@ -123,6 +134,10 @@ export function CommandPalette() {
         case "1":
           e.preventDefault();
           setCurrentPage("dashboard");
+          break;
+        case "2":
+          e.preventDefault();
+          setCurrentPage("api-keys");
           break;
       }
     }
@@ -259,6 +274,22 @@ export function CommandPalette() {
               stroke-linejoin="round"
               stroke-width="2"
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
+          </svg>
+        );
+      case "key":
+        return (
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
             />
           </svg>
         );

@@ -2033,6 +2033,376 @@ models:
     Ok(config_path.to_string_lossy().to_string())
 }
 
+// ============================================
+// API Keys Management - CRUD operations via Management API
+// ============================================
+
+// API Key types matching Management API schema
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiApiKey {
+    pub api_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proxy_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excluded_models: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeApiKey {
+    pub api_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proxy_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excluded_models: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexApiKey {
+    pub api_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proxy_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAICompatibleApiKeyEntry {
+    pub api_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proxy_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAICompatibleModel {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAICompatibleProvider {
+    pub name: String,
+    pub base_url: String,
+    pub api_key_entries: Vec<OpenAICompatibleApiKeyEntry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<OpenAICompatibleModel>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
+// Helper to build HTTP client for Management API
+fn build_management_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+// Helper to get Management API base URL
+fn get_management_url(port: u16, endpoint: &str) -> String {
+    format!("http://127.0.0.1:{}/v0/management/{}", port, endpoint)
+}
+
+// Convert Management API kebab-case keys to camelCase for frontend
+fn convert_api_key_response<T: serde::de::DeserializeOwned>(json: serde_json::Value) -> Result<Vec<T>, String> {
+    // The Management API returns kebab-case, we need to convert
+    let json_str = serde_json::to_string(&json).map_err(|e| e.to_string())?;
+    // Replace kebab-case with camelCase for our structs
+    let converted = json_str
+        .replace("\"api-key\"", "\"apiKey\"")
+        .replace("\"base-url\"", "\"baseUrl\"")
+        .replace("\"proxy-url\"", "\"proxyUrl\"")
+        .replace("\"excluded-models\"", "\"excludedModels\"")
+        .replace("\"api-key-entries\"", "\"apiKeyEntries\"");
+    serde_json::from_str(&converted).map_err(|e| e.to_string())
+}
+
+// Convert camelCase to kebab-case for Management API
+fn convert_to_management_format<T: serde::Serialize>(data: &T) -> Result<serde_json::Value, String> {
+    let json_str = serde_json::to_string(data).map_err(|e| e.to_string())?;
+    let converted = json_str
+        .replace("\"apiKey\"", "\"api-key\"")
+        .replace("\"baseUrl\"", "\"base-url\"")
+        .replace("\"proxyUrl\"", "\"proxy-url\"")
+        .replace("\"excludedModels\"", "\"excluded-models\"")
+        .replace("\"apiKeyEntries\"", "\"api-key-entries\"");
+    serde_json::from_str(&converted).map_err(|e| e.to_string())
+}
+
+// Gemini API Keys
+#[tauri::command]
+async fn get_gemini_api_keys(state: State<'_, AppState>) -> Result<Vec<GeminiApiKey>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "gemini-api-key");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Gemini API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    convert_api_key_response(json)
+}
+
+#[tauri::command]
+async fn set_gemini_api_keys(state: State<'_, AppState>, keys: Vec<GeminiApiKey>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "gemini-api-key");
+    
+    let client = build_management_client();
+    let body = convert_to_management_format(&keys)?;
+    
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set Gemini API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set Gemini API keys: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn add_gemini_api_key(state: State<'_, AppState>, key: GeminiApiKey) -> Result<(), String> {
+    let mut keys = get_gemini_api_keys(state.clone()).await?;
+    keys.push(key);
+    set_gemini_api_keys(state, keys).await
+}
+
+#[tauri::command]
+async fn delete_gemini_api_key(state: State<'_, AppState>, index: usize) -> Result<(), String> {
+    let mut keys = get_gemini_api_keys(state.clone()).await?;
+    if index >= keys.len() {
+        return Err("Index out of bounds".to_string());
+    }
+    keys.remove(index);
+    set_gemini_api_keys(state, keys).await
+}
+
+// Claude API Keys
+#[tauri::command]
+async fn get_claude_api_keys(state: State<'_, AppState>) -> Result<Vec<ClaudeApiKey>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "claude-api-key");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Claude API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    convert_api_key_response(json)
+}
+
+#[tauri::command]
+async fn set_claude_api_keys(state: State<'_, AppState>, keys: Vec<ClaudeApiKey>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "claude-api-key");
+    
+    let client = build_management_client();
+    let body = convert_to_management_format(&keys)?;
+    
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set Claude API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set Claude API keys: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn add_claude_api_key(state: State<'_, AppState>, key: ClaudeApiKey) -> Result<(), String> {
+    let mut keys = get_claude_api_keys(state.clone()).await?;
+    keys.push(key);
+    set_claude_api_keys(state, keys).await
+}
+
+#[tauri::command]
+async fn delete_claude_api_key(state: State<'_, AppState>, index: usize) -> Result<(), String> {
+    let mut keys = get_claude_api_keys(state.clone()).await?;
+    if index >= keys.len() {
+        return Err("Index out of bounds".to_string());
+    }
+    keys.remove(index);
+    set_claude_api_keys(state, keys).await
+}
+
+// Codex API Keys
+#[tauri::command]
+async fn get_codex_api_keys(state: State<'_, AppState>) -> Result<Vec<CodexApiKey>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "codex-api-key");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Codex API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    convert_api_key_response(json)
+}
+
+#[tauri::command]
+async fn set_codex_api_keys(state: State<'_, AppState>, keys: Vec<CodexApiKey>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "codex-api-key");
+    
+    let client = build_management_client();
+    let body = convert_to_management_format(&keys)?;
+    
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set Codex API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set Codex API keys: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn add_codex_api_key(state: State<'_, AppState>, key: CodexApiKey) -> Result<(), String> {
+    let mut keys = get_codex_api_keys(state.clone()).await?;
+    keys.push(key);
+    set_codex_api_keys(state, keys).await
+}
+
+#[tauri::command]
+async fn delete_codex_api_key(state: State<'_, AppState>, index: usize) -> Result<(), String> {
+    let mut keys = get_codex_api_keys(state.clone()).await?;
+    if index >= keys.len() {
+        return Err("Index out of bounds".to_string());
+    }
+    keys.remove(index);
+    set_codex_api_keys(state, keys).await
+}
+
+// OpenAI-Compatible Providers
+#[tauri::command]
+async fn get_openai_compatible_providers(state: State<'_, AppState>) -> Result<Vec<OpenAICompatibleProvider>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "openai-compatibility");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch OpenAI-compatible providers: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    convert_api_key_response(json)
+}
+
+#[tauri::command]
+async fn set_openai_compatible_providers(state: State<'_, AppState>, providers: Vec<OpenAICompatibleProvider>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "openai-compatibility");
+    
+    let client = build_management_client();
+    let body = convert_to_management_format(&providers)?;
+    
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set OpenAI-compatible providers: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set OpenAI-compatible providers: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn add_openai_compatible_provider(state: State<'_, AppState>, provider: OpenAICompatibleProvider) -> Result<(), String> {
+    let mut providers = get_openai_compatible_providers(state.clone()).await?;
+    providers.push(provider);
+    set_openai_compatible_providers(state, providers).await
+}
+
+#[tauri::command]
+async fn delete_openai_compatible_provider(state: State<'_, AppState>, index: usize) -> Result<(), String> {
+    let mut providers = get_openai_compatible_providers(state.clone()).await?;
+    if index >= providers.len() {
+        return Err("Index out of bounds".to_string());
+    }
+    providers.remove(index);
+    set_openai_compatible_providers(state, providers).await
+}
+
 // Get setup instructions for a specific tool
 #[tauri::command]
 fn get_tool_setup_info(tool_id: String, state: State<AppState>) -> Result<serde_json::Value, String> {
@@ -2209,6 +2579,23 @@ pub fn run() {
             add_request_to_history,
             clear_request_history,
             test_agent_connection,
+            // API Keys Management
+            get_gemini_api_keys,
+            set_gemini_api_keys,
+            add_gemini_api_key,
+            delete_gemini_api_key,
+            get_claude_api_keys,
+            set_claude_api_keys,
+            add_claude_api_key,
+            delete_claude_api_key,
+            get_codex_api_keys,
+            set_codex_api_keys,
+            add_codex_api_key,
+            delete_codex_api_key,
+            get_openai_compatible_providers,
+            set_openai_compatible_providers,
+            add_openai_compatible_provider,
+            delete_openai_compatible_provider,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
