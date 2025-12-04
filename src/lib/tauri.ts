@@ -244,6 +244,21 @@ export interface CopilotStatus {
   authenticated: boolean;
 }
 
+// Copilot API detection result
+export interface CopilotApiDetection {
+  installed: boolean;
+  version?: string;
+  installPath?: string;
+  nodeAvailable: boolean;
+}
+
+// Copilot API install result
+export interface CopilotApiInstallResult {
+  success: boolean;
+  message: string;
+  version?: string;
+}
+
 // Config
 export interface AppConfig {
   port: number;
@@ -328,6 +343,14 @@ export async function stopCopilot(): Promise<CopilotStatus> {
 
 export async function checkCopilotHealth(): Promise<CopilotStatus> {
   return invoke("check_copilot_health");
+}
+
+export async function detectCopilotApi(): Promise<CopilotApiDetection> {
+  return invoke("detect_copilot_api");
+}
+
+export async function installCopilotApi(): Promise<CopilotApiInstallResult> {
+  return invoke("install_copilot_api");
 }
 
 export async function onCopilotStatusChanged(
@@ -578,6 +601,12 @@ export async function testOpenAIProvider(
 // API Keys Management
 // ============================================
 
+// Model mapping with alias and name (used by Claude and OpenAI-compatible providers)
+export interface ModelMapping {
+  name: string;
+  alias?: string;
+}
+
 // Gemini API Key structure
 export interface GeminiApiKey {
   apiKey: string;
@@ -593,7 +622,7 @@ export interface ClaudeApiKey {
   baseUrl?: string;
   proxyUrl?: string;
   headers?: Record<string, string>;
-  models?: string[];
+  models?: ModelMapping[];
   excludedModels?: string[];
 }
 
@@ -613,10 +642,7 @@ export interface OpenAICompatibleProvider {
     apiKey: string;
     proxyUrl?: string;
   }>;
-  models?: Array<{
-    name: string;
-    alias?: string;
-  }>;
+  models?: ModelMapping[];
   headers?: Record<string, string>;
 }
 

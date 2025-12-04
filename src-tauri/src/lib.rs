@@ -451,6 +451,9 @@ fn detect_provider_from_model(model: &str) -> String {
     if model_lower.contains("deepseek") {
         return "deepseek".to_string();
     }
+    if model_lower.contains("glm") {
+        return "zhipu".to_string();
+    }
     
     "unknown".to_string()
 }
@@ -491,9 +494,11 @@ fn detect_provider_from_path(path: &str) -> Option<String> {
     None
 }
 
-// Extract model from Amp-style API path for Gemini
-// e.g., "/api/provider/google/v1beta1/publishers/google/models/gemini-2.5-pro:streamGenerateContent"
-fn extract_model_from_gemini_path(path: &str) -> Option<String> {
+// Extract model from API path
+// For Gemini: "/api/provider/google/v1beta1/publishers/google/models/gemini-2.5-pro:streamGenerateContent"
+// For Claude/OpenAI: model is in request body, so we return empty to let the UI use provider name
+fn extract_model_from_path(path: &str) -> Option<String> {
+    // First try Gemini-style path with /models/{model-name}
     if path.contains("/models/") {
         if let Some(idx) = path.find("/models/") {
             let model_part = &path[idx + 8..]; // Skip "/models/"
@@ -510,6 +515,9 @@ fn extract_model_from_gemini_path(path: &str) -> Option<String> {
             }
         }
     }
+    
+    // For Claude/OpenAI, model is in request body - we can't extract it from URL
+    // Return None to let UI show provider-based display
     None
 }
 
@@ -582,10 +590,10 @@ fn parse_gin_log_line(line: &str, request_counter: &AtomicU64) -> Option<Request
         0
     };
     
-    // Extract model from path for Gemini, otherwise use placeholder
+    // Extract model from path for Gemini, otherwise use endpoint type
     // Note: For non-Gemini requests, model is in the request body which we can't access from logs
-    let model = extract_model_from_gemini_path(&path)
-        .unwrap_or_else(|| "api-request".to_string());
+    let model = extract_model_from_path(&path)
+        .unwrap_or_else(|| "unknown".to_string());
     
     // Determine provider from path first, then fallback to model-based detection
     let provider = detect_provider_from_path(&path)
@@ -1140,26 +1148,29 @@ async fn start_copilot(
     // Small delay to let port be released
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
-    // Check if Node.js/npx is available
-    let npx_check = app
-        .shell()
-        .command("npx")
-        .args(["--version"])
-        .output()
-        .await;
+    // Check if copilot-api is installed globally (faster startup)
+    let detection = detect_copilot_api(app.clone()).await?;
     
-    if npx_check.is_err() || !npx_check.as_ref().map(|o| o.status.success()).unwrap_or(false) {
+    if !detection.node_available {
         return Err("Node.js is required for GitHub Copilot support.\n\nPlease install Node.js from https://nodejs.org/ and restart ProxyPal.".to_string());
     }
     
+    // Determine whether to use global install or npx
+    let use_global = detection.installed;
+    
     // Build copilot-api command arguments
-    // Command: npx copilot-api@latest start --port 4141 [--account type] [--rate-limit N] [--rate-limit-wait]
-    let mut args = vec![
-        "copilot-api@latest".to_string(),
-        "start".to_string(),
-        "--port".to_string(),
-        port.to_string(),
-    ];
+    // Command: copilot-api start --port 4141 [--account type] [--rate-limit N] [--rate-limit-wait]
+    // Or via npx: npx copilot-api@latest start --port 4141 ...
+    let mut args: Vec<String> = Vec::new();
+    
+    // For npx, we need to add the package name first
+    if !use_global {
+        args.push("copilot-api@latest".to_string());
+    }
+    
+    args.push("start".to_string());
+    args.push("--port".to_string());
+    args.push(port.to_string());
     
     // Add account type if specified
     if !config.copilot.account_type.is_empty() {
@@ -1178,11 +1189,15 @@ async fn start_copilot(
         args.push("--rate-limit-wait".to_string());
     }
     
-    // Spawn copilot-api using npx
-    let command = app
-        .shell()
-        .command("npx")
-        .args(&args);
+    // Spawn copilot-api - prefer global install for faster startup
+    let command = if use_global {
+        println!("[copilot] Using globally installed copilot-api{}", 
+            detection.version.as_ref().map(|v| format!(" v{}", v)).unwrap_or_default());
+        app.shell().command("copilot-api").args(&args)
+    } else {
+        println!("[copilot] Using npx copilot-api@latest (consider installing globally with: npm i -g copilot-api)");
+        app.shell().command("npx").args(&args)
+    };
     
     let (mut rx, child) = command.spawn().map_err(|e| format!("Failed to spawn copilot-api: {}. Make sure Node.js is installed.", e))?;
     
@@ -1359,6 +1374,173 @@ async fn check_copilot_health(state: State<'_, AppState>) -> Result<CopilotStatu
     };
     
     Ok(new_status)
+}
+
+// Detection result for copilot-api installation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotApiDetection {
+    pub installed: bool,
+    pub version: Option<String>,
+    pub install_path: Option<String>,
+    pub node_available: bool,
+}
+
+#[tauri::command]
+async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection, String> {
+    // Check if Node.js is available
+    let node_check = app
+        .shell()
+        .command("node")
+        .args(["--version"])
+        .output()
+        .await;
+    
+    let node_available = node_check.as_ref().map(|o| o.status.success()).unwrap_or(false);
+    
+    if !node_available {
+        return Ok(CopilotApiDetection {
+            installed: false,
+            version: None,
+            install_path: None,
+            node_available: false,
+        });
+    }
+    
+    // Check if copilot-api is installed globally
+    // Try to get version using npm list -g
+    let npm_list = app
+        .shell()
+        .command("npm")
+        .args(["list", "-g", "copilot-api", "--depth=0", "--json"])
+        .output()
+        .await;
+    
+    if let Ok(output) = npm_list {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Parse JSON to check if copilot-api is in dependencies
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if let Some(deps) = json.get("dependencies") {
+                    if let Some(copilot) = deps.get("copilot-api") {
+                        let version = copilot.get("version")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        
+                        // Get the global prefix to determine install path
+                        let prefix_output = app
+                            .shell()
+                            .command("npm")
+                            .args(["config", "get", "prefix"])
+                            .output()
+                            .await;
+                        
+                        let install_path = prefix_output.ok()
+                            .filter(|o| o.status.success())
+                            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+                        
+                        return Ok(CopilotApiDetection {
+                            installed: true,
+                            version,
+                            install_path,
+                            node_available: true,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    // Also try `which copilot-api` or `where copilot-api` as fallback
+    let which_cmd = if cfg!(target_os = "windows") { "where" } else { "which" };
+    let which_output = app
+        .shell()
+        .command(which_cmd)
+        .args(["copilot-api"])
+        .output()
+        .await;
+    
+    if let Ok(output) = which_output {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            return Ok(CopilotApiDetection {
+                installed: true,
+                version: None,
+                install_path: Some(path),
+                node_available: true,
+            });
+        }
+    }
+    
+    Ok(CopilotApiDetection {
+        installed: false,
+        version: None,
+        install_path: None,
+        node_available: true,
+    })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotApiInstallResult {
+    pub success: bool,
+    pub message: String,
+    pub version: Option<String>,
+}
+
+#[tauri::command]
+async fn install_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiInstallResult, String> {
+    // First check if Node.js/npm is available
+    let npm_check = app
+        .shell()
+        .command("npm")
+        .args(["--version"])
+        .output()
+        .await;
+    
+    if npm_check.is_err() || !npm_check.as_ref().map(|o| o.status.success()).unwrap_or(false) {
+        return Ok(CopilotApiInstallResult {
+            success: false,
+            message: "Node.js/npm is required. Please install Node.js from https://nodejs.org/".to_string(),
+            version: None,
+        });
+    }
+    
+    // Install copilot-api globally
+    let install_output = app
+        .shell()
+        .command("npm")
+        .args(["install", "-g", "copilot-api"])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run npm install: {}", e))?;
+    
+    if !install_output.status.success() {
+        let stderr = String::from_utf8_lossy(&install_output.stderr);
+        return Ok(CopilotApiInstallResult {
+            success: false,
+            message: format!("Installation failed: {}", stderr),
+            version: None,
+        });
+    }
+    
+    // Get the installed version
+    let detection = detect_copilot_api(app).await?;
+    
+    if detection.installed {
+        Ok(CopilotApiInstallResult {
+            success: true,
+            message: format!("Successfully installed copilot-api{}", 
+                detection.version.as_ref().map(|v| format!(" v{}", v)).unwrap_or_default()),
+            version: detection.version,
+        })
+    } else {
+        Ok(CopilotApiInstallResult {
+            success: false,
+            message: "Installation completed but copilot-api was not found. You may need to restart your terminal.".to_string(),
+            version: None,
+        })
+    }
 }
 
 #[tauri::command]
@@ -2139,73 +2321,84 @@ async fn test_openai_provider(base_url: String, api_key: String) -> Result<Provi
         .build()
         .map_err(|e| e.to_string())?;
     
-    // Normalize base URL - remove trailing slash and ensure /models endpoint
+    // Normalize base URL - remove trailing slash
     let base_url = base_url.trim_end_matches('/');
-    let endpoint = if base_url.ends_with("/v1") {
-        format!("{}/models", base_url)
-    } else {
-        format!("{}/v1/models", base_url)
-    };
+    
+    // Try multiple endpoint patterns since providers have varying API structures:
+    // 1. {baseUrl}/models - for providers where user specifies full path (e.g., .../v1 or .../v4)
+    // 2. {baseUrl}/v1/models - for providers where user specifies root URL
+    let endpoints = vec![
+        format!("{}/models", base_url),
+        format!("{}/v1/models", base_url),
+    ];
     
     let start = std::time::Instant::now();
-    let response = client.get(&endpoint)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .send()
-        .await;
-    let latency = start.elapsed().as_millis() as u64;
     
-    match response {
-        Ok(resp) => {
-            let status = resp.status();
-            if status.is_success() {
-                // Try to count models
-                let models_count = if let Ok(json) = resp.json::<serde_json::Value>().await {
-                    json.get("data")
-                        .and_then(|d| d.as_array())
-                        .map(|arr| arr.len() as u32)
-                } else {
-                    None
-                };
-                
-                Ok(ProviderTestResult {
-                    success: true,
-                    message: format!("Connection successful! ({}ms)", latency),
-                    latency_ms: Some(latency),
-                    models_found: models_count,
-                })
-            } else if status.as_u16() == 401 || status.as_u16() == 403 {
-                Ok(ProviderTestResult {
-                    success: false,
-                    message: "Authentication failed - check your API key".to_string(),
-                    latency_ms: Some(latency),
-                    models_found: None,
-                })
-            } else {
-                Ok(ProviderTestResult {
-                    success: false,
-                    message: format!("Provider returned status {} - check your base URL", status),
-                    latency_ms: Some(latency),
-                    models_found: None,
-                })
+    for endpoint in &endpoints {
+        let response = client.get(endpoint)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .send()
+            .await;
+        let latency = start.elapsed().as_millis() as u64;
+        
+        match response {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    // Try to count models
+                    let models_count = if let Ok(json) = resp.json::<serde_json::Value>().await {
+                        json.get("data")
+                            .and_then(|d| d.as_array())
+                            .map(|arr| arr.len() as u32)
+                    } else {
+                        None
+                    };
+                    
+                    return Ok(ProviderTestResult {
+                        success: true,
+                        message: format!("Connection successful! ({}ms)", latency),
+                        latency_ms: Some(latency),
+                        models_found: models_count,
+                    });
+                } else if status.as_u16() == 401 || status.as_u16() == 403 {
+                    return Ok(ProviderTestResult {
+                        success: false,
+                        message: "Authentication failed - check your API key".to_string(),
+                        latency_ms: Some(latency),
+                        models_found: None,
+                    });
+                }
+                // For 404, try the next endpoint pattern
+            }
+            Err(e) => {
+                // For connection errors, return immediately
+                if e.is_timeout() {
+                    return Ok(ProviderTestResult {
+                        success: false,
+                        message: "Connection timed out - check your base URL".to_string(),
+                        latency_ms: Some(start.elapsed().as_millis() as u64),
+                        models_found: None,
+                    });
+                } else if e.is_connect() {
+                    return Ok(ProviderTestResult {
+                        success: false,
+                        message: "Could not connect - check your base URL".to_string(),
+                        latency_ms: Some(start.elapsed().as_millis() as u64),
+                        models_found: None,
+                    });
+                }
             }
         }
-        Err(e) => {
-            let error_msg = if e.is_timeout() {
-                "Connection timed out - check your base URL".to_string()
-            } else if e.is_connect() {
-                "Could not connect - check your base URL".to_string()
-            } else {
-                format!("Connection failed: {}", e)
-            };
-            
-            Ok(ProviderTestResult {
-                success: false,
-                message: error_msg,
-                latency_ms: None,
-                models_found: None,
-            })
-        }
     }
+    
+    // All endpoints failed with 404 or similar
+    let latency = start.elapsed().as_millis() as u64;
+    Ok(ProviderTestResult {
+        success: false,
+        message: "Provider returned 404 Not Found - check your base URL (tried /models and /v1/models)".to_string(),
+        latency_ms: Some(latency),
+        models_found: None,
+    })
 }
 
 // Handle deep link OAuth callback
@@ -3121,6 +3314,15 @@ pub struct GeminiApiKey {
     pub excluded_models: Option<Vec<String>>,
 }
 
+// Model mapping with alias and name (used by Claude and OpenAI-compatible providers)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelMapping {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeApiKey {
@@ -3132,7 +3334,7 @@ pub struct ClaudeApiKey {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<std::collections::HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub models: Option<Vec<String>>,
+    pub models: Option<Vec<ModelMapping>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub excluded_models: Option<Vec<String>>,
 }
@@ -3159,20 +3361,12 @@ pub struct OpenAICompatibleApiKeyEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenAICompatibleModel {
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub alias: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct OpenAICompatibleProvider {
     pub name: String,
     pub base_url: String,
     pub api_key_entries: Vec<OpenAICompatibleApiKeyEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub models: Option<Vec<OpenAICompatibleModel>>,
+    pub models: Option<Vec<ModelMapping>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<std::collections::HashMap<String, String>>,
 }
@@ -3191,9 +3385,25 @@ fn get_management_url(port: u16, endpoint: &str) -> String {
 }
 
 // Convert Management API kebab-case keys to camelCase for frontend
-fn convert_api_key_response<T: serde::de::DeserializeOwned>(json: serde_json::Value) -> Result<Vec<T>, String> {
+// The Management API returns data wrapped in an object like: { "gemini-api-key": [...] }
+// It may also return null for empty lists: { "gemini-api-key": null }
+fn convert_api_key_response<T: serde::de::DeserializeOwned>(json: serde_json::Value, wrapper_key: &str) -> Result<Vec<T>, String> {
+    // Extract the array from the wrapper object
+    let array_value = match &json {
+        serde_json::Value::Object(obj) => {
+            match obj.get(wrapper_key) {
+                Some(serde_json::Value::Array(arr)) => serde_json::Value::Array(arr.clone()),
+                Some(serde_json::Value::Null) | None => serde_json::Value::Array(vec![]), // null or missing = empty array
+                Some(other) => return Err(format!("Expected array or null for key '{}', got: {:?}", wrapper_key, other)),
+            }
+        }
+        serde_json::Value::Array(_) => json.clone(), // Already an array, use as-is
+        serde_json::Value::Null => serde_json::Value::Array(vec![]), // Top-level null = empty array
+        _ => return Err(format!("Unexpected response format: expected object with key '{}' or array", wrapper_key)),
+    };
+    
     // The Management API returns kebab-case, we need to convert
-    let json_str = serde_json::to_string(&json).map_err(|e| e.to_string())?;
+    let json_str = serde_json::to_string(&array_value).map_err(|e| e.to_string())?;
     // Replace kebab-case with camelCase for our structs
     let converted = json_str
         .replace("\"api-key\"", "\"apiKey\"")
@@ -3235,7 +3445,7 @@ async fn get_gemini_api_keys(state: State<'_, AppState>) -> Result<Vec<GeminiApi
     }
     
     let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    convert_api_key_response(json)
+    convert_api_key_response(json, "gemini-api-key")
 }
 
 #[tauri::command]
@@ -3299,7 +3509,7 @@ async fn get_claude_api_keys(state: State<'_, AppState>) -> Result<Vec<ClaudeApi
     }
     
     let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    convert_api_key_response(json)
+    convert_api_key_response(json, "claude-api-key")
 }
 
 #[tauri::command]
@@ -3363,7 +3573,7 @@ async fn get_codex_api_keys(state: State<'_, AppState>) -> Result<Vec<CodexApiKe
     }
     
     let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    convert_api_key_response(json)
+    convert_api_key_response(json, "codex-api-key")
 }
 
 #[tauri::command]
@@ -3427,7 +3637,7 @@ async fn get_openai_compatible_providers(state: State<'_, AppState>) -> Result<V
     }
     
     let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    convert_api_key_response(json)
+    convert_api_key_response(json, "openai-compatibility")
 }
 
 #[tauri::command]
@@ -4059,6 +4269,8 @@ pub fn run() {
             start_copilot,
             stop_copilot,
             check_copilot_health,
+            detect_copilot_api,
+            install_copilot_api,
             get_auth_status,
             refresh_auth_status,
             open_oauth,

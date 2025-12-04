@@ -171,9 +171,94 @@ function MiniRequestFeed(props: {
   };
 
   const formatTokens = (n?: number) => {
-    if (!n) return "—";
+    if (!n || n === 0) return null; // Return null to hide when no data
     if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
     return n.toString();
+  };
+
+  // Get provider badge color
+  const getProviderColor = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case "claude":
+        return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400";
+      case "openai":
+      case "openai-compat":
+        return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400";
+      case "gemini":
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
+      case "qwen":
+        return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400";
+      case "deepseek":
+        return "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400";
+      case "zhipu":
+        return "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400";
+      case "copilot":
+        return "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300";
+      default:
+        return "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400";
+    }
+  };
+
+  // Format provider name for display
+  const formatProvider = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case "claude":
+        return "Claude";
+      case "openai":
+        return "OpenAI";
+      case "openai-compat":
+        return "OpenAI";
+      case "gemini":
+        return "Gemini";
+      case "qwen":
+        return "Qwen";
+      case "deepseek":
+        return "DeepSeek";
+      case "zhipu":
+        return "Zhipu";
+      case "copilot":
+        return "Copilot";
+      default:
+        return provider.charAt(0).toUpperCase() + provider.slice(1);
+    }
+  };
+
+  // Format model/endpoint for display
+  const formatEndpoint = (req: RequestHistory["requests"][0]) => {
+    const model = req.model;
+    // If we have a real model name (not placeholder), show it
+    if (
+      model &&
+      model !== "unknown" &&
+      model !== "api-request" &&
+      !model.includes("/")
+    ) {
+      return model;
+    }
+    // Otherwise derive from path
+    if (req.path.includes("/messages")) {
+      return "Chat";
+    }
+    if (req.path.includes("/chat/completions")) {
+      return "Chat";
+    }
+    if (
+      req.path.includes(":generateContent") ||
+      req.path.includes(":streamGenerateContent")
+    ) {
+      return "Generate";
+    }
+    if (req.path.includes("/completions")) {
+      return "Complete";
+    }
+    return "API";
+  };
+
+  // Format duration
+  const formatDuration = (ms?: number) => {
+    if (!ms || ms === 0) return null;
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
   };
 
   return (
@@ -199,24 +284,43 @@ function MiniRequestFeed(props: {
       >
         <div class="divide-y divide-gray-100 dark:divide-gray-700">
           <For each={recent()}>
-            {(req) => (
-              <div class="px-4 py-2 flex items-center gap-3 text-xs">
-                <span class="text-gray-400 dark:text-gray-500 tabular-nums w-12">
-                  {formatTime(req.timestamp)}
-                </span>
-                <span
-                  class={`px-1.5 py-0.5 rounded text-[10px] font-medium ${req.status < 400 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}
-                >
-                  {req.status}
-                </span>
-                <span class="text-gray-700 dark:text-gray-300 truncate flex-1 font-mono">
-                  {req.model}
-                </span>
-                <span class="text-gray-400 dark:text-gray-500 tabular-nums">
-                  {formatTokens((req.tokensIn || 0) + (req.tokensOut || 0))}
-                </span>
-              </div>
-            )}
+            {(req) => {
+              const tokens = formatTokens(
+                (req.tokensIn || 0) + (req.tokensOut || 0),
+              );
+              const duration = formatDuration(req.durationMs);
+              return (
+                <div class="px-4 py-2 flex items-center gap-2 text-xs">
+                  <span class="text-gray-400 dark:text-gray-500 tabular-nums w-12 flex-shrink-0">
+                    {formatTime(req.timestamp)}
+                  </span>
+                  <span
+                    class={`w-8 text-center px-1 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${req.status < 400 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}
+                  >
+                    {req.status}
+                  </span>
+                  <span
+                    class={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${getProviderColor(req.provider)}`}
+                  >
+                    {formatProvider(req.provider)}
+                  </span>
+                  <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">
+                    {formatEndpoint(req)}
+                  </span>
+                  <span class="flex-1" />
+                  <Show when={duration}>
+                    <span class="text-gray-400 dark:text-gray-500 tabular-nums flex-shrink-0">
+                      {duration}
+                    </span>
+                  </Show>
+                  <Show when={tokens}>
+                    <span class="text-gray-400 dark:text-gray-500 tabular-nums flex-shrink-0">
+                      {tokens}
+                    </span>
+                  </Show>
+                </div>
+              );
+            }}
           </For>
         </div>
       </Show>
