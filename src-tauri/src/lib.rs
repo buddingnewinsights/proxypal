@@ -1140,6 +1140,18 @@ async fn start_copilot(
     // Small delay to let port be released
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
+    // Check if Node.js/npx is available
+    let npx_check = app
+        .shell()
+        .command("npx")
+        .args(["--version"])
+        .output()
+        .await;
+    
+    if npx_check.is_err() || !npx_check.as_ref().map(|o| o.status.success()).unwrap_or(false) {
+        return Err("Node.js is required for GitHub Copilot support.\n\nPlease install Node.js from https://nodejs.org/ and restart ProxyPal.".to_string());
+    }
+    
     // Build copilot-api command arguments
     // Command: npx copilot-api@latest start --port 4141 [--account type] [--rate-limit N] [--rate-limit-wait]
     let mut args = vec![
