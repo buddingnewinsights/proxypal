@@ -1487,6 +1487,101 @@ async fn get_available_models(state: State<'_, AppState>) -> Result<Vec<Availabl
     Ok(models)
 }
 
+// Test connection to a custom OpenAI-compatible provider
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderTestResult {
+    pub success: bool,
+    pub message: String,
+    pub latency_ms: Option<u64>,
+    pub models_found: Option<u32>,
+}
+
+#[tauri::command]
+async fn test_openai_provider(base_url: String, api_key: String) -> Result<ProviderTestResult, String> {
+    if base_url.is_empty() || api_key.is_empty() {
+        return Ok(ProviderTestResult {
+            success: false,
+            message: "Base URL and API key are required".to_string(),
+            latency_ms: None,
+            models_found: None,
+        });
+    }
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+    
+    // Normalize base URL - remove trailing slash and ensure /models endpoint
+    let base_url = base_url.trim_end_matches('/');
+    let endpoint = if base_url.ends_with("/v1") {
+        format!("{}/models", base_url)
+    } else {
+        format!("{}/v1/models", base_url)
+    };
+    
+    let start = std::time::Instant::now();
+    let response = client.get(&endpoint)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await;
+    let latency = start.elapsed().as_millis() as u64;
+    
+    match response {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                // Try to count models
+                let models_count = if let Ok(json) = resp.json::<serde_json::Value>().await {
+                    json.get("data")
+                        .and_then(|d| d.as_array())
+                        .map(|arr| arr.len() as u32)
+                } else {
+                    None
+                };
+                
+                Ok(ProviderTestResult {
+                    success: true,
+                    message: format!("Connection successful! ({}ms)", latency),
+                    latency_ms: Some(latency),
+                    models_found: models_count,
+                })
+            } else if status.as_u16() == 401 || status.as_u16() == 403 {
+                Ok(ProviderTestResult {
+                    success: false,
+                    message: "Authentication failed - check your API key".to_string(),
+                    latency_ms: Some(latency),
+                    models_found: None,
+                })
+            } else {
+                Ok(ProviderTestResult {
+                    success: false,
+                    message: format!("Provider returned status {} - check your base URL", status),
+                    latency_ms: Some(latency),
+                    models_found: None,
+                })
+            }
+        }
+        Err(e) => {
+            let error_msg = if e.is_timeout() {
+                "Connection timed out - check your base URL".to_string()
+            } else if e.is_connect() {
+                "Could not connect - check your base URL".to_string()
+            } else {
+                format!("Connection failed: {}", e)
+            };
+            
+            Ok(ProviderTestResult {
+                success: false,
+                message: error_msg,
+                latency_ms: None,
+                models_found: None,
+            })
+        }
+    }
+}
+
 // Handle deep link OAuth callback
 fn handle_deep_link(app: &tauri::AppHandle, urls: Vec<url::Url>) {
     for url in urls {
@@ -3344,6 +3439,7 @@ pub fn run() {
             clear_request_history,
             test_agent_connection,
             get_available_models,
+            test_openai_provider,
             // API Keys Management
             get_gemini_api_keys,
             set_gemini_api_keys,

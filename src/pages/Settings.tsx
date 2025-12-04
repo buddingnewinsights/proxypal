@@ -2,11 +2,12 @@ import { createSignal, For, Show, createEffect } from "solid-js";
 import { Button, Switch } from "../components/ui";
 import { appStore } from "../stores/app";
 import { toastStore } from "../stores/toast";
-import { saveConfig, AMP_MODEL_SLOTS } from "../lib/tauri";
+import { saveConfig, AMP_MODEL_SLOTS, testOpenAIProvider } from "../lib/tauri";
 import type {
   AmpOpenAIModel,
   AmpOpenAIProvider,
   AmpModelMapping,
+  ProviderTestResult,
 } from "../lib/tauri";
 
 export function SettingsPage() {
@@ -22,6 +23,52 @@ export function SettingsPage() {
   );
   const [newModelName, setNewModelName] = createSignal("");
   const [newModelAlias, setNewModelAlias] = createSignal("");
+
+  // Custom mapping state (for adding new mappings beyond predefined slots)
+  const [newMappingFrom, setNewMappingFrom] = createSignal("");
+  const [newMappingTo, setNewMappingTo] = createSignal("");
+
+  // Provider test state
+  const [testingProvider, setTestingProvider] = createSignal(false);
+  const [providerTestResult, setProviderTestResult] =
+    createSignal<ProviderTestResult | null>(null);
+
+  // Test connection to the custom OpenAI provider
+  const testProviderConnection = async () => {
+    const baseUrl = providerBaseUrl().trim();
+    const apiKey = providerApiKey().trim();
+
+    if (!baseUrl || !apiKey) {
+      toastStore.error("Base URL and API key are required to test connection");
+      return;
+    }
+
+    setTestingProvider(true);
+    setProviderTestResult(null);
+
+    try {
+      const result = await testOpenAIProvider(baseUrl, apiKey);
+      setProviderTestResult(result);
+
+      if (result.success) {
+        const modelsInfo = result.modelsFound
+          ? ` Found ${result.modelsFound} models.`
+          : "";
+        toastStore.success(`Connection successful!${modelsInfo}`);
+      } else {
+        toastStore.error(result.message);
+      }
+    } catch (error) {
+      const errorMsg = String(error);
+      setProviderTestResult({
+        success: false,
+        message: errorMsg,
+      });
+      toastStore.error("Connection test failed", errorMsg);
+    } finally {
+      setTestingProvider(false);
+    }
+  };
 
   // Initialize OpenAI provider form from config
   createEffect(() => {
@@ -83,21 +130,152 @@ export function SettingsPage() {
     }
   };
 
+  // Get custom mappings (mappings that are not in predefined slots)
+  const getCustomMappings = () => {
+    const mappings = config().ampModelMappings || [];
+    const slotFromModels = new Set(AMP_MODEL_SLOTS.map((s) => s.fromModel));
+    return mappings.filter((m) => !slotFromModels.has(m.from));
+  };
+
+  // Add a custom mapping
+  const addCustomMapping = async () => {
+    const from = newMappingFrom().trim();
+    const to = newMappingTo().trim();
+
+    if (!from || !to) {
+      toastStore.error("Both 'from' and 'to' models are required");
+      return;
+    }
+
+    // Check for duplicates
+    const existingMappings = config().ampModelMappings || [];
+    if (existingMappings.some((m) => m.from === from)) {
+      toastStore.error(`A mapping for '${from}' already exists`);
+      return;
+    }
+
+    const newMapping: AmpModelMapping = { from, to, enabled: true };
+    const newMappings = [...existingMappings, newMapping];
+
+    const newConfig = { ...config(), ampModelMappings: newMappings };
+    setConfig(newConfig);
+
+    setSaving(true);
+    try {
+      await saveConfig(newConfig);
+      toastStore.success("Custom mapping added");
+      setNewMappingFrom("");
+      setNewMappingTo("");
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      toastStore.error("Failed to save settings", String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Remove a custom mapping
+  const removeCustomMapping = async (fromModel: string) => {
+    const currentMappings = config().ampModelMappings || [];
+    const newMappings = currentMappings.filter((m) => m.from !== fromModel);
+
+    const newConfig = { ...config(), ampModelMappings: newMappings };
+    setConfig(newConfig);
+
+    setSaving(true);
+    try {
+      await saveConfig(newConfig);
+      toastStore.success("Custom mapping removed");
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      toastStore.error("Failed to save settings", String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Update an existing custom mapping
+  const updateCustomMapping = async (
+    fromModel: string,
+    newToModel: string,
+    enabled: boolean,
+  ) => {
+    const currentMappings = config().ampModelMappings || [];
+    const newMappings = currentMappings.map((m) =>
+      m.from === fromModel ? { ...m, to: newToModel, enabled } : m,
+    );
+
+    const newConfig = { ...config(), ampModelMappings: newMappings };
+    setConfig(newConfig);
+
+    setSaving(true);
+    try {
+      await saveConfig(newConfig);
+      toastStore.success("Mapping updated");
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      toastStore.error("Failed to save settings", String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Built-in models organized by provider
+  // These are models available through CLIProxyAPI's standard providers
+  const BUILTIN_MODELS = {
+    anthropic: [
+      { value: "claude-opus-4-5-20250514", label: "Claude Opus 4.5" },
+      { value: "claude-sonnet-4-5-20250514", label: "Claude Sonnet 4.5" },
+      { value: "claude-haiku-4-5-20250514", label: "Claude Haiku 4.5" },
+      { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+      { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
+      { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
+    ],
+    google: [
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+      { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+      {
+        value: "gemini-2.0-flash-thinking-exp",
+        label: "Gemini 2.0 Flash Thinking",
+      },
+      { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+      { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+    ],
+    openai: [
+      { value: "gpt-5.1", label: "GPT-5.1" },
+      { value: "gpt-5.1-mini", label: "GPT-5.1 Mini" },
+      { value: "gpt-4.1", label: "GPT-4.1" },
+      { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
+      { value: "gpt-4o", label: "GPT-4o" },
+      { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+      { value: "o3", label: "o3" },
+      { value: "o3-mini", label: "o3 Mini" },
+      { value: "o4-mini", label: "o4 Mini" },
+    ],
+    qwen: [
+      { value: "qwen3-235b-a22b", label: "Qwen3 235B" },
+      { value: "qwen3-32b", label: "Qwen3 32B" },
+      { value: "qwen-coder-plus", label: "Qwen Coder Plus" },
+      { value: "qwen-plus", label: "Qwen Plus" },
+    ],
+  };
+
   // Get list of available target models (from OpenAI provider aliases + built-in models)
   const getAvailableTargetModels = () => {
-    const models: { value: string; label: string }[] = [];
+    const customModels: { value: string; label: string }[] = [];
 
-    // Add models from OpenAI provider aliases
+    // Add models from custom OpenAI provider aliases
     const provider = config().ampOpenaiProvider;
     if (provider?.models) {
       for (const model of provider.models) {
         if (model.alias) {
-          models.push({
+          customModels.push({
             value: model.alias,
             label: `${model.alias} (${provider.name})`,
           });
         } else {
-          models.push({
+          customModels.push({
             value: model.name,
             label: `${model.name} (${provider.name})`,
           });
@@ -105,21 +283,7 @@ export function SettingsPage() {
       }
     }
 
-    // Add some common built-in models
-    const builtInModels = [
-      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-      { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-      { value: "gpt-4.1", label: "GPT-4.1" },
-      { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
-      { value: "gpt-4o", label: "GPT-4o" },
-      { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-      { value: "o3", label: "o3" },
-      { value: "o4-mini", label: "o4 Mini" },
-      { value: "qwen3-235b-a22b", label: "Qwen3 235B" },
-    ];
-
-    return [...models, ...builtInModels];
+    return { customModels, builtInModels: BUILTIN_MODELS };
   };
 
   const handleConfigChange = async (
@@ -442,9 +606,12 @@ export function SettingsPage() {
                               const checked = e.currentTarget.checked;
                               if (checked) {
                                 // Enable with first available target or same model
-                                const targets = getAvailableTargetModels();
+                                const { customModels, builtInModels } =
+                                  getAvailableTargetModels();
                                 const defaultTarget =
-                                  targets[0]?.value || slot.fromModel;
+                                  customModels[0]?.value ||
+                                  builtInModels.google[0]?.value ||
+                                  slot.fromModel;
                                 updateSlotMapping(slot.id, defaultTarget, true);
                               } else {
                                 updateSlotMapping(slot.id, "", false);
@@ -466,28 +633,137 @@ export function SettingsPage() {
                           {/* Arrow */}
                           <span class="text-gray-400 text-sm">TO</span>
 
+                          {/* To model (dropdown) - organized by provider */}
+                          {(() => {
+                            const { customModels, builtInModels } =
+                              getAvailableTargetModels();
+                            return (
+                              <select
+                                value={currentTarget()}
+                                onChange={(e) => {
+                                  const newTarget = e.currentTarget.value;
+                                  updateSlotMapping(slot.id, newTarget, true);
+                                }}
+                                disabled={!isEnabled()}
+                                class={`flex-1 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth ${
+                                  !isEnabled()
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                                }`}
+                              >
+                                <option value="">Select target model...</option>
+                                <Show when={customModels.length > 0}>
+                                  <optgroup label="Custom Provider">
+                                    <For each={customModels}>
+                                      {(model) => (
+                                        <option value={model.value}>
+                                          {model.label}
+                                        </option>
+                                      )}
+                                    </For>
+                                  </optgroup>
+                                </Show>
+                                <optgroup label="Anthropic">
+                                  <For each={builtInModels.anthropic}>
+                                    {(model) => (
+                                      <option value={model.value}>
+                                        {model.label}
+                                      </option>
+                                    )}
+                                  </For>
+                                </optgroup>
+                                <optgroup label="Google">
+                                  <For each={builtInModels.google}>
+                                    {(model) => (
+                                      <option value={model.value}>
+                                        {model.label}
+                                      </option>
+                                    )}
+                                  </For>
+                                </optgroup>
+                                <optgroup label="OpenAI">
+                                  <For each={builtInModels.openai}>
+                                    {(model) => (
+                                      <option value={model.value}>
+                                        {model.label}
+                                      </option>
+                                    )}
+                                  </For>
+                                </optgroup>
+                                <optgroup label="Qwen">
+                                  <For each={builtInModels.qwen}>
+                                    {(model) => (
+                                      <option value={model.value}>
+                                        {model.label}
+                                      </option>
+                                    )}
+                                  </For>
+                                </optgroup>
+                              </select>
+                            );
+                          })()}
+                        </div>
+                      );
+                    }}
+                  </For>
+                </div>
+
+                {/* Custom Mappings Section */}
+                <div class="pt-2">
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Custom model mappings (for models not in predefined slots)
+                  </p>
+
+                  {/* Existing custom mappings */}
+                  <For each={getCustomMappings()}>
+                    {(mapping) => {
+                      const { customModels, builtInModels } =
+                        getAvailableTargetModels();
+                      return (
+                        <div class="flex items-center gap-3 p-3 mb-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={mapping.enabled !== false}
+                            onChange={(e) => {
+                              updateCustomMapping(
+                                mapping.from,
+                                mapping.to,
+                                e.currentTarget.checked,
+                              );
+                            }}
+                            class="w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          />
+
+                          {/* From model (readonly) */}
+                          <div class="flex-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 font-mono truncate">
+                            {mapping.from}
+                          </div>
+
+                          {/* Arrow */}
+                          <span class="text-gray-400 text-sm">TO</span>
+
                           {/* To model (dropdown) */}
                           <select
-                            value={currentTarget()}
+                            value={mapping.to}
                             onChange={(e) => {
-                              const newTarget = e.currentTarget.value;
-                              updateSlotMapping(slot.id, newTarget, true);
+                              updateCustomMapping(
+                                mapping.from,
+                                e.currentTarget.value,
+                                mapping.enabled !== false,
+                              );
                             }}
-                            disabled={!isEnabled()}
+                            disabled={mapping.enabled === false}
                             class={`flex-1 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth ${
-                              !isEnabled()
+                              mapping.enabled === false
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
                             }`}
                           >
                             <option value="">Select target model...</option>
-                            <Show when={getAvailableTargetModels().length > 0}>
+                            <Show when={customModels.length > 0}>
                               <optgroup label="Custom Provider">
-                                <For
-                                  each={getAvailableTargetModels().filter((m) =>
-                                    m.label.includes("("),
-                                  )}
-                                >
+                                <For each={customModels}>
                                   {(model) => (
                                     <option value={model.value}>
                                       {model.label}
@@ -496,12 +772,35 @@ export function SettingsPage() {
                                 </For>
                               </optgroup>
                             </Show>
-                            <optgroup label="Built-in Models">
-                              <For
-                                each={getAvailableTargetModels().filter(
-                                  (m) => !m.label.includes("("),
+                            <optgroup label="Anthropic">
+                              <For each={builtInModels.anthropic}>
+                                {(model) => (
+                                  <option value={model.value}>
+                                    {model.label}
+                                  </option>
                                 )}
-                              >
+                              </For>
+                            </optgroup>
+                            <optgroup label="Google">
+                              <For each={builtInModels.google}>
+                                {(model) => (
+                                  <option value={model.value}>
+                                    {model.label}
+                                  </option>
+                                )}
+                              </For>
+                            </optgroup>
+                            <optgroup label="OpenAI">
+                              <For each={builtInModels.openai}>
+                                {(model) => (
+                                  <option value={model.value}>
+                                    {model.label}
+                                  </option>
+                                )}
+                              </For>
+                            </optgroup>
+                            <optgroup label="Qwen">
+                              <For each={builtInModels.qwen}>
                                 {(model) => (
                                   <option value={model.value}>
                                     {model.label}
@@ -510,10 +809,128 @@ export function SettingsPage() {
                               </For>
                             </optgroup>
                           </select>
+
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={() => removeCustomMapping(mapping.from)}
+                            class="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Remove mapping"
+                          >
+                            <svg
+                              class="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
                         </div>
                       );
                     }}
                   </For>
+
+                  {/* Add new custom mapping */}
+                  <div class="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                    <input
+                      type="text"
+                      value={newMappingFrom()}
+                      onInput={(e) => setNewMappingFrom(e.currentTarget.value)}
+                      placeholder="From model (e.g. my-custom-model)"
+                      class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                    <span class="text-gray-400 text-xs">TO</span>
+                    {(() => {
+                      const { customModels, builtInModels } =
+                        getAvailableTargetModels();
+                      return (
+                        <select
+                          value={newMappingTo()}
+                          onChange={(e) =>
+                            setNewMappingTo(e.currentTarget.value)
+                          }
+                          class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                        >
+                          <option value="">Select target...</option>
+                          <Show when={customModels.length > 0}>
+                            <optgroup label="Custom Provider">
+                              <For each={customModels}>
+                                {(model) => (
+                                  <option value={model.value}>
+                                    {model.label}
+                                  </option>
+                                )}
+                              </For>
+                            </optgroup>
+                          </Show>
+                          <optgroup label="Anthropic">
+                            <For each={builtInModels.anthropic}>
+                              {(model) => (
+                                <option value={model.value}>
+                                  {model.label}
+                                </option>
+                              )}
+                            </For>
+                          </optgroup>
+                          <optgroup label="Google">
+                            <For each={builtInModels.google}>
+                              {(model) => (
+                                <option value={model.value}>
+                                  {model.label}
+                                </option>
+                              )}
+                            </For>
+                          </optgroup>
+                          <optgroup label="OpenAI">
+                            <For each={builtInModels.openai}>
+                              {(model) => (
+                                <option value={model.value}>
+                                  {model.label}
+                                </option>
+                              )}
+                            </For>
+                          </optgroup>
+                          <optgroup label="Qwen">
+                            <For each={builtInModels.qwen}>
+                              {(model) => (
+                                <option value={model.value}>
+                                  {model.label}
+                                </option>
+                              )}
+                            </For>
+                          </optgroup>
+                        </select>
+                      );
+                    })()}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={addCustomMapping}
+                      disabled={
+                        !newMappingFrom().trim() || !newMappingTo().trim()
+                      }
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -675,8 +1092,8 @@ export function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Save / Clear buttons */}
-                <div class="flex gap-2 pt-2">
+                {/* Save / Clear / Test buttons */}
+                <div class="flex flex-wrap gap-2 pt-2">
                   <Button
                     variant="primary"
                     size="sm"
@@ -690,6 +1107,43 @@ export function SettingsPage() {
                     Save Provider
                   </Button>
                   <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={testProviderConnection}
+                    disabled={
+                      testingProvider() ||
+                      !providerBaseUrl().trim() ||
+                      !providerApiKey().trim()
+                    }
+                  >
+                    {testingProvider() ? (
+                      <span class="flex items-center gap-1.5">
+                        <svg
+                          class="w-3 h-3 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          />
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Testing...
+                      </span>
+                    ) : (
+                      "Test Connection"
+                    )}
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="sm"
                     onClick={clearOpenAIProvider}
@@ -697,6 +1151,63 @@ export function SettingsPage() {
                     Clear
                   </Button>
                 </div>
+
+                {/* Test result indicator */}
+                <Show when={providerTestResult()}>
+                  {(result) => (
+                    <div
+                      class={`flex items-center gap-2 p-2 rounded-lg text-xs ${
+                        result().success
+                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+                          : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      <Show
+                        when={result().success}
+                        fallback={
+                          <svg
+                            class="w-4 h-4 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        }
+                      >
+                        <svg
+                          class="w-4 h-4 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </Show>
+                      <span>{result().message}</span>
+                      <Show when={result().modelsFound}>
+                        <span class="text-gray-500 dark:text-gray-400">
+                          ({result().modelsFound} models)
+                        </span>
+                      </Show>
+                      <Show when={result().latencyMs}>
+                        <span class="text-gray-500 dark:text-gray-400">
+                          {result().latencyMs}ms
+                        </span>
+                      </Show>
+                    </div>
+                  )}
+                </Show>
               </div>
 
               <p class="text-xs text-gray-400 dark:text-gray-500">

@@ -416,6 +416,21 @@ export async function testAgentConnection(
   return invoke("test_agent_connection", { agentId });
 }
 
+// Test OpenAI-compatible provider connection
+export interface ProviderTestResult {
+  success: boolean;
+  message: string;
+  latencyMs?: number;
+  modelsFound?: number;
+}
+
+export async function testOpenAIProvider(
+  baseUrl: string,
+  apiKey: string,
+): Promise<ProviderTestResult> {
+  return invoke("test_openai_provider", { baseUrl, apiKey });
+}
+
 // ============================================
 // API Keys Management
 // ============================================
