@@ -194,6 +194,46 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* Amp CLI Integration */}
+          <div class="space-y-4">
+            <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+              Amp CLI Integration
+            </h2>
+
+            <div class="space-y-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <label class="block">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Amp API Key
+                </span>
+                <input
+                  type="password"
+                  value={config().ampApiKey || ""}
+                  onInput={(e) =>
+                    handleConfigChange("ampApiKey", e.currentTarget.value)
+                  }
+                  placeholder="amp_..."
+                  class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth font-mono"
+                />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Get your API key from{" "}
+                  <a
+                    href="https://ampcode.com/settings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-brand-500 hover:text-brand-600 underline"
+                  >
+                    ampcode.com/settings
+                  </a>
+                  . Required for Amp CLI to authenticate through the proxy.
+                </p>
+              </label>
+              <p class="text-xs text-gray-400 dark:text-gray-500">
+                After setting the API key, restart the proxy for changes to take
+                effect.
+              </p>
+            </div>
+          </div>
+
           {/* Advanced Settings */}
           <div class="space-y-4">
             <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">

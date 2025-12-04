@@ -52,6 +52,7 @@ function createAppStore() {
     usageStatsEnabled: true,
     requestLogging: false,
     loggingToFile: false,
+    ampApiKey: "",
   });
 
   // UI state

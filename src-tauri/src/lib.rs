@@ -94,6 +94,8 @@ pub struct AppConfig {
     pub logging_to_file: bool,
     #[serde(default = "default_config_version")]
     pub config_version: u8,
+    #[serde(default)]
+    pub amp_api_key: String,
 }
 
 fn default_usage_stats_enabled() -> bool {
@@ -119,6 +121,7 @@ impl Default for AppConfig {
             request_logging: false,
             logging_to_file: false,
             config_version: 1,
+            amp_api_key: String::new(),
         }
     }
 }
@@ -375,6 +378,13 @@ async fn start_proxy(
         format!("proxy-url: \"{}\"\n", config.proxy_url)
     };
     
+    // Build amp api key line if configured
+    let amp_api_key_line = if config.amp_api_key.is_empty() {
+        "  # upstream-api-key: \"\"  # Set your Amp API key from https://ampcode.com/settings".to_string()
+    } else {
+        format!("  upstream-api-key: \"{}\"", config.amp_api_key)
+    };
+    
     // Always regenerate config on start because CLIProxyAPI hashes the secret-key in place
     // and we need the plaintext key for Management API access
     let proxy_config = format!(
@@ -404,7 +414,7 @@ remote-management:
 # Get API key from: https://ampcode.com/settings
 ampcode:
   upstream-url: "https://ampcode.com"
-  # upstream-api-key: "amp_..."  # Optional: set your Amp API key here if using API key auth
+{}
   restrict-management-to-localhost: true
 "#,
         config.port,
@@ -414,7 +424,8 @@ ampcode:
         config.request_retry,
         proxy_url_line,
         config.quota_switch_project,
-        config.quota_switch_preview_model
+        config.quota_switch_preview_model,
+        amp_api_key_line
     );
     
     std::fs::write(&proxy_config_path, proxy_config).map_err(|e| e.to_string())?;

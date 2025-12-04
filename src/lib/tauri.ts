@@ -88,6 +88,7 @@ export interface AppConfig {
   usageStatsEnabled: boolean;
   requestLogging: boolean;
   loggingToFile: boolean;
+  ampApiKey: string;
 }
 
 export async function getConfig(): Promise<AppConfig> {
