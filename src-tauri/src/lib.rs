@@ -3081,7 +3081,6 @@ fn configure_cli_agent(state: State<AppState>, agent_id: String, models: Vec<Ava
     let config = state.config.lock().unwrap();
     let port = config.port;
     let endpoint = format!("http://127.0.0.1:{}", port);
-    let endpoint_v1 = format!("{}/v1", endpoint);
     let home = dirs::home_dir().ok_or("Could not find home directory")?;
 
     match agent_id.as_str() {
@@ -3350,10 +3349,10 @@ export AMP_API_KEY="proxypal-local"
                 "$schema": "https://opencode.ai/config.json",
                 "provider": {
                     "proxypal": {
-                        "npm": "@ai-sdk/openai-compatible",
+                        "npm": "@ai-sdk/anthropic",
                         "name": "ProxyPal (Local Proxy)",
                         "options": {
-                            "baseURL": endpoint_v1,
+                            "baseURL": endpoint,
                             "apiKey": "proxypal-local"
                         },
                         "models": models_obj
