@@ -606,6 +606,7 @@ export function DashboardPage() {
   ): { provider: string; models: string[] }[] => {
     const providerNames: Record<string, string> = {
       google: "Gemini",
+      antigravity: "Gemini", // Antigravity uses Gemini models, group together
       openai: "OpenAI/Codex",
       qwen: "Qwen",
       anthropic: "Claude",

@@ -462,7 +462,7 @@ export function SettingsPage() {
         .filter((m) => m.ownedBy === "anthropic")
         .map((m) => ({ value: m.id, label: m.id })),
       google: models
-        .filter((m) => m.ownedBy === "google")
+        .filter((m) => m.ownedBy === "google" || m.ownedBy === "antigravity")
         .map((m) => ({ value: m.id, label: m.id })),
       openai: models
         .filter((m) => m.ownedBy === "openai")

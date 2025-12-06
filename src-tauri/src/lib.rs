@@ -455,6 +455,10 @@ fn detect_provider_from_model(model: &str) -> String {
         return "zhipu".to_string();
     }
     
+    if model_lower.contains("antigravity") {
+        return "antigravity".to_string();
+    }
+    
     "unknown".to_string()
 }
 
@@ -2895,10 +2899,16 @@ fn which_exists(cmd: &str) -> bool {
     // Windows-specific paths (when running on Windows directly)
     #[cfg(target_os = "windows")]
     {
-        if let Some(app_data) = std::env::var_os("LOCALAPPDATA") {
+        // AppData\Roaming\npm - where npm global packages are installed by default
+        if let Some(app_data) = std::env::var_os("APPDATA") {
             let app_data_path = std::path::PathBuf::from(app_data);
             paths.push(app_data_path.join("npm"));
-            paths.push(app_data_path.join("scoop/shims"));
+        }
+        // AppData\Local paths
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            let local_app_data_path = std::path::PathBuf::from(local_app_data);
+            paths.push(local_app_data_path.join("npm"));
+            paths.push(local_app_data_path.join("scoop/shims"));
         }
         if let Some(program_files) = std::env::var_os("PROGRAMFILES") {
             paths.push(std::path::PathBuf::from(program_files).join("Git\\cmd"));
@@ -2956,11 +2966,21 @@ fn which_exists(cmd: &str) -> bool {
     
     // Check all paths
     for path in &paths {
+        // Check base command (no extension)
         if path.join(cmd).exists() {
             return true;
         }
+        // On Windows, also check common executable extensions
+        #[cfg(target_os = "windows")]
+        {
+            for ext in &[".cmd", ".exe", ".bat", ".ps1"] {
+                if path.join(format!("{}{}", cmd, ext)).exists() {
+                    return true;
+                }
+            }
+        }
     }
-    
+
     false
 }
 
@@ -3036,7 +3056,7 @@ fn configure_cli_agent(state: State<AppState>, agent_id: String, models: Vec<Ava
     let endpoint = format!("http://127.0.0.1:{}", port);
     let endpoint_v1 = format!("{}/v1", endpoint);
     let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    
+
     match agent_id.as_str() {
         "claude-code" => {
             // Generate shell config for Claude Code
@@ -3051,7 +3071,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL="claude-3-5-haiku-20241022"
 export ANTHROPIC_MODEL="claude-sonnet-4-5-20250929"
 export ANTHROPIC_SMALL_FAST_MODEL="claude-3-5-haiku-20241022"
 "#, endpoint);
-            
+
             Ok(serde_json::json!({
                 "success": true,
                 "configType": "env",
@@ -3095,7 +3115,7 @@ wire_api = "responses"
                 "instructions": "Codex has been configured. Run 'codex' to start using it."
             }))
         },
-        
+
         "gemini-cli" => {
             // Generate shell config for Gemini CLI
             let shell_config = format!(r#"# ProxyPal - Gemini CLI Configuration
@@ -3106,7 +3126,7 @@ export CODE_ASSIST_ENDPOINT="{}"
 # export GOOGLE_GEMINI_BASE_URL="{}"
 # export GEMINI_API_KEY="proxypal-local"
 "#, endpoint, endpoint);
-            
+
             Ok(serde_json::json!({
                 "success": true,
                 "configType": "env",
@@ -3357,10 +3377,10 @@ export AMP_API_KEY="proxypal-local"
 #[tauri::command]
 fn get_shell_profile_path() -> Result<String, String> {
     let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    
+
     // Check for common shell config files
     let shell = std::env::var("SHELL").unwrap_or_default();
-    
+
     let profile_path = if shell.contains("zsh") {
         home.join(".zshrc")
     } else if shell.contains("bash") {
@@ -3376,7 +3396,7 @@ fn get_shell_profile_path() -> Result<String, String> {
         // Default to .profile
         home.join(".profile")
     };
-    
+
     Ok(profile_path.to_string_lossy().to_string())
 }
 
@@ -3385,19 +3405,19 @@ fn get_shell_profile_path() -> Result<String, String> {
 fn append_to_shell_profile(content: String) -> Result<String, String> {
     let profile_path = get_shell_profile_path()?;
     let path = std::path::Path::new(&profile_path);
-    
+
     // Read existing content
     let existing = std::fs::read_to_string(path).unwrap_or_default();
-    
+
     // Check if ProxyPal config already exists
     if existing.contains("# ProxyPal") {
         return Err("ProxyPal configuration already exists in shell profile. Please remove it first or update manually.".to_string());
     }
-    
+
     // Append new config
     let new_content = format!("{}\n\n{}", existing.trim_end(), content);
     std::fs::write(path, new_content).map_err(|e| e.to_string())?;
-    
+
     Ok(profile_path)
 }
 
