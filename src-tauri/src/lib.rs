@@ -3341,12 +3341,20 @@ export AMP_API_KEY="proxypal-local"
                 let display_name = get_model_display_name(&m.id, &m.owned_by);
                 // Enable reasoning display for models with "-thinking" suffix
                 let is_thinking_model = m.id.ends_with("-thinking");
+                // For thinking models, ensure output limit > budgetTokens (16000) + buffer
+                let effective_output_limit = if is_thinking_model { 32000 } else { output_limit };
                 let mut model_config = serde_json::json!({
                     "name": display_name,
-                    "limit": { "context": context_limit, "output": output_limit }
+                    "limit": { "context": context_limit, "output": effective_output_limit }
                 });
                 if is_thinking_model {
                     model_config["reasoning"] = serde_json::json!(true);
+                    model_config["options"] = serde_json::json!({
+                        "thinking": {
+                            "type": "enabled",
+                            "budgetTokens": 16000
+                        }
+                    });
                 }
                 models_obj.insert(m.id.clone(), model_config);
             }
