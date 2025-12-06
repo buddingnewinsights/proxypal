@@ -16,7 +16,6 @@ import {
   saveConfig,
   getConfig,
   detectCopilotApi,
-  installCopilotApi,
 } from "../lib/tauri";
 import { toastStore } from "../stores/toast";
 
@@ -39,7 +38,6 @@ export function CopilotCard(props: CopilotCardProps) {
   const [expanded, setExpanded] = createSignal(false);
   const [apiDetection, setApiDetection] =
     createSignal<CopilotApiDetection | null>(null);
-  const [installing, setInstalling] = createSignal(false);
 
   onMount(async () => {
     // Load initial status
@@ -165,30 +163,6 @@ export function CopilotCard(props: CopilotCardProps) {
       toastStore.error("Failed to stop Copilot", String(err));
     } finally {
       setStopping(false);
-    }
-  };
-
-  const handleInstall = async () => {
-    if (installing()) return;
-    setInstalling(true);
-
-    try {
-      toastStore.info("Installing copilot-api...", "This may take a moment");
-      const result = await installCopilotApi();
-
-      if (result.success) {
-        toastStore.success("Copilot API Installed", result.message);
-        // Refresh detection
-        const detection = await detectCopilotApi();
-        setApiDetection(detection);
-      } else {
-        toastStore.error("Installation Failed", result.message);
-      }
-    } catch (err) {
-      console.error("Failed to install copilot-api:", err);
-      toastStore.error("Installation Failed", String(err));
-    } finally {
-      setInstalling(false);
     }
   };
 
@@ -463,60 +437,44 @@ export function CopilotCard(props: CopilotCardProps) {
                 </svg>
                 <div class="flex-1">
                   <p class="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Install Copilot API for faster startup
+                    Optional: Install Copilot API globally
                   </p>
                   <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    Installing globally avoids downloading on each start.
+                    For faster startup, run this command in your terminal:
                   </p>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={handleInstall}
-                    disabled={installing()}
-                    class="mt-2"
-                  >
-                    {installing() ? (
-                      <span class="flex items-center gap-1.5">
-                        <svg
-                          class="w-3 h-3 animate-spin"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            class="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            stroke-width="4"
-                          />
-                          <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Installing...
-                      </span>
-                    ) : (
-                      <>
-                        <svg
-                          class="w-4 h-4 mr-1.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                          />
-                        </svg>
-                        Install copilot-api
-                      </>
-                    )}
-                  </Button>
+                  <div class="mt-2 flex items-center gap-2">
+                    <code class="flex-1 px-2 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded font-mono">
+                      npm install -g copilot-api
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          "npm install -g copilot-api",
+                        );
+                        toastStore.success("Copied to clipboard");
+                      }}
+                      class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded"
+                      title="Copy to clipboard"
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <p class="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                    Without this, copilot-api will be downloaded on each start
+                    (slower).
+                  </p>
                 </div>
               </div>
             </div>
@@ -539,7 +497,9 @@ export function CopilotCard(props: CopilotCardProps) {
               </svg>
               <span>
                 copilot-api
-                {apiDetection()?.version ? ` v${apiDetection()?.version}` : ""}{" "}
+                {apiDetection()?.version
+                  ? ` v${apiDetection()?.version}`
+                  : ""}{" "}
                 installed
               </span>
             </div>

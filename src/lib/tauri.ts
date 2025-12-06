@@ -482,7 +482,7 @@ export interface AgentStatus {
   description: string;
   installed: boolean;
   configured: boolean;
-  configType: "env" | "file" | "both";
+  configType: "env" | "file" | "both" | "config";
   configPath?: string;
   logo: string;
   docsUrl: string;
