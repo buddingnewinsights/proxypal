@@ -1497,9 +1497,28 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
         });
     }
     
-    // Derive npm/npx paths from node path
-    let npx_bin = node_bin.as_ref().map(|n| n.replace("/node", "/npx")).unwrap_or_else(|| "npx".to_string());
-    let npm_bin = node_bin.as_ref().map(|n| n.replace("/node", "/npm")).unwrap_or_else(|| "npm".to_string());
+    // Derive npm/npx paths from node path (handle Windows and Unix paths)
+    let npx_bin = node_bin.as_ref().map(|n| {
+        if cfg!(target_os = "windows") {
+            n.replace("\\node.exe", "\\npx.cmd")
+                .replace("/node.exe", "/npx.cmd")
+                .replace("\\node", "\\npx")
+                .replace("/node", "/npx")
+        } else {
+            n.replace("/node", "/npx")
+        }
+    }).unwrap_or_else(|| if cfg!(target_os = "windows") { "npx.cmd".to_string() } else { "npx".to_string() });
+    
+    let npm_bin = node_bin.as_ref().map(|n| {
+        if cfg!(target_os = "windows") {
+            n.replace("\\node.exe", "\\npm.cmd")
+                .replace("/node.exe", "/npm.cmd")
+                .replace("\\node", "\\npm")
+                .replace("/node", "/npm")
+        } else {
+            n.replace("/node", "/npm")
+        }
+    }).unwrap_or_else(|| if cfg!(target_os = "windows") { "npm.cmd".to_string() } else { "npm".to_string() });
     
     // Try to find copilot-api binary directly first
     let copilot_paths: Vec<String> = if cfg!(target_os = "macos") {
