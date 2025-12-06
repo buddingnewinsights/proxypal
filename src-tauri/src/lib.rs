@@ -1440,8 +1440,20 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
         ]
     } else if cfg!(target_os = "windows") {
         vec![
-            format!("{}/.volta/bin/node.exe", home_str),  // Volta on Windows
-            "node".to_string(), // Windows typically has proper PATH in GUI apps
+            // Standard Windows Node.js installation paths
+            "C:\\Program Files\\nodejs\\node.exe".to_string(),
+            "C:\\Program Files (x86)\\nodejs\\node.exe".to_string(),
+            // Version managers on Windows
+            format!("{}/.volta/bin/node.exe", home_str),  // Volta
+            format!("{}/AppData/Roaming/nvm/current/node.exe", home_str), // nvm-windows
+            format!("{}/AppData/Local/fnm_multishells/node.exe", home_str), // fnm
+            format!("{}/scoop/apps/nodejs/current/node.exe", home_str), // Scoop
+            format!("{}/scoop/apps/nodejs-lts/current/node.exe", home_str), // Scoop LTS
+            // npm global bin (for detecting npm-installed tools)
+            format!("{}/AppData/Roaming/npm/node.exe", home_str),
+            // Fallback to PATH
+            "node.exe".to_string(),
+            "node".to_string(),
         ]
     } else {
         vec![
@@ -1503,7 +1515,14 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
         ]
     } else if cfg!(target_os = "windows") {
         vec![
-            format!("{}/.volta/bin/copilot-api.exe", home_str),
+            // npm global bin (most common location after npm install -g)
+            format!("{}/AppData/Roaming/npm/copilot-api.cmd", home_str),
+            // Version managers on Windows
+            format!("{}/.volta/bin/copilot-api.exe", home_str),  // Volta
+            format!("{}/AppData/Roaming/nvm/current/copilot-api.cmd", home_str), // nvm-windows
+            format!("{}/scoop/apps/nodejs/current/bin/copilot-api.cmd", home_str), // Scoop
+            // Fallback to PATH
+            "copilot-api.cmd".to_string(),
             "copilot-api".to_string(),
         ]
     } else {
@@ -1606,7 +1625,18 @@ async fn install_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiInstallR
         ]
     } else if cfg!(target_os = "windows") {
         vec![
-            format!("{}/.volta/bin/npm.exe", home_str),
+            // Standard Windows Node.js installation paths
+            "C:\\Program Files\\nodejs\\npm.cmd".to_string(),
+            "C:\\Program Files (x86)\\nodejs\\npm.cmd".to_string(),
+            // Version managers on Windows
+            format!("{}/.volta/bin/npm.exe", home_str),  // Volta
+            format!("{}/AppData/Roaming/nvm/current/npm.cmd", home_str), // nvm-windows
+            format!("{}/AppData/Local/fnm_multishells/npm.cmd", home_str), // fnm
+            format!("{}/scoop/apps/nodejs/current/npm.cmd", home_str), // Scoop
+            format!("{}/scoop/apps/nodejs-lts/current/npm.cmd", home_str), // Scoop LTS
+            format!("{}/AppData/Roaming/npm/npm.cmd", home_str),
+            // Fallback to PATH
+            "npm.cmd".to_string(),
             "npm".to_string(),
         ]
     } else {
