@@ -3081,6 +3081,7 @@ fn configure_cli_agent(state: State<AppState>, agent_id: String, models: Vec<Ava
     let config = state.config.lock().unwrap();
     let port = config.port;
     let endpoint = format!("http://127.0.0.1:{}", port);
+    let endpoint_v1 = format!("{}/v1", endpoint);
     let home = dirs::home_dir().ok_or("Could not find home directory")?;
 
     match agent_id.as_str() {
@@ -3338,10 +3339,16 @@ export AMP_API_KEY="proxypal-local"
             for m in &models {
                 let (context_limit, output_limit) = get_model_limits(&m.id, &m.owned_by);
                 let display_name = get_model_display_name(&m.id, &m.owned_by);
-                models_obj.insert(m.id.clone(), serde_json::json!({
+                // Enable reasoning display for models with "-thinking" suffix
+                let is_thinking_model = m.id.ends_with("-thinking");
+                let mut model_config = serde_json::json!({
                     "name": display_name,
                     "limit": { "context": context_limit, "output": output_limit }
-                }));
+                });
+                if is_thinking_model {
+                    model_config["reasoning"] = serde_json::json!(true);
+                }
+                models_obj.insert(m.id.clone(), model_config);
             }
             
             // Create or update opencode.json with proxypal provider
@@ -3352,7 +3359,7 @@ export AMP_API_KEY="proxypal-local"
                         "npm": "@ai-sdk/anthropic",
                         "name": "ProxyPal (Local Proxy)",
                         "options": {
-                            "baseURL": endpoint,
+                            "baseURL": endpoint_v1,
                             "apiKey": "proxypal-local"
                         },
                         "models": models_obj
