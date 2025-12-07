@@ -104,6 +104,8 @@ export function WelcomePage() {
               `${provider} connected!`,
               "You can now use this provider",
             );
+            // Auto-navigate to dashboard after successful connection
+            setCurrentPage("dashboard");
           } else if (attempts >= maxAttempts) {
             clearInterval(pollInterval);
             setConnecting(null);
