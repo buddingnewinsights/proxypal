@@ -1,9 +1,11 @@
 import { createSignal, onCleanup } from "solid-js";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "../components/ui";
 import { ProviderCard } from "../components/ProviderCard";
 import { appStore } from "../stores/app";
 import { toastStore } from "../stores/toast";
 import {
+  importVertexCredential,
   openOAuth,
   pollOAuthStatus,
   refreshAuthStatus,
@@ -79,6 +81,44 @@ export function WelcomePage() {
         toastStore.error("Failed to start proxy", String(error));
         return;
       }
+    }
+
+    // Vertex uses service account import, not OAuth
+    if (provider === "vertex") {
+      setConnecting(provider);
+      toastStore.info(
+        "Import Vertex service account",
+        "Select your service account JSON file",
+      );
+      try {
+        const selected = await open({
+          multiple: false,
+          filters: [{ name: "JSON", extensions: ["json"] }],
+        });
+        const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+        if (!selectedPath) {
+          setConnecting(null);
+          toastStore.warning(
+            "No file selected",
+            "Choose a service account JSON",
+          );
+          return;
+        }
+        await importVertexCredential(selectedPath);
+        const newAuth = await refreshAuthStatus();
+        setAuthStatus(newAuth);
+        setConnecting(null);
+        toastStore.success(
+          "Vertex connected!",
+          "Service account imported successfully",
+        );
+        setCurrentPage("dashboard");
+      } catch (error) {
+        console.error("Vertex import failed:", error);
+        setConnecting(null);
+        toastStore.error("Connection failed", String(error));
+      }
+      return;
     }
 
     setConnecting(provider);

@@ -1,4 +1,5 @@
 import { createSignal, onCleanup, onMount, Show, For } from "solid-js";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "../components/ui";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { ApiEndpoint } from "../components/ApiEndpoint";
@@ -10,6 +11,7 @@ import { CopilotCard } from "../components/CopilotCard";
 import { appStore } from "../stores/app";
 import { toastStore } from "../stores/toast";
 import {
+  importVertexCredential,
   startProxy,
   stopProxy,
   openOAuth,
@@ -483,6 +485,52 @@ export function DashboardPage() {
       );
       return;
     }
+
+    // Vertex uses service account import, not OAuth
+    if (provider === "vertex") {
+      setConnecting(provider);
+      toastStore.info(
+        "Import Vertex service account",
+        "Select your service account JSON file",
+      );
+      try {
+        const selected = await open({
+          multiple: false,
+          filters: [{ name: "JSON", extensions: ["json"] }],
+        });
+        const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+        if (!selectedPath) {
+          setConnecting(null);
+          toastStore.warning(
+            "No file selected",
+            "Choose a service account JSON",
+          );
+          return;
+        }
+        await importVertexCredential(selectedPath);
+        const newAuth = await refreshAuthStatus();
+        setAuthStatus(newAuth);
+        setConnecting(null);
+        setRecentlyConnected((prev) => new Set([...prev, provider]));
+        setTimeout(() => {
+          setRecentlyConnected((prev) => {
+            const next = new Set(prev);
+            next.delete(provider);
+            return next;
+          });
+        }, 2000);
+        toastStore.success(
+          "Vertex connected!",
+          "Service account imported successfully",
+        );
+      } catch (error) {
+        console.error("Vertex import failed:", error);
+        setConnecting(null);
+        toastStore.error("Connection failed", String(error));
+      }
+      return;
+    }
+
     setConnecting(provider);
     toastStore.info(
       `Connecting to ${provider}...`,
