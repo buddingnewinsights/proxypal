@@ -4565,7 +4565,7 @@ async fn set_websocket_auth(state: State<'_, AppState>, value: bool) -> Result<(
 #[tauri::command]
 async fn get_prioritize_model_mappings(state: State<'_, AppState>) -> Result<bool, String> {
     let port = state.config.lock().unwrap().port;
-    let url = get_management_url(port, "prioritize-model-mappings");
+    let url = get_management_url(port, "ampcode/force-model-mappings");
     
     let client = build_management_client();
     let response = client
@@ -4580,14 +4580,14 @@ async fn get_prioritize_model_mappings(state: State<'_, AppState>) -> Result<boo
     }
     
     let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    Ok(json.get("prioritize-model-mappings").and_then(|v| v.as_bool()).unwrap_or(false))
+    Ok(json.get("force-model-mappings").and_then(|v| v.as_bool()).unwrap_or(false))
 }
 
 // Set prioritize model mappings via Management API
 #[tauri::command]
 async fn set_prioritize_model_mappings(state: State<'_, AppState>, value: bool) -> Result<(), String> {
     let port = state.config.lock().unwrap().port;
-    let url = get_management_url(port, "prioritize-model-mappings");
+    let url = get_management_url(port, "ampcode/force-model-mappings");
     
     let client = build_management_client();
     let response = client
