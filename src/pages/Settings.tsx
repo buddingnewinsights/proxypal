@@ -531,6 +531,9 @@ export function SettingsPage() {
       qwen: models
         .filter((m) => m.ownedBy === "qwen")
         .map((m) => ({ value: m.id, label: m.id })),
+      iflow: models
+        .filter((m) => m.ownedBy === "iflow")
+        .map((m) => ({ value: m.id, label: m.id })),
       // GitHub Copilot models (via copilot-api) - includes both GPT and Claude models
       copilot: models
         .filter(
@@ -1101,6 +1104,17 @@ export function SettingsPage() {
                                         )}
                                       </For>
                                     </optgroup>
+                                    <Show when={builtInModels.iflow.length > 0}>
+                                      <optgroup label="iFlow">
+                                        <For each={builtInModels.iflow}>
+                                          {(model) => (
+                                            <option value={model.value}>
+                                              {model.label}
+                                            </option>
+                                          )}
+                                        </For>
+                                      </optgroup>
+                                    </Show>
                                     <Show
                                       when={builtInModels.copilot.length > 0}
                                     >
@@ -1238,6 +1252,17 @@ export function SettingsPage() {
                                     )}
                                   </For>
                                 </optgroup>
+                                <Show when={builtInModels.iflow.length > 0}>
+                                  <optgroup label="iFlow">
+                                    <For each={builtInModels.iflow}>
+                                      {(model) => (
+                                        <option value={model.value}>
+                                          {model.label}
+                                        </option>
+                                      )}
+                                    </For>
+                                  </optgroup>
+                                </Show>
                                 <Show when={builtInModels.copilot.length > 0}>
                                   <optgroup label="GitHub Copilot">
                                     <For each={builtInModels.copilot}>
@@ -1355,6 +1380,17 @@ export function SettingsPage() {
                                 )}
                               </For>
                             </optgroup>
+                            <Show when={builtInModels.iflow.length > 0}>
+                              <optgroup label="iFlow">
+                                <For each={builtInModels.iflow}>
+                                  {(model) => (
+                                    <option value={model.value}>
+                                      {model.label}
+                                    </option>
+                                  )}
+                                </For>
+                              </optgroup>
+                            </Show>
                             <Show when={builtInModels.copilot.length > 0}>
                               <optgroup label="GitHub Copilot">
                                 <For each={builtInModels.copilot}>
@@ -2075,6 +2111,8 @@ export function SettingsPage() {
                           return builtInModels.openai;
                         case "qwen":
                           return builtInModels.qwen;
+                        case "iflow":
+                          return builtInModels.iflow;
                         default:
                           return [];
                       }
