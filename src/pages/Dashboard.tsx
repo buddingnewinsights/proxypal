@@ -354,6 +354,7 @@ export function DashboardPage() {
 		null,
 	);
 	const [testingAgent, setTestingAgent] = createSignal<string | null>(null);
+	const [refreshingAgents, setRefreshingAgents] = createSignal(false);
 	const [configResult, setConfigResult] = createSignal<{
 		result: AgentConfigResult;
 		agentName: string;
@@ -375,12 +376,17 @@ export function DashboardPage() {
 
 	// Load data on mount
 	const loadAgents = async () => {
+		if (refreshingAgents()) return; // Prevent multiple simultaneous refreshes
+		setRefreshingAgents(true);
 		try {
 			const detected = await detectCliAgents();
 			setAgents(detected);
 			setHasConfiguredAgent(detected.some((a) => a.configured));
 		} catch (err) {
 			console.error("Failed to load agents:", err);
+			toastStore.error("Failed to refresh agents", String(err));
+		} finally {
+			setRefreshingAgents(false);
 		}
 	};
 
@@ -1252,11 +1258,12 @@ export function DashboardPage() {
 							</div>
 							<button
 								onClick={loadAgents}
-								class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+								disabled={refreshingAgents()}
+								class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
 								title="Refresh"
 							>
 								<svg
-									class="w-4 h-4"
+									class={`w-4 h-4 ${refreshingAgents() ? "animate-spin" : ""}`}
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
