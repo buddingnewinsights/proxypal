@@ -120,6 +120,11 @@ pub struct AppConfig {
     pub gemini_api_keys: Vec<GeminiApiKey>,
     #[serde(default)]
     pub codex_api_keys: Vec<CodexApiKey>,
+    // Thinking budget settings for Antigravity Claude models
+    #[serde(default)]
+    pub thinking_budget_mode: String, // "low", "medium", "high", "custom"
+    #[serde(default)]
+    pub thinking_budget_custom: u32, // Custom budget tokens when mode is "custom"
 }
 
 fn default_usage_stats_enabled() -> bool {
@@ -250,6 +255,8 @@ impl Default for AppConfig {
             claude_api_keys: Vec::new(),
             gemini_api_keys: Vec::new(),
             codex_api_keys: Vec::new(),
+            thinking_budget_mode: "medium".to_string(),
+            thinking_budget_custom: 16000,
         }
     }
 }
@@ -1025,6 +1032,57 @@ async fn start_proxy(
         section
     };
     
+    // Get thinking budget from config
+    let thinking_budget = {
+        let mode = if config.thinking_budget_mode.is_empty() {
+            "medium"
+        } else {
+            &config.thinking_budget_mode
+        };
+        let custom = if config.thinking_budget_custom == 0 {
+            16000
+        } else {
+            config.thinking_budget_custom
+        };
+        match mode {
+            "low" => 2048,
+            "medium" => 8192,
+            "high" => 32768,
+            "custom" => custom,
+            _ => 8192,
+        }
+    };
+    
+    let thinking_mode_display = if config.thinking_budget_mode.is_empty() { "medium" } else { &config.thinking_budget_mode };
+    
+    // Build payload section to inject thinking budget for Antigravity Claude models
+    // This ensures thinking mode works properly after CLIProxyAPI v6.6.0's dynamic suffix normalization
+    let payload_section = format!(r#"# Payload injection for thinking models (fixes CLIProxyAPI v6.6.0+ suffix normalization)
+# Thinking budget mode: {} ({} tokens)
+payload:
+  default:
+    - models:
+        - name: "gemini-claude-sonnet-4-5"
+          protocol: "claude"
+        - name: "gemini-claude-sonnet-4-5-thinking"
+          protocol: "claude"
+      params:
+        "thinking.budget_tokens": {}
+    - models:
+        - name: "gemini-claude-opus-4-5"
+          protocol: "claude"
+        - name: "gemini-claude-opus-4-5-thinking"
+          protocol: "claude"
+      params:
+        "thinking.budget_tokens": {}
+
+"#, 
+        thinking_mode_display,
+        thinking_budget,
+        thinking_budget,
+        thinking_budget
+    );
+    
     // Always regenerate config on start because CLIProxyAPI hashes the secret-key in place
     // and we need the plaintext key for Management API access
     let proxy_config = format!(
@@ -1049,7 +1107,7 @@ remote-management:
   secret-key: "proxypal-mgmt-key"
   disable-control-panel: true
 
-{}{}{}{}# Amp CLI Integration - enables amp login and management routes
+{}{}{}{}{}# Amp CLI Integration - enables amp login and management routes
 # See: https://help.router-for.me/agent-client/amp-cli.html
 # Get API key from: https://ampcode.com/settings
 ampcode:
@@ -1070,6 +1128,7 @@ ampcode:
         claude_api_key_section,
         gemini_api_key_section,
         codex_api_key_section,
+        payload_section,
         amp_api_key_line,
         amp_model_mappings_section
     );
@@ -3629,14 +3688,36 @@ export AMP_API_KEY="proxypal-local"
             // Build dynamic models object from available models
             // OpenCode needs model configs with name and limits
             let mut models_obj = serde_json::Map::new();
+            
+            // Get user's thinking budget setting
+            let user_thinking_budget: u64 = {
+                let config = state.config.lock().unwrap();
+                let mode = if config.thinking_budget_mode.is_empty() {
+                    "medium"
+                } else {
+                    &config.thinking_budget_mode
+                };
+                let custom = if config.thinking_budget_custom == 0 {
+                    16000
+                } else {
+                    config.thinking_budget_custom
+                };
+                match mode {
+                    "low" => 2048,
+                    "medium" => 8192,
+                    "high" => 32768,
+                    "custom" => custom as u64,
+                    _ => 8192,
+                }
+            };
+            
             for m in &models {
                 let (context_limit, output_limit) = get_model_limits(&m.id, &m.owned_by);
                 let display_name = get_model_display_name(&m.id, &m.owned_by);
                 // Enable reasoning display for models with "-thinking" suffix
                 let is_thinking_model = m.id.ends_with("-thinking");
-                // For thinking models: budgetTokens = half of output_limit, min output = budgetTokens + buffer
-                // This ensures enough room for both thinking and response
-                let thinking_budget: u64 = output_limit / 2;  // Use half for thinking
+                // Use user's configured thinking budget
+                let thinking_budget: u64 = user_thinking_budget;
                 let min_thinking_output: u64 = thinking_budget + 8192;  // thinking + 8K buffer for response
                 let effective_output_limit = if is_thinking_model { 
                     std::cmp::max(output_limit, min_thinking_output) 
@@ -4259,6 +4340,72 @@ async fn delete_codex_api_key(state: State<'_, AppState>, index: usize) -> Resul
     }
     keys.remove(index);
     set_codex_api_keys(state, keys).await
+}
+
+// ============================================
+// Thinking Budget Settings
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThinkingBudgetSettings {
+    pub mode: String,        // "low", "medium", "high", "custom"
+    pub custom_budget: u32,  // Custom budget tokens when mode is "custom"
+}
+
+impl Default for ThinkingBudgetSettings {
+    fn default() -> Self {
+        Self {
+            mode: "medium".to_string(),
+            custom_budget: 16000,
+        }
+    }
+}
+
+impl ThinkingBudgetSettings {
+    pub fn get_budget_tokens(&self) -> u32 {
+        match self.mode.as_str() {
+            "low" => 2048,
+            "medium" => 8192,
+            "high" => 32768,
+            "custom" => self.custom_budget,
+            _ => 8192, // default to medium
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_thinking_budget_settings(state: State<'_, AppState>) -> Result<ThinkingBudgetSettings, String> {
+    let config = state.config.lock().unwrap();
+    let mode = if config.thinking_budget_mode.is_empty() {
+        "medium".to_string()
+    } else {
+        config.thinking_budget_mode.clone()
+    };
+    let custom_budget = if config.thinking_budget_custom == 0 {
+        16000
+    } else {
+        config.thinking_budget_custom
+    };
+    Ok(ThinkingBudgetSettings { mode, custom_budget })
+}
+
+#[tauri::command]
+async fn set_thinking_budget_settings(state: State<'_, AppState>, settings: ThinkingBudgetSettings) -> Result<(), String> {
+    {
+        let mut config = state.config.lock().unwrap();
+        config.thinking_budget_mode = settings.mode;
+        config.thinking_budget_custom = settings.custom_budget;
+    }
+    let config_to_save = {
+        let config = state.config.lock().unwrap();
+        config.clone()
+    };
+    save_config(state, config_to_save)?;
+    
+    // Config is saved - proxy will pick up new thinking budget on next request
+    
+    Ok(())
 }
 
 // OpenAI-Compatible Providers
@@ -5300,6 +5447,9 @@ pub fn run() {
             set_codex_api_keys,
             add_codex_api_key,
             delete_codex_api_key,
+            // Thinking Budget Settings
+            get_thinking_budget_settings,
+            set_thinking_budget_settings,
             get_openai_compatible_providers,
             set_openai_compatible_providers,
             add_openai_compatible_provider,

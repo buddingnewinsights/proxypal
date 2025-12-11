@@ -242,15 +242,15 @@ export interface CopilotStatus {
 
 // Copilot API detection result
 export interface CopilotApiDetection {
-  installed: boolean;
-  version?: string;
-  copilotBin?: string; // Path to copilot-api binary (if installed)
-  npxBin?: string; // Path to npx binary (for fallback)
-  npmBin?: string; // Path to npm binary (for installs)
-  nodeBin?: string; // Path to node binary actually used
-  nodeAvailable: boolean;
-  checkedNodePaths: string[];
-  checkedCopilotPaths: string[];
+	installed: boolean;
+	version?: string;
+	copilotBin?: string; // Path to copilot-api binary (if installed)
+	npxBin?: string; // Path to npx binary (for fallback)
+	npmBin?: string; // Path to npm binary (for installs)
+	nodeBin?: string; // Path to node binary actually used
+	nodeAvailable: boolean;
+	checkedNodePaths: string[];
+	checkedCopilotPaths: string[];
 }
 
 // Copilot API install result
@@ -710,6 +710,43 @@ export async function deleteCodexApiKey(index: number): Promise<void> {
 	return invoke("delete_codex_api_key", { index });
 }
 
+// ============================================
+// Thinking Budget Settings
+// ============================================
+
+export interface ThinkingBudgetSettings {
+	mode: "low" | "medium" | "high" | "custom";
+	customBudget: number;
+}
+
+export async function getThinkingBudgetSettings(): Promise<ThinkingBudgetSettings> {
+	return invoke("get_thinking_budget_settings");
+}
+
+export async function setThinkingBudgetSettings(
+	settings: ThinkingBudgetSettings,
+): Promise<void> {
+	return invoke("set_thinking_budget_settings", { settings });
+}
+
+// Helper to get actual token count from settings
+export function getThinkingBudgetTokens(
+	settings: ThinkingBudgetSettings,
+): number {
+	switch (settings.mode) {
+		case "low":
+			return 2048;
+		case "medium":
+			return 8192;
+		case "high":
+			return 32768;
+		case "custom":
+			return settings.customBudget;
+		default:
+			return 8192;
+	}
+}
+
 // OpenAI-Compatible Providers
 export async function getOpenAICompatibleProviders(): Promise<
 	OpenAICompatibleProvider[]
@@ -857,13 +894,13 @@ export async function setWebsocketAuth(value: boolean): Promise<void> {
 
 // Prioritize Model Mappings - model mappings take precedence over local API keys
 export async function getPrioritizeModelMappings(): Promise<boolean> {
-  return invoke("get_prioritize_model_mappings");
+	return invoke("get_prioritize_model_mappings");
 }
 
 export async function setPrioritizeModelMappings(
-  value: boolean,
+	value: boolean,
 ): Promise<void> {
-  return invoke("set_prioritize_model_mappings", { value });
+	return invoke("set_prioritize_model_mappings", { value });
 }
 
 // OAuth Excluded Models - block specific models per OAuth provider
