@@ -965,20 +965,23 @@ export interface UpdateProgress {
 	chunkLength?: number;
 }
 
+import { getVersion } from "@tauri-apps/api/app";
+
 // Check for available updates
 export async function checkForUpdates(): Promise<UpdateInfo> {
 	try {
+		const currentVersion = await getVersion();
 		const update = await check();
 		if (update) {
 			return {
 				available: true,
 				version: update.version,
-				currentVersion: update.currentVersion,
+				currentVersion: currentVersion,
 				date: update.date,
 				body: update.body,
 			};
 		}
-		return { available: false };
+		return { available: false, currentVersion: currentVersion };
 	} catch (error) {
 		console.error("Failed to check for updates:", error);
 		throw error;
