@@ -15,19 +15,24 @@ import {
 	detectCopilotApi,
 	downloadAndInstallUpdate,
 	getAvailableModels,
+	getCloseToTray,
 	getConfigYaml,
 	getMaxRetryInterval,
 	getOAuthExcludedModels,
 	getPrioritizeModelMappings,
+	getReasoningEffortSettings,
 	getThinkingBudgetSettings,
 	getThinkingBudgetTokens,
 	getWebsocketAuth,
 	type OAuthExcludedModels,
+	type ReasoningEffortLevel,
 	saveConfig,
+	setCloseToTray,
 	setConfigYaml,
 	setMaxRetryInterval,
 	setOAuthExcludedModels,
 	setPrioritizeModelMappings,
+	setReasoningEffortSettings,
 	setThinkingBudgetSettings,
 	setWebsocketAuth,
 	type ThinkingBudgetSettings,
@@ -83,6 +88,11 @@ export function SettingsPage() {
 	const [thinkingBudgetCustom, setThinkingBudgetCustom] = createSignal(16000);
 	const [savingThinkingBudget, setSavingThinkingBudget] = createSignal(false);
 
+	// Reasoning Effort settings for GPT/Codex models (used in CLI agent configs)
+	const [reasoningEffortLevel, setReasoningEffortLevel] =
+		createSignal<ReasoningEffortLevel>("medium");
+	const [savingReasoningEffort, setSavingReasoningEffort] = createSignal(false);
+
 	// Management API runtime settings
 	const [maxRetryInterval, setMaxRetryIntervalState] = createSignal<number>(0);
 	const [websocketAuth, setWebsocketAuthState] = createSignal<boolean>(false);
@@ -121,6 +131,39 @@ export function SettingsPage() {
 	const [installingUpdate, setInstallingUpdate] = createSignal(false);
 	const [updateProgress, setUpdateProgress] =
 		createSignal<UpdateProgress | null>(null);
+
+	// Close to tray setting
+	const [closeToTray, setCloseToTrayState] = createSignal(true);
+	const [savingCloseToTray, setSavingCloseToTray] = createSignal(false);
+
+	// Load close to tray setting on mount
+	createEffect(async () => {
+		try {
+			const enabled = await getCloseToTray();
+			setCloseToTrayState(enabled);
+		} catch (error) {
+			console.error("Failed to fetch close to tray setting:", error);
+		}
+	});
+
+	// Handler for close to tray change
+	const handleCloseToTrayChange = async (enabled: boolean) => {
+		setSavingCloseToTray(true);
+		try {
+			await setCloseToTray(enabled);
+			setCloseToTrayState(enabled);
+			toastStore.success(
+				enabled
+					? "Window will minimize to tray when closed"
+					: "Window will quit when closed",
+			);
+		} catch (error) {
+			console.error("Failed to save close to tray setting:", error);
+			toastStore.error(`Failed to save setting: ${error}`);
+		} finally {
+			setSavingCloseToTray(false);
+		}
+	};
 
 	// Check for app updates
 	const handleCheckForUpdates = async () => {
@@ -214,6 +257,14 @@ export function SettingsPage() {
 				setThinkingBudgetCustom(thinkingSettings.customBudget);
 			} catch (error) {
 				console.error("Failed to fetch thinking budget settings:", error);
+			}
+
+			// Fetch reasoning effort settings for GPT/Codex models
+			try {
+				const reasoningSettings = await getReasoningEffortSettings();
+				setReasoningEffortLevel(reasoningSettings.level);
+			} catch (error) {
+				console.error("Failed to fetch reasoning effort settings:", error);
 			}
 
 			// Fetch OAuth excluded models
@@ -576,6 +627,24 @@ export function SettingsPage() {
 		}
 	};
 
+	// Save reasoning effort settings for GPT/Codex models
+	const saveReasoningEffort = async () => {
+		setSavingReasoningEffort(true);
+		try {
+			await setReasoningEffortSettings({
+				level: reasoningEffortLevel(),
+			});
+			toastStore.success(
+				`Reasoning effort updated to "${reasoningEffortLevel()}"`,
+			);
+		} catch (error) {
+			console.error("Failed to save reasoning effort:", error);
+			toastStore.error("Failed to save reasoning effort", String(error));
+		} finally {
+			setSavingReasoningEffort(false);
+		}
+	};
+
 	// Update an existing custom mapping
 	const updateCustomMapping = async (
 		fromModel: string,
@@ -853,6 +922,16 @@ export function SettingsPage() {
 								checked={config().autoStart}
 								onChange={(checked) => handleConfigChange("autoStart", checked)}
 							/>
+
+							<div class="border-t border-gray-200 dark:border-gray-700" />
+
+							<Switch
+								label="Close to tray"
+								description="Minimize to system tray instead of quitting when closing the window"
+								checked={closeToTray()}
+								onChange={handleCloseToTrayChange}
+								disabled={savingCloseToTray()}
+							/>
 						</div>
 					</div>
 
@@ -1069,6 +1148,78 @@ export function SettingsPage() {
 										{savingThinkingBudget() ? "Saving..." : "Apply"}
 									</Button>
 								</div>
+							</div>
+						</div>
+					</div>
+
+					{/* Reasoning Effort (GPT/Codex Models) */}
+					<div class="space-y-4">
+						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+							Reasoning Effort (GPT/Codex Models)
+						</h2>
+
+						<div class="space-y-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Configure default reasoning effort for GPT-5.x models. This
+								setting is applied when configuring CLI agents (OpenCode,
+								Factory Droid, etc.) and can be overridden per-request using
+								model suffix like{" "}
+								<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+									gpt-5(high)
+								</code>
+								.
+							</p>
+
+							<div class="space-y-3">
+								<label class="block">
+									<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+										Default Effort Level
+									</span>
+									<select
+										value={reasoningEffortLevel()}
+										onChange={(e) =>
+											setReasoningEffortLevel(
+												e.currentTarget.value as ReasoningEffortLevel,
+											)
+										}
+										class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+									>
+										<option value="none">None (disabled)</option>
+										<option value="low">Low (~1,024 tokens)</option>
+										<option value="medium">Medium (~8,192 tokens)</option>
+										<option value="high">High (~24,576 tokens)</option>
+										<option value="xhigh">Extra High (~32,768 tokens)</option>
+									</select>
+								</label>
+
+								<div class="flex items-center justify-between pt-2">
+									<span class="text-sm text-gray-600 dark:text-gray-400">
+										Current:{" "}
+										<span class="font-medium text-brand-600 dark:text-brand-400">
+											{reasoningEffortLevel()}
+										</span>
+									</span>
+									<Button
+										variant="primary"
+										size="sm"
+										onClick={saveReasoningEffort}
+										disabled={savingReasoningEffort()}
+									>
+										{savingReasoningEffort() ? "Saving..." : "Apply"}
+									</Button>
+								</div>
+
+								<p class="text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+									<span class="font-medium">Per-request override:</span> Use
+									model suffix like{" "}
+									<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+										gpt-5(high)
+									</code>{" "}
+									or{" "}
+									<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+										gpt-5.2(low)
+									</code>
+								</p>
 							</div>
 						</div>
 					</div>

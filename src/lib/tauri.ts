@@ -748,6 +748,38 @@ export function getThinkingBudgetTokens(
 	}
 }
 
+// ============================================
+// Reasoning Effort Settings (GPT/Codex models)
+// ============================================
+
+export type ReasoningEffortLevel = "none" | "low" | "medium" | "high" | "xhigh";
+
+export interface ReasoningEffortSettings {
+	level: ReasoningEffortLevel;
+}
+
+export async function getReasoningEffortSettings(): Promise<ReasoningEffortSettings> {
+	return invoke("get_reasoning_effort_settings");
+}
+
+export async function setReasoningEffortSettings(
+	settings: ReasoningEffortSettings,
+): Promise<void> {
+	return invoke("set_reasoning_effort_settings", { settings });
+}
+
+// ============================================
+// Close to Tray Setting
+// ============================================
+
+export async function getCloseToTray(): Promise<boolean> {
+	return invoke("get_close_to_tray");
+}
+
+export async function setCloseToTray(enabled: boolean): Promise<void> {
+	return invoke("set_close_to_tray", { enabled });
+}
+
 // OpenAI-Compatible Providers
 export async function getOpenAICompatibleProviders(): Promise<
 	OpenAICompatibleProvider[]

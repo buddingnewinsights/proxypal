@@ -125,6 +125,16 @@ pub struct AppConfig {
     pub thinking_budget_mode: String, // "low", "medium", "high", "custom"
     #[serde(default)]
     pub thinking_budget_custom: u32, // Custom budget tokens when mode is "custom"
+    // Reasoning effort settings for GPT/Codex models
+    #[serde(default)]
+    pub reasoning_effort_level: String, // "none", "low", "medium", "high", "xhigh"
+    // Window behavior: close to tray instead of quitting
+    #[serde(default = "default_close_to_tray")]
+    pub close_to_tray: bool,
+}
+
+fn default_close_to_tray() -> bool {
+    true // Default to close-to-tray behavior
 }
 
 fn default_usage_stats_enabled() -> bool {
@@ -257,6 +267,8 @@ impl Default for AppConfig {
             codex_api_keys: Vec::new(),
             thinking_budget_mode: "medium".to_string(),
             thinking_budget_custom: 16000,
+            reasoning_effort_level: "medium".to_string(),
+            close_to_tray: true,
         }
     }
 }
@@ -1065,11 +1077,15 @@ async fn start_proxy(
     let thinking_mode_display = if config.thinking_budget_mode.is_empty() { "medium" } else { &config.thinking_budget_mode };
     
     // Build payload section to inject thinking budget for Antigravity Claude models
-    // This ensures thinking mode works properly after CLIProxyAPI v6.6.0's dynamic suffix normalization
-    let payload_section = format!(r#"# Payload injection for thinking models (fixes CLIProxyAPI v6.6.0+ suffix normalization)
-# Thinking budget mode: {} ({} tokens)
+    // Note: GPT/Codex reasoning_effort is NOT injected via payload config because it would
+    // apply to ALL requests matching gpt-5*, including those routed to Claude via model mapping.
+    // Users should use model suffix like gpt-5(high) to specify reasoning effort, which
+    // CLIProxyAPI handles via applyReasoningEffortMetadata() from request metadata.
+    let payload_section = format!(r#"# Payload injection for thinking models
+# Antigravity Claude: Thinking budget mode: {} ({} tokens)
 payload:
   default:
+    # Antigravity Claude models - thinking budget
     - models:
         - name: "gemini-claude-sonnet-4-5"
           protocol: "claude"
@@ -4076,11 +4092,25 @@ export AMP_API_KEY="proxypal-local"
                 }
             };
             
+            // Get user's reasoning effort setting for GPT/Codex models
+            let user_reasoning_effort: &str = {
+                let config = state.config.lock().unwrap();
+                let level = if config.reasoning_effort_level.is_empty() {
+                    "medium"
+                } else {
+                    &config.reasoning_effort_level
+                };
+                // Leak to get 'static lifetime - this is fine for a single config value
+                Box::leak(level.to_string().into_boxed_str())
+            };
+            
             for m in &models {
                 let (context_limit, output_limit) = get_model_limits(&m.id, &m.owned_by);
                 let display_name = get_model_display_name(&m.id, &m.owned_by);
                 // Enable reasoning display for models with "-thinking" suffix
                 let is_thinking_model = m.id.ends_with("-thinking");
+                // Check if this is a GPT-5.x model (Codex reasoning models)
+                let is_gpt5_model = m.id.starts_with("gpt-5");
                 // Use user's configured thinking budget
                 let thinking_budget: u64 = user_thinking_budget;
                 let min_thinking_output: u64 = thinking_budget + 8192;  // thinking + 8K buffer for response
@@ -4099,6 +4129,14 @@ export AMP_API_KEY="proxypal-local"
                         "thinking": {
                             "type": "enabled",
                             "budgetTokens": thinking_budget
+                        }
+                    });
+                } else if is_gpt5_model && user_reasoning_effort != "none" {
+                    // Add reasoning effort for GPT-5.x models (Codex)
+                    model_config["reasoning"] = serde_json::json!(true);
+                    model_config["options"] = serde_json::json!({
+                        "reasoning": {
+                            "effort": user_reasoning_effort
                         }
                     });
                 }
@@ -4770,6 +4808,80 @@ async fn set_thinking_budget_settings(state: State<'_, AppState>, settings: Thin
     
     // Config is saved - proxy will pick up new thinking budget on next request
     
+    Ok(())
+}
+
+// ============================================
+// Reasoning Effort Settings (GPT/Codex models)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReasoningEffortSettings {
+    pub level: String, // "none", "low", "medium", "high", "xhigh"
+}
+
+impl Default for ReasoningEffortSettings {
+    fn default() -> Self {
+        Self {
+            level: "medium".to_string(),
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_reasoning_effort_settings(state: State<'_, AppState>) -> Result<ReasoningEffortSettings, String> {
+    let config = state.config.lock().unwrap();
+    let level = if config.reasoning_effort_level.is_empty() {
+        "medium".to_string()
+    } else {
+        config.reasoning_effort_level.clone()
+    };
+    Ok(ReasoningEffortSettings { level })
+}
+
+#[tauri::command]
+async fn set_reasoning_effort_settings(state: State<'_, AppState>, settings: ReasoningEffortSettings) -> Result<(), String> {
+    // Validate level
+    let valid_levels = ["none", "low", "medium", "high", "xhigh"];
+    if !valid_levels.contains(&settings.level.as_str()) {
+        return Err(format!("Invalid reasoning effort level: {}. Must be one of: {:?}", settings.level, valid_levels));
+    }
+    
+    {
+        let mut config = state.config.lock().unwrap();
+        config.reasoning_effort_level = settings.level;
+    }
+    let config_to_save = {
+        let config = state.config.lock().unwrap();
+        config.clone()
+    };
+    save_config(state, config_to_save)?;
+    
+    Ok(())
+}
+
+// ============================================
+// Close to Tray Setting
+// ============================================
+
+#[tauri::command]
+async fn get_close_to_tray(state: State<'_, AppState>) -> Result<bool, String> {
+    let config = state.config.lock().unwrap();
+    Ok(config.close_to_tray)
+}
+
+#[tauri::command]
+async fn set_close_to_tray(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    {
+        let mut config = state.config.lock().unwrap();
+        config.close_to_tray = enabled;
+    }
+    let config_to_save = {
+        let config = state.config.lock().unwrap();
+        config.clone()
+    };
+    save_config(state, config_to_save)?;
     Ok(())
 }
 
@@ -5817,6 +5929,9 @@ pub fn run() {
             // Thinking Budget Settings
             get_thinking_budget_settings,
             set_thinking_budget_settings,
+            // Reasoning Effort Settings (GPT/Codex)
+            get_reasoning_effort_settings,
+            set_reasoning_effort_settings,
             get_openai_compatible_providers,
             set_openai_compatible_providers,
             add_openai_compatible_provider,
@@ -5845,28 +5960,60 @@ pub fn run() {
             set_config_yaml,
             get_request_error_logs,
             get_request_error_log_content,
+            // Window behavior
+            get_close_to_tray,
+            set_close_to_tray,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                // Cleanup: Kill proxy and copilot processes before exit
-                if let Some(state) = app_handle.try_state::<AppState>() {
-                    // Kill cliproxyapi process
-                    if let Ok(mut process_guard) = state.proxy_process.lock() {
-                        if let Some(child) = process_guard.take() {
-                            println!("[ProxyPal] Shutting down cliproxyapi...");
-                            let _ = child.kill();
-                        }
-                    }
-                    // Kill copilot-api process
-                    if let Ok(mut process_guard) = state.copilot_process.lock() {
-                        if let Some(child) = process_guard.take() {
-                            println!("[ProxyPal] Shutting down copilot-api...");
-                            let _ = child.kill();
+            match event {
+                tauri::RunEvent::WindowEvent {
+                    label,
+                    event: win_event,
+                    ..
+                } => {
+                    // Handle close button based on close_to_tray setting
+                    if label == "main" {
+                        if let tauri::WindowEvent::CloseRequested { api, .. } = win_event {
+                            // Check if close_to_tray is enabled
+                            let close_to_tray = app_handle
+                                .try_state::<AppState>()
+                                .map(|state| state.config.lock().unwrap().close_to_tray)
+                                .unwrap_or(true);
+                            
+                            if close_to_tray {
+                                // Hide to tray instead of closing
+                                if let Some(window) = app_handle.get_webview_window("main") {
+                                    println!("[ProxyPal] Hiding to system tray...");
+                                    let _ = window.hide();
+                                }
+                                api.prevent_close();
+                            }
+                            // If close_to_tray is false, allow normal close behavior
                         }
                     }
                 }
+                tauri::RunEvent::ExitRequested { .. } => {
+                    // Cleanup: Kill proxy and copilot processes before exit
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        // Kill cliproxyapi process
+                        if let Ok(mut process_guard) = state.proxy_process.lock() {
+                            if let Some(child) = process_guard.take() {
+                                println!("[ProxyPal] Shutting down cliproxyapi...");
+                                let _ = child.kill();
+                            }
+                        }
+                        // Kill copilot-api process
+                        if let Ok(mut process_guard) = state.copilot_process.lock() {
+                            if let Some(child) = process_guard.take() {
+                                println!("[ProxyPal] Shutting down copilot-api...");
+                                let _ = child.kill();
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
         });
 }
