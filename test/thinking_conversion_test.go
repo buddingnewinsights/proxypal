@@ -746,14 +746,21 @@ func TestRawPayloadThinkingConversions(t *testing.T) {
 										// ThinkingEffortToBudget already returns normalized budget
 										return true, fmt.Sprintf("%d", budget), false
 									}
-									// Invalid effort - claude may still set thinking with type:enabled
-									return true, "", false
+									// Invalid effort - claude sets thinking.type:enabled but no budget_tokens
+									return false, "", false
 								}
 								return false, "", false
 							case "openai":
 								if allowCompat {
 									if effort, ok := cs.thinkingParam.(string); ok && strings.TrimSpace(effort) != "" {
-										return true, strings.ToLower(strings.TrimSpace(effort)), false
+										// For allowCompat models, invalid effort values are normalized to "auto"
+										normalized := strings.ToLower(strings.TrimSpace(effort))
+										switch normalized {
+										case "none", "auto", "low", "medium", "high", "xhigh":
+											return true, normalized, false
+										default:
+											return true, "auto", false
+										}
 									}
 									if budget, ok := cs.thinkingParam.(int); ok {
 										if mapped, okM := util.OpenAIThinkingBudgetToEffort(model, budget); okM && mapped != "" {
