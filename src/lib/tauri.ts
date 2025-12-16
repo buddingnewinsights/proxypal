@@ -892,6 +892,7 @@ export async function clearLogs(): Promise<void> {
 export interface AvailableModel {
 	id: string;
 	ownedBy: string; // "google", "openai", "qwen", "anthropic", etc.
+	source: string; // "vertex", "gemini-api", "copilot", "oauth", "api-key", etc.
 }
 
 export interface GroupedModels {

@@ -4,6 +4,7 @@ import { ApiEndpoint } from "../components/ApiEndpoint";
 import { openCommandPalette } from "../components/CommandPalette";
 import { CopilotCard } from "../components/CopilotCard";
 import { HealthIndicator } from "../components/HealthIndicator";
+import { ModelsWidget } from "../components/ModelsWidget";
 import { OpenCodeKitBanner } from "../components/OpenCodeKitBanner";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { ThemeToggleCompact } from "../components/ThemeToggle";
@@ -368,6 +369,7 @@ export function DashboardPage() {
 		totalCostUsd: 0,
 	});
 	const [stats, setStats] = createSignal<UsageStats | null>(null);
+	const [models, setModels] = createSignal<AvailableModel[]>([]);
 
 	// Copilot config handler
 	const handleCopilotConfigChange = (copilotConfig: CopilotConfig) => {
@@ -426,6 +428,16 @@ export function DashboardPage() {
 			setStats(usage);
 		} catch (err) {
 			console.error("Failed to load usage stats:", err);
+		}
+
+		// Load available models if proxy is running
+		if (appStore.proxyStatus().running) {
+			try {
+				const availableModels = await getAvailableModels();
+				setModels(availableModels);
+			} catch (err) {
+				console.error("Failed to load available models:", err);
+			}
 		}
 
 		// Listen for new requests and refresh data
@@ -1271,6 +1283,9 @@ export function DashboardPage() {
 						onViewAll={() => setCurrentPage("logs")}
 					/>
 
+					{/* === ZONE 5.5: Available Models === */}
+					<ModelsWidget models={models()} loading={!proxyStatus().running} />
+
 					{/* === ZONE 6: CLI Agents (always full detail) === */}
 					<div class="space-y-3">
 						<div class="flex items-center justify-between">
@@ -1608,8 +1623,8 @@ export function DashboardPage() {
 										{/* Models configured - grouped by provider */}
 										<Show
 											when={
-												configResult()!.models &&
-												configResult()!.models!.length > 0
+												configResult()?.models &&
+												(configResult()?.models?.length ?? 0) > 0
 											}
 										>
 											<div class="space-y-2">
@@ -1618,13 +1633,13 @@ export function DashboardPage() {
 														Models Configured
 													</span>
 													<span class="text-xs text-gray-500 dark:text-gray-400">
-														{configResult()!.models!.length} total
+														{configResult()?.models?.length ?? 0} total
 													</span>
 												</div>
 												<div class="max-h-48 overflow-y-auto space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
 													<For
 														each={groupModelsByProvider(
-															configResult()!.models!,
+															configResult()?.models ?? [],
 														)}
 													>
 														{(group) => (
