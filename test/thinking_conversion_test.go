@@ -721,7 +721,7 @@ func TestRawPayloadThinkingConversions(t *testing.T) {
 	}
 }
 
-func TestThinkingBudgetToEffortRanges(t *testing.T) {
+func TestThinkingBudgetToEffort(t *testing.T) {
 	cleanup := registerCoreModels(t)
 	defer cleanup()
 
@@ -754,6 +754,44 @@ func TestThinkingBudgetToEffortRanges(t *testing.T) {
 			}
 			if got != cs.want {
 				t.Fatalf("value mismatch for model=%s budget=%d: expect %q got %q", cs.model, cs.budget, cs.want, got)
+			}
+		})
+	}
+}
+
+func TestThinkingEffortToBudget(t *testing.T) {
+	cleanup := registerCoreModels(t)
+	defer cleanup()
+
+	cases := []struct {
+		name   string
+		model  string
+		effort string
+		want   int
+		ok     bool
+	}{
+		{name: "none", model: "gemini-2.5-pro", effort: "none", want: 0, ok: true},
+		{name: "auto", model: "gemini-2.5-pro", effort: "auto", want: -1, ok: true},
+		{name: "minimal", model: "gemini-2.5-pro", effort: "minimal", want: 512, ok: true},
+		{name: "low", model: "gemini-2.5-pro", effort: "low", want: 1024, ok: true},
+		{name: "medium", model: "gemini-2.5-pro", effort: "medium", want: 8192, ok: true},
+		{name: "high", model: "gemini-2.5-pro", effort: "high", want: 24576, ok: true},
+		{name: "xhigh", model: "gemini-2.5-pro", effort: "xhigh", want: 32768, ok: true},
+		{name: "empty-unsupported", model: "gemini-2.5-pro", effort: "", want: 0, ok: false},
+		{name: "invalid-unsupported", model: "gemini-2.5-pro", effort: "ultra", want: 0, ok: false},
+		{name: "case-insensitive", model: "gemini-2.5-pro", effort: "LOW", want: 1024, ok: true},
+		{name: "case-insensitive-medium", model: "gemini-2.5-pro", effort: "MEDIUM", want: 8192, ok: true},
+	}
+
+	for _, cs := range cases {
+		cs := cs
+		t.Run(cs.name, func(t *testing.T) {
+			got, ok := util.ThinkingEffortToBudget(cs.model, cs.effort)
+			if ok != cs.ok {
+				t.Fatalf("ok mismatch for model=%s effort=%s: expect %v got %v", cs.model, cs.effort, cs.ok, ok)
+			}
+			if got != cs.want {
+				t.Fatalf("value mismatch for model=%s effort=%s: expect %d got %d", cs.model, cs.effort, cs.want, got)
 			}
 		})
 	}
