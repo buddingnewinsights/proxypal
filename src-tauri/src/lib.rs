@@ -1410,6 +1410,31 @@ async fn start_copilot(
         ));
     }
     
+    // Check Node.js version >= 20.16.0 (required for process.getBuiltinModule)
+    if let Some(ref version_str) = detection.node_version {
+        // Parse version like "v20.16.0" or "v18.19.0"
+        let version_clean = version_str.trim_start_matches('v');
+        let parts: Vec<&str> = version_clean.split('.').collect();
+        if parts.len() >= 2 {
+            let major: u32 = parts[0].parse().unwrap_or(0);
+            let minor: u32 = parts[1].parse().unwrap_or(0);
+            
+            // Require Node.js >= 20.16.0
+            if major < 20 || (major == 20 && minor < 16) {
+                return Err(format!(
+                    "Node.js version {} is too old for GitHub Copilot support.\n\n\
+                    The copilot-api package requires Node.js 20.16.0 or later.\n\
+                    Your current version: {}\n\n\
+                    Please upgrade Node.js:\n\
+                    • Download from https://nodejs.org/ (LTS recommended)\n\
+                    • Or use a version manager: nvm install 22 / volta install node@22\n\n\
+                    After upgrading, restart ProxyPal.",
+                    version_str, version_str
+                ));
+            }
+        }
+    }
+    
     // Determine command and arguments based on installation status
     let (bin_path, mut args) = if detection.installed {
         // Use copilot-api directly
@@ -1731,6 +1756,7 @@ pub struct CopilotApiDetection {
     pub npx_bin: Option<String>,      // Path to npx binary (for fallback)
     pub npm_bin: Option<String>,      // Path to npm binary (for installs)
     pub node_bin: Option<String>,     // Path to node binary actually used
+    pub node_version: Option<String>, // Node.js version (e.g., "v20.16.0")
     pub bunx_bin: Option<String>,     // Path to bunx binary (preferred over npx)
     pub node_available: bool,
     pub checked_node_paths: Vec<String>,
@@ -1832,21 +1858,28 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
         }
     };
     
-    // Find working node binary
+    // Find working node binary and get version
     let mut node_bin: Option<String> = None;
+    let mut node_version: Option<String> = None;
     for path in &node_paths {
         let check = app.shell().command(path).args(["--version"]).output().await;
-        if check.as_ref().map(|o| o.status.success()).unwrap_or(false) {
-            node_bin = Some(path.to_string());
-            break;
+        if let Ok(ref output) = check {
+            if output.status.success() {
+                node_bin = Some(path.to_string());
+                node_version = Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                break;
+            }
         }
     }
     
     // Also try just "node" in case PATH is available
     if node_bin.is_none() {
         let check = app.shell().command("node").args(["--version"]).output().await;
-        if check.as_ref().map(|o| o.status.success()).unwrap_or(false) {
-            node_bin = Some("node".to_string());
+        if let Ok(ref output) = check {
+            if output.status.success() {
+                node_bin = Some("node".to_string());
+                node_version = Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+            }
         }
     }
     
@@ -1889,6 +1922,7 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
                 npx_bin: None,
                 npm_bin: None,
                 node_bin: None,
+                node_version: None,
                 bunx_bin,
                 node_available: true, // Mark as available since bunx works
                 checked_node_paths: node_paths,
@@ -1903,6 +1937,7 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
             npx_bin: None,
             npm_bin: None,
             node_bin: None,
+            node_version: None,
             bunx_bin: None,
             node_available: false,
             checked_node_paths: node_paths,
@@ -2026,6 +2061,7 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
                 npx_bin: Some(npx_bin),
                 npm_bin: Some(npm_bin),
                 node_bin: node_bin.clone(),
+                node_version: node_version.clone(),
                 bunx_bin,
                 node_available: true,
                 checked_node_paths: node_paths,
@@ -2064,6 +2100,7 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
                             npx_bin: Some(npx_bin),
                             npm_bin: Some(npm_bin),
                             node_bin: node_bin.clone(),
+                            node_version: node_version.clone(),
                             bunx_bin,
                             node_available: true,
                             checked_node_paths: node_paths,
@@ -2083,6 +2120,7 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
         npx_bin: Some(npx_bin),
         npm_bin: Some(npm_bin),
         node_bin: node_bin.clone(),
+        node_version,
         bunx_bin,
         node_available: true,
         checked_node_paths: node_paths,
