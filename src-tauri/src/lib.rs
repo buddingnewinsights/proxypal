@@ -5959,13 +5959,15 @@ pub fn run() {
         println!("[ProxyPal] Cleaning up orphaned cliproxyapi processes on startup");
         let _ = std::process::Command::new("sh")
             .args(["-c", "pkill -9 -f cliproxyapi 2>/dev/null"])
-            .output();
+            .spawn()
+            .and_then(|mut child| child.wait());
     }
     #[cfg(windows)]
     {
         let _ = std::process::Command::new("cmd")
             .args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"])
-            .output();
+            .spawn()
+            .and_then(|mut child| child.wait());
     }
 
     // Load persisted config and auth
