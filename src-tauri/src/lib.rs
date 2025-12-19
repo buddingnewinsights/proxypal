@@ -13,6 +13,14 @@ use tauri_plugin_shell::ShellExt;
 use regex::Regex;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 
+// Windows-specific imports for hiding CMD windows
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+// Windows CREATE_NO_WINDOW flag
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 // Proxy status structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyStatus {
@@ -844,15 +852,19 @@ async fn start_proxy(
     }
     #[cfg(windows)]
     {
-        // On Windows, use netstat and taskkill for port
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", &format!("for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :{} ^| findstr LISTENING') do taskkill /F /PID %a 2>nul", port)])
-            .output();
+        // On Windows, use netstat and taskkill for port (hidden window)
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", &format!("for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :{} ^| findstr LISTENING') do taskkill /F /PID %a 2>nul", port)]);
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.output();
         
-        // Also kill by process name on Windows
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"])
-            .output();
+        // Also kill by process name on Windows (hidden window)
+        let mut cmd2 = std::process::Command::new("cmd");
+        cmd2.args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"]);
+        #[cfg(target_os = "windows")]
+        cmd2.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd2.output();
     }
 
     // Longer delay to ensure port is fully released
@@ -1335,9 +1347,11 @@ async fn stop_proxy(
     }
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"])
-            .output();
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"]);
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.output();
     }
 
     // Update status
@@ -6037,10 +6051,11 @@ pub fn run() {
     }
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"])
-            .spawn()
-            .and_then(|mut child| child.wait());
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"]);
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.spawn().and_then(|mut child| child.wait());
     }
 
     // Load persisted config and auth
