@@ -531,6 +531,12 @@ export interface ModelUsage {
 	tokens: number;
 }
 
+export interface ProviderUsage {
+	provider: string;
+	requests: number;
+	tokens: number;
+}
+
 export interface UsageStats {
 	totalRequests: number;
 	successCount: number;
@@ -541,6 +547,7 @@ export interface UsageStats {
 	requestsToday: number;
 	tokensToday: number;
 	models: ModelUsage[];
+	providers: ProviderUsage[];
 	requestsByDay: TimeSeriesPoint[];
 	tokensByDay: TimeSeriesPoint[];
 	requestsByHour: TimeSeriesPoint[];

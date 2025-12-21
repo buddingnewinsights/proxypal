@@ -29,6 +29,8 @@ pub struct UsageStats {
     #[serde(default)]
     pub models: Vec<ModelUsage>,
     #[serde(default)]
+    pub providers: Vec<ProviderUsage>,
+    #[serde(default)]
     pub requests_by_day: Vec<TimeSeriesPoint>,
     #[serde(default)]
     pub tokens_by_day: Vec<TimeSeriesPoint>,
@@ -49,6 +51,14 @@ pub struct TimeSeriesPoint {
 #[serde(rename_all = "camelCase")]
 pub struct ModelUsage {
     pub model: String,
+    pub requests: u64,
+    pub tokens: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderUsage {
+    pub provider: String,
     pub requests: u64,
     pub tokens: u64,
 }

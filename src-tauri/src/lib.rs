@@ -9,7 +9,7 @@ use crate::config::{get_auth_path, get_history_path, load_config, save_config_to
 use crate::state::AppState;
 use crate::types::{
     ProxyStatus, RequestLog, AuthStatus, OAuthState,
-    UsageStats, TimeSeriesPoint, ModelUsage, RequestHistory,
+    UsageStats, TimeSeriesPoint, ModelUsage, ProviderUsage, RequestHistory,
     CopilotStatus, CopilotApiDetection, CopilotApiInstallResult,
     ClaudeApiKey, GeminiApiKey, CodexApiKey, OpenAICompatibleProvider,
     ThinkingBudgetSettings, ReasoningEffortSettings,
@@ -1869,6 +1869,21 @@ fn get_usage_stats() -> UsageStats {
         .collect();
     models.sort_by(|a, b| b.requests.cmp(&a.requests));
     
+    // Build provider usage stats (from request provider field, detected from path)
+    let mut provider_map: std::collections::HashMap<String, (u64, u64)> = std::collections::HashMap::new();
+    for req in &history.requests {
+        let provider = if req.provider.is_empty() { "unknown".to_string() } else { req.provider.clone() };
+        let entry = provider_map.entry(provider).or_insert((0, 0));
+        entry.0 += 1; // requests
+        entry.1 += (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64; // tokens
+    }
+    
+    let mut providers: Vec<ProviderUsage> = provider_map
+        .into_iter()
+        .map(|(provider, (requests, tokens))| ProviderUsage { provider, requests, tokens })
+        .collect();
+    providers.sort_by(|a, b| b.requests.cmp(&a.requests));
+    
     UsageStats {
         total_requests,
         success_count,
@@ -1879,6 +1894,7 @@ fn get_usage_stats() -> UsageStats {
         requests_today,
         tokens_today,
         models,
+        providers,
         requests_by_day,
         tokens_by_day: final_tokens_by_day,
         requests_by_hour,

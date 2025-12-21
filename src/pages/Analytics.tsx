@@ -308,6 +308,7 @@ export function Analytics() {
 	const [datePreset, setDatePreset] = createSignal<DatePreset>("7d");
 	const [refreshing, setRefreshing] = createSignal(false);
 	const [lastUpdated, setLastUpdated] = createSignal<number>(Date.now());
+	const [privacyMode, setPrivacyMode] = createSignal(false);
 
 	const fetchStats = async () => {
 		try {
@@ -385,6 +386,34 @@ export function Analytics() {
 		{ label: "All", value: "all" },
 	];
 
+	// Privacy blur class
+	const blurClass = () => (privacyMode() ? "blur-sm select-none" : "");
+
+	// Provider breakdown from backend (detected from API path, not model name)
+	const providerBreakdown = () => {
+		const s = stats();
+		if (!s || !s.providers) return [];
+		return s.providers.filter(
+			(p) => p.provider !== "unknown" && p.provider !== "",
+		);
+	};
+
+	// Estimated cost (rough pricing per 1M tokens)
+	const estimatedCost = () => {
+		const s = stats();
+		if (!s) return 0;
+		// Average pricing: ~$3/1M input, ~$15/1M output (blended across models)
+		const inputCost = (s.inputTokens / 1_000_000) * 3;
+		const outputCost = (s.outputTokens / 1_000_000) * 15;
+		return inputCost + outputCost;
+	};
+
+	const formatCost = (cost: number) => {
+		if (cost < 0.01) return "<$0.01";
+		if (cost < 1) return `$${cost.toFixed(2)}`;
+		return `$${cost.toFixed(2)}`;
+	};
+
 	return (
 		<div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
 			<div class="max-w-6xl mx-auto space-y-6">
@@ -442,6 +471,45 @@ export function Analytics() {
 						<span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
 							Updated {formatTimeAgo(lastUpdated())}
 						</span>
+
+						{/* Privacy Toggle */}
+						<button
+							onClick={() => setPrivacyMode(!privacyMode())}
+							class={`p-1.5 rounded-lg border transition-colors ${
+								privacyMode()
+									? "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400"
+									: "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+							}`}
+							title={
+								privacyMode() ? "Show sensitive data" : "Hide sensitive data"
+							}
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<Show
+									when={privacyMode()}
+									fallback={
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+										/>
+									}
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+									/>
+								</Show>
+							</svg>
+						</button>
 
 						{/* Refresh Button */}
 						<button
@@ -507,7 +575,7 @@ export function Analytics() {
 				{/* Stats content */}
 				<Show when={!loading() && stats() && stats()!.totalRequests > 0}>
 					{/* Overview cards */}
-					<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+					<div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
 						<StatCard
 							title="Total Requests"
 							value={formatNumber(stats()!.totalRequests)}
@@ -522,20 +590,33 @@ export function Analytics() {
 							icon="check"
 							colorClass="bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800/50 text-green-700 dark:text-green-300"
 						/>
-						<StatCard
-							title="Total Tokens"
-							value={formatTokens(stats()!.totalTokens)}
-							subtitle={`${formatTokens(stats()!.inputTokens)} in / ${formatTokens(stats()!.outputTokens)} out`}
-							icon="tokens"
-							colorClass="bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300"
-						/>
-						<StatCard
-							title="Today's Tokens"
-							value={formatTokens(stats()!.tokensToday)}
-							subtitle={`${formatNumber(stats()!.requestsToday)} requests`}
-							icon="flow"
-							colorClass="bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800/50 text-orange-700 dark:text-orange-300"
-						/>
+						<div class={blurClass()}>
+							<StatCard
+								title="Total Tokens"
+								value={formatTokens(stats()!.totalTokens)}
+								subtitle={`${formatTokens(stats()!.inputTokens)} in / ${formatTokens(stats()!.outputTokens)} out`}
+								icon="tokens"
+								colorClass="bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300"
+							/>
+						</div>
+						<div class={blurClass()}>
+							<StatCard
+								title="Today's Tokens"
+								value={formatTokens(stats()!.tokensToday)}
+								subtitle={`${formatNumber(stats()!.requestsToday)} requests`}
+								icon="flow"
+								colorClass="bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800/50 text-orange-700 dark:text-orange-300"
+							/>
+						</div>
+						<div class={blurClass()}>
+							<StatCard
+								title="Est. Cost"
+								value={formatCost(estimatedCost())}
+								subtitle="Based on avg. pricing"
+								icon="bolt"
+								colorClass="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300"
+							/>
+						</div>
 					</div>
 
 					{/* Charts section - Full width trend chart */}
@@ -731,6 +812,49 @@ export function Analytics() {
 									models
 								</p>
 							</Show>
+						</div>
+					</Show>
+
+					{/* Provider Breakdown */}
+					<Show when={providerBreakdown().length > 0}>
+						<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+							<div class="flex items-center gap-2 mb-4">
+								<svg
+									class="w-5 h-5 text-cyan-500"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+									/>
+								</svg>
+								<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+									Provider Breakdown
+								</h2>
+							</div>
+							<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+								<For each={providerBreakdown()}>
+									{(provider) => (
+										<div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+											<p class="font-medium text-gray-900 dark:text-gray-100 text-sm">
+												{provider.provider}
+											</p>
+											<p class="text-lg font-bold text-gray-700 dark:text-gray-300">
+												{formatNumber(provider.requests)}
+											</p>
+											<p
+												class={`text-xs text-gray-500 dark:text-gray-400 ${blurClass()}`}
+											>
+												{formatTokens(provider.tokens)} tokens
+											</p>
+										</div>
+									)}
+								</For>
+							</div>
 						</div>
 					</Show>
 				</Show>
