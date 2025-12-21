@@ -1,4 +1,5 @@
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { getVersion } from "@tauri-apps/api/app";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import { Button, Switch } from "../components/ui";
 import type {
 	AmpModelMapping,
@@ -52,6 +53,17 @@ import { toastStore } from "../stores/toast";
 export function SettingsPage() {
 	const { config, setConfig, setCurrentPage, authStatus } = appStore;
 	const [saving, setSaving] = createSignal(false);
+	const [appVersion, setAppVersion] = createSignal("0.0.0");
+
+	// Fetch app version on mount
+	onMount(async () => {
+		try {
+			const version = await getVersion();
+			setAppVersion(version);
+		} catch (error) {
+			console.error("Failed to get app version:", error);
+		}
+	});
 
 	// Custom OpenAI providers section collapsed by default
 	const [customProvidersExpanded, setCustomProvidersExpanded] =
@@ -3605,7 +3617,7 @@ export function SettingsPage() {
 								ProxyPal
 							</h3>
 							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Version 0.1.76
+								Version {appVersion()}
 							</p>
 							<p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
 								Built with love by OpenCodeKit
