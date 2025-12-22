@@ -149,9 +149,6 @@ func getAvailableAuths(auths []*Auth, provider, model string, now time.Time) ([]
 func (s *RoundRobinSelector) Pick(ctx context.Context, provider, model string, opts cliproxyexecutor.Options, auths []*Auth) (*Auth, error) {
 	_ = ctx
 	_ = opts
-	if s.cursors == nil {
-		s.cursors = make(map[string]int)
-	}
 	now := time.Now()
 	available, err := getAvailableAuths(auths, provider, model, now)
 	if err != nil {
@@ -159,6 +156,9 @@ func (s *RoundRobinSelector) Pick(ctx context.Context, provider, model string, o
 	}
 	key := provider + ":" + model
 	s.mu.Lock()
+	if s.cursors == nil {
+		s.cursors = make(map[string]int)
+	}
 	index := s.cursors[key]
 
 	if index >= 2_147_483_640 {
