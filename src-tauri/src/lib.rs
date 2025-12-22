@@ -5,11 +5,12 @@ mod state;
 mod types;
 mod utils;
 
-use crate::config::{get_auth_path, get_history_path, load_config, save_config_to_file};
+use crate::config::{get_aggregate_path, get_auth_path, get_history_path, load_config, save_config_to_file};
 use crate::state::AppState;
 use crate::types::{
     ProxyStatus, RequestLog, AuthStatus, OAuthState,
     UsageStats, TimeSeriesPoint, ModelUsage, ProviderUsage, RequestHistory,
+    Aggregate, ModelStats,
     CopilotStatus, CopilotApiDetection, CopilotApiInstallResult,
     ClaudeApiKey, GeminiApiKey, CodexApiKey, OpenAICompatibleProvider,
     ThinkingBudgetSettings, ReasoningEffortSettings,
@@ -44,7 +45,15 @@ fn load_request_history() -> RequestHistory {
     let path = get_history_path();
     if path.exists() {
         if let Ok(data) = std::fs::read_to_string(&path) {
-            if let Ok(history) = serde_json::from_str(&data) {
+            if let Ok(mut history) = serde_json::from_str::<RequestHistory>(&data) {
+                // Recalculate totals from saved requests if counters are missing
+                // This handles migration from old format
+                if history.total_request_count == 0 && !history.requests.is_empty() {
+                    history.total_request_count = history.requests.len() as u64;
+                }
+                if history.total_success_count == 0 && !history.requests.is_empty() {
+                    history.total_success_count = history.requests.iter().filter(|r| r.status < 400).count() as u64;
+                }
                 return history;
             }
         }
@@ -56,12 +65,137 @@ fn load_request_history() -> RequestHistory {
 fn save_request_history(history: &RequestHistory) -> Result<(), String> {
     let path = get_history_path();
     let mut trimmed = history.clone();
-    // Keep only last 500 requests
+    // Keep only last 500 requests in the array for UI display
+    // But preserve totalRequestCount and totalSuccessCount (cumulative across all history)
     if trimmed.requests.len() > 500 {
         trimmed.requests = trimmed.requests.split_off(trimmed.requests.len() - 500);
     }
     let data = serde_json::to_string_pretty(&trimmed).map_err(|e| e.to_string())?;
     std::fs::write(path, data).map_err(|e| e.to_string())
+}
+
+fn load_aggregate() -> Aggregate {
+    let path = get_aggregate_path();
+    if path.exists() {
+        if let Ok(data) = std::fs::read_to_string(&path) {
+            if let Ok(agg) = serde_json::from_str(&data) {
+                return agg;
+            }
+        }
+    }
+    Aggregate::default()
+}
+
+fn save_aggregate(agg: &Aggregate) -> Result<(), String> {
+    let path = get_aggregate_path();
+    let temp_path = path.with_extension("json.tmp");
+    let data = serde_json::to_string_pretty(agg).map_err(|e| e.to_string())?;
+    std::fs::write(&temp_path, data).map_err(|e| e.to_string())?;
+    std::fs::rename(&temp_path, &path).map_err(|e| e.to_string())
+}
+
+/// Migrate from old single-file format to split storage
+/// Called once on app startup
+fn migrate_to_split_storage() {
+    let agg_path = get_aggregate_path();
+
+    // Skip if aggregate already exists
+    if agg_path.exists() {
+        return;
+    }
+
+    let history = load_request_history();
+
+    // Skip if no history to migrate
+    if history.requests.is_empty() {
+        return;
+    }
+
+    eprintln!("[Migration] Building aggregate.json from existing history...");
+
+    let mut agg = Aggregate::default();
+
+    // Count totals from requests
+    agg.total_requests = history.requests.len() as u64;
+    agg.total_success_count = history.requests.iter()
+        .filter(|r| r.status < 400)
+        .count() as u64;
+    agg.total_failure_count = agg.total_requests - agg.total_success_count;
+
+    // Use existing token totals from history
+    agg.total_tokens_in = history.total_tokens_in;
+    agg.total_tokens_out = history.total_tokens_out;
+    agg.total_cost_usd = history.total_cost_usd;
+
+    // Build time-series from requests
+    for req in &history.requests {
+        if let Some(dt) = chrono::DateTime::from_timestamp_millis(req.timestamp as i64) {
+            let day = dt.format("%Y-%m-%d").to_string();
+            update_timeseries(&mut agg.requests_by_day, &day, 1);
+            let tokens = (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64;
+            update_timeseries(&mut agg.tokens_by_day, &day, tokens);
+        }
+
+        // Build model/provider stats
+        update_model_stats(&mut agg, req);
+        update_provider_stats(&mut agg, req);
+    }
+
+    // Also use existing time-series from history if available
+    if !history.tokens_by_day.is_empty() && agg.tokens_by_day.is_empty() {
+        agg.tokens_by_day = history.tokens_by_day.clone();
+    }
+
+    // Sort time-series by date
+    agg.requests_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    agg.tokens_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+
+    // Save the new aggregate file
+    match save_aggregate(&agg) {
+        Ok(_) => eprintln!("[Migration] Success! Created aggregate.json with {} requests", agg.total_requests),
+        Err(e) => eprintln!("[Migration] Failed to save aggregate: {}", e),
+    }
+}
+
+fn update_timeseries(series: &mut Vec<TimeSeriesPoint>, label: &str, increment: u64) {
+    if let Some(point) = series.iter_mut().find(|p| p.label == label) {
+        point.value += increment;
+    } else {
+        series.push(TimeSeriesPoint {
+            label: label.to_string(),
+            value: increment,
+        });
+    }
+}
+
+fn update_model_stats(agg: &mut Aggregate, req: &RequestLog) {
+    let model = if req.model.is_empty() || req.model == "unknown" {
+        "unknown".to_string()
+    } else {
+        req.model.clone()
+    };
+    
+    let entry = agg.model_stats.entry(model).or_insert(ModelStats::default());
+    entry.requests += 1;
+    if req.status < 400 {
+        entry.success_count += 1;
+    }
+    entry.tokens += (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64;
+}
+
+fn update_provider_stats(agg: &mut Aggregate, req: &RequestLog) {
+    let provider = if req.provider.is_empty() || req.provider == "unknown" {
+        "unknown".to_string()
+    } else {
+        req.provider.clone()
+    };
+    
+    let entry = agg.provider_stats.entry(provider).or_insert(ModelStats::default());
+    entry.requests += 1;
+    if req.status < 400 {
+        entry.success_count += 1;
+    }
+    entry.tokens += (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64;
 }
 
 // Load auth status from file
@@ -259,15 +393,41 @@ fn start_log_watcher(
                     );
                     
                     if !is_duplicate {
-                        history.requests.push(request_log);
+                        // Load aggregate for cumulative stats
+                        let mut agg = load_aggregate();
                         
-                        // Keep only last 500 requests
+                        // Update aggregate counters
+                        agg.total_requests += 1;
+                        if request_log.status < 400 {
+                            agg.total_success_count += 1;
+                        } else {
+                            agg.total_failure_count += 1;
+                        }
+                        agg.total_tokens_in += request_log.tokens_in.unwrap_or(0) as u64;
+                        agg.total_tokens_out += request_log.tokens_out.unwrap_or(0) as u64;
+                        
+                        // Update time-series (today's date)
+                        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+                        update_timeseries(&mut agg.requests_by_day, &today, 1);
+                        let tokens = (request_log.tokens_in.unwrap_or(0) + request_log.tokens_out.unwrap_or(0)) as u64;
+                        update_timeseries(&mut agg.tokens_by_day, &today, tokens);
+                        
+                        // Update model/provider stats
+                        update_model_stats(&mut agg, &request_log);
+                        update_provider_stats(&mut agg, &request_log);
+                        
+                        // Update history (keep only last 500 for UI display)
+                        history.requests.push(request_log);
                         if history.requests.len() > 500 {
                             history.requests = history.requests.split_off(history.requests.len() - 500);
                         }
                         
+                        // Save both files
                         if let Err(e) = save_request_history(&history) {
                             eprintln!("[LogWatcher] Failed to save history: {}", e);
+                        }
+                        if let Err(e) = save_aggregate(&agg) {
+                            eprintln!("[LogWatcher] Failed to save aggregate: {}", e);
                         }
                     }
                 }
@@ -1746,143 +1906,114 @@ fn get_auth_status(state: State<AppState>) -> AuthStatus {
 // This ensures Analytics shows the same data as Dashboard's Request History
 #[tauri::command]
 fn get_usage_stats() -> UsageStats {
+    let agg = load_aggregate();
     let history = load_request_history();
     
-    if history.requests.is_empty() {
+    // If no data yet, return defaults
+    if agg.total_requests == 0 && history.requests.is_empty() {
         return UsageStats::default();
     }
     
-    // Compute aggregate stats
-    let total_requests = history.requests.len() as u64;
-    let success_count = history.requests.iter().filter(|r| r.status < 400).count() as u64;
-    let failure_count = total_requests - success_count;
-    
-    let input_tokens = history.total_tokens_in;
-    let output_tokens = history.total_tokens_out;
+    // Use aggregate as primary source of truth for all-time stats
+    let total_requests = agg.total_requests;
+    let success_count = agg.total_success_count;
+    let failure_count = agg.total_failure_count;
+    let input_tokens = agg.total_tokens_in;
+    let output_tokens = agg.total_tokens_out;
     let total_tokens = input_tokens + output_tokens;
     
-    // Get today's start timestamp for filtering
-    let today_start = chrono::Local::now()
-        .date_naive()
-        .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_local_timezone(chrono::Local)
-        .unwrap()
-        .timestamp_millis() as u64;
+    // Calculate today's stats from aggregate time-series
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let requests_today = agg.requests_by_day.iter()
+        .find(|p| p.label == today)
+        .map(|p| p.value)
+        .unwrap_or(0);
+    let tokens_today = agg.tokens_by_day.iter()
+        .find(|p| p.label == today)
+        .map(|p| p.value)
+        .unwrap_or(0);
     
-    // Compute today's stats
-    let requests_today = history.requests.iter()
-        .filter(|r| r.timestamp >= today_start)
-        .count() as u64;
-    
-    let tokens_today: u64 = history.requests.iter()
-        .filter(|r| r.timestamp >= today_start)
-        .map(|r| (r.tokens_in.unwrap_or(0) + r.tokens_out.unwrap_or(0)) as u64)
-        .sum();
-    
-    // Build time-series data (requests by day)
-    let mut requests_by_day_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
-    let mut tokens_by_day_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
-    let mut requests_by_hour_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
-    let mut tokens_by_hour_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
-    
-    for req in &history.requests {
-        // Convert timestamp to datetime
-        let dt = chrono::DateTime::from_timestamp_millis(req.timestamp as i64)
-            .unwrap_or_else(|| chrono::Utc::now());
-        let local_dt = dt.with_timezone(&chrono::Local);
-        
-        // Day key: YYYY-MM-DD
-        let day_key = local_dt.format("%Y-%m-%d").to_string();
-        *requests_by_day_map.entry(day_key.clone()).or_insert(0) += 1;
-        let req_tokens = (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64;
-        *tokens_by_day_map.entry(day_key).or_insert(0) += req_tokens;
-        
-        // Hour key: YYYY-MM-DDTHH
-        let hour_key = local_dt.format("%Y-%m-%dT%H").to_string();
-        *requests_by_hour_map.entry(hour_key.clone()).or_insert(0) += 1;
-        *tokens_by_hour_map.entry(hour_key).or_insert(0) += req_tokens;
-    }
-    
-    // Convert maps to sorted vectors (oldest first)
-    let mut requests_by_day: Vec<TimeSeriesPoint> = requests_by_day_map
-        .into_iter()
-        .map(|(label, value)| TimeSeriesPoint { label, value })
+    // Build model stats from aggregate
+    let mut models: Vec<ModelUsage> = agg.model_stats.iter()
+        .filter(|(model, _)| *model != "unknown" && !model.is_empty())
+        .map(|(model, stats)| ModelUsage {
+            model: model.clone(),
+            requests: stats.requests,
+            tokens: stats.tokens,
+        })
         .collect();
-    requests_by_day.sort_by(|a, b| a.label.cmp(&b.label));
-    // Keep last 14 days
-    if requests_by_day.len() > 14 {
+    models.sort_by(|a, b| b.requests.cmp(&a.requests));
+    
+    // Build provider stats from aggregate
+    let mut providers: Vec<ProviderUsage> = agg.provider_stats.iter()
+        .filter(|(provider, _)| *provider != "unknown" && !provider.is_empty())
+        .map(|(provider, stats)| ProviderUsage {
+            provider: provider.clone(),
+            requests: stats.requests,
+            tokens: stats.tokens,
+        })
+        .collect();
+    providers.sort_by(|a, b| b.requests.cmp(&a.requests));
+    
+    // Use aggregate time-series, fall back to history if empty
+    let mut requests_by_day = agg.requests_by_day.clone();
+    if requests_by_day.is_empty() && !history.requests.is_empty() {
+        // Build from history requests
+        let mut map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+        for req in &history.requests {
+            if let Some(dt) = chrono::DateTime::from_timestamp_millis(req.timestamp as i64) {
+                let day = dt.format("%Y-%m-%d").to_string();
+                *map.entry(day).or_insert(0) += 1;
+            }
+        }
+        let mut points: Vec<TimeSeriesPoint> = map.into_iter()
+            .map(|(label, value)| TimeSeriesPoint { label, value })
+            .collect();
+        points.sort_by(|a, b| a.label.cmp(&b.label));
+        // Keep last 14 days
+        if points.len() > 14 {
+            points = points.split_off(points.len() - 14);
+        }
+        requests_by_day = points;
+    } else if requests_by_day.len() > 14 {
         requests_by_day = requests_by_day.split_off(requests_by_day.len() - 14);
     }
     
-    let mut tokens_by_day: Vec<TimeSeriesPoint> = tokens_by_day_map
-        .into_iter()
-        .map(|(label, value)| TimeSeriesPoint { label, value })
-        .collect();
-    tokens_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    let mut tokens_by_day = agg.tokens_by_day.clone();
+    if tokens_by_day.is_empty() {
+        tokens_by_day = history.tokens_by_day.clone();
+    }
     if tokens_by_day.len() > 14 {
         tokens_by_day = tokens_by_day.split_off(tokens_by_day.len() - 14);
     }
     
-    let mut requests_by_hour: Vec<TimeSeriesPoint> = requests_by_hour_map
-        .into_iter()
+    // Build hourly data from history (recent only)
+    let mut requests_by_hour_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    let mut tokens_by_hour_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    for req in &history.requests {
+        if let Some(dt) = chrono::DateTime::from_timestamp_millis(req.timestamp as i64) {
+            let hour_label = dt.format("%Y-%m-%dT%H").to_string();
+            *requests_by_hour_map.entry(hour_label.clone()).or_insert(0) += 1;
+            let tokens = (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64;
+            *tokens_by_hour_map.entry(hour_label).or_insert(0) += tokens;
+        }
+    }
+    
+    let mut requests_by_hour: Vec<TimeSeriesPoint> = requests_by_hour_map.into_iter()
         .map(|(label, value)| TimeSeriesPoint { label, value })
         .collect();
     requests_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
-    // Keep last 24 hours
     if requests_by_hour.len() > 24 {
         requests_by_hour = requests_by_hour.split_off(requests_by_hour.len() - 24);
     }
     
-    let mut tokens_by_hour: Vec<TimeSeriesPoint> = tokens_by_hour_map
-        .into_iter()
+    let mut tokens_by_hour: Vec<TimeSeriesPoint> = tokens_by_hour_map.into_iter()
         .map(|(label, value)| TimeSeriesPoint { label, value })
         .collect();
     tokens_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
     if tokens_by_hour.len() > 24 {
         tokens_by_hour = tokens_by_hour.split_off(tokens_by_hour.len() - 24);
     }
-    
-    // Use synced token time-series from CLIProxyAPI if available (more accurate than request-level data)
-    let final_tokens_by_day = if !history.tokens_by_day.is_empty() {
-        history.tokens_by_day.clone()
-    } else {
-        tokens_by_day
-    };
-    let final_tokens_by_hour = if !history.tokens_by_hour.is_empty() {
-        history.tokens_by_hour.clone()
-    } else {
-        tokens_by_hour
-    };
-    
-    // Build model usage stats
-    let mut model_map: std::collections::HashMap<String, (u64, u64)> = std::collections::HashMap::new();
-    for req in &history.requests {
-        let entry = model_map.entry(req.model.clone()).or_insert((0, 0));
-        entry.0 += 1; // requests
-        entry.1 += (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64; // tokens
-    }
-    
-    let mut models: Vec<ModelUsage> = model_map
-        .into_iter()
-        .map(|(model, (requests, tokens))| ModelUsage { model, requests, tokens })
-        .collect();
-    models.sort_by(|a, b| b.requests.cmp(&a.requests));
-    
-    // Build provider usage stats (from request provider field, detected from path)
-    let mut provider_map: std::collections::HashMap<String, (u64, u64)> = std::collections::HashMap::new();
-    for req in &history.requests {
-        let provider = if req.provider.is_empty() { "unknown".to_string() } else { req.provider.clone() };
-        let entry = provider_map.entry(provider).or_insert((0, 0));
-        entry.0 += 1; // requests
-        entry.1 += (req.tokens_in.unwrap_or(0) + req.tokens_out.unwrap_or(0)) as u64; // tokens
-    }
-    
-    let mut providers: Vec<ProviderUsage> = provider_map
-        .into_iter()
-        .map(|(provider, (requests, tokens))| ProviderUsage { provider, requests, tokens })
-        .collect();
-    providers.sort_by(|a, b| b.requests.cmp(&a.requests));
     
     UsageStats {
         total_requests,
@@ -1896,9 +2027,9 @@ fn get_usage_stats() -> UsageStats {
         models,
         providers,
         requests_by_day,
-        tokens_by_day: final_tokens_by_day,
+        tokens_by_day,
         requests_by_hour,
-        tokens_by_hour: final_tokens_by_hour,
+        tokens_by_hour,
     }
 }
 
@@ -2058,11 +2189,27 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
     history.total_tokens_in = total_input;
     history.total_tokens_out = total_output;
     history.total_cost_usd = total_cost;
-    history.tokens_by_day = tokens_by_day;
+    history.tokens_by_day = tokens_by_day.clone();
     history.tokens_by_hour = tokens_by_hour;
     
     // Save updated history
     save_request_history(&history)?;
+    
+    // Also update aggregate with token data from proxy
+    let mut agg = load_aggregate();
+    agg.total_tokens_in = total_input;
+    agg.total_tokens_out = total_output;
+    agg.total_cost_usd = total_cost;
+    // Merge tokens_by_day into aggregate (proxy is source of truth for tokens)
+    for point in &tokens_by_day {
+        if let Some(existing) = agg.tokens_by_day.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value; // Update with proxy value
+        } else {
+            agg.tokens_by_day.push(point.clone());
+        }
+    }
+    agg.tokens_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    let _ = save_aggregate(&agg);
     
     Ok(history)
 }
@@ -4203,6 +4350,79 @@ async fn check_provider_health(state: State<'_, AppState>) -> Result<ProviderHea
 // Thinking Budget Settings
 // ============================================
 
+// ============================================
+// Claude Code Settings (from ~/.claude/settings.json)
+// ============================================
+
+#[tauri::command]
+async fn get_claude_code_settings() -> Result<crate::types::agents::ClaudeCodeSettings, String> {
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let config_path = home.join(".claude").join("settings.json");
+    
+    if !config_path.exists() {
+        return Ok(crate::types::agents::ClaudeCodeSettings {
+            haiku_model: None,
+            opus_model: None,
+            sonnet_model: None,
+            base_url: None,
+            auth_token: None,
+        });
+    }
+    
+    let content = std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    
+    let env = json.get("env").and_then(|e| e.as_object());
+    
+    Ok(crate::types::agents::ClaudeCodeSettings {
+        haiku_model: env.and_then(|e| e.get("ANTHROPIC_DEFAULT_HAIKU_MODEL")).and_then(|v| v.as_str()).map(String::from),
+        opus_model: env.and_then(|e| e.get("ANTHROPIC_DEFAULT_OPUS_MODEL")).and_then(|v| v.as_str()).map(String::from),
+        sonnet_model: env.and_then(|e| e.get("ANTHROPIC_DEFAULT_SONNET_MODEL")).and_then(|v| v.as_str()).map(String::from),
+        base_url: env.and_then(|e| e.get("ANTHROPIC_BASE_URL")).and_then(|v| v.as_str()).map(String::from),
+        auth_token: env.and_then(|e| e.get("ANTHROPIC_AUTH_TOKEN")).and_then(|v| v.as_str()).map(String::from),
+    })
+}
+
+#[tauri::command]
+async fn set_claude_code_model(model_type: String, model_name: String) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let config_dir = home.join(".claude");
+    std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    let config_path = config_dir.join("settings.json");
+    
+    // Read existing config or create new
+    let mut json: serde_json::Value = if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    // Ensure env object exists
+    if json.get("env").is_none() {
+        json["env"] = serde_json::json!({});
+    }
+    
+    // Map model_type to env var name
+    let env_key = match model_type.as_str() {
+        "haiku" => "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "opus" => "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "sonnet" => "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        _ => return Err(format!("Unknown model type: {}", model_type)),
+    };
+    
+    // Update the model
+    if let Some(env) = json.get_mut("env").and_then(|e| e.as_object_mut()) {
+        env.insert(env_key.to_string(), serde_json::Value::String(model_name));
+    }
+    
+    // Write back
+    let config_str = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
+    std::fs::write(&config_path, config_str).map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
 #[tauri::command]
 async fn get_thinking_budget_settings(state: State<'_, AppState>) -> Result<ThinkingBudgetSettings, String> {
     let config = state.config.lock().unwrap();
@@ -5001,19 +5221,22 @@ fn is_updater_supported() -> Result<serde_json::Value, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Clean up any orphaned cliproxyapi processes from previous crashes
+    // Migrate old format to split storage on first run
+    migrate_to_split_storage();
+
+    // Clean up any orphaned clipproxyapi processes from previous crashes
     #[cfg(unix)]
     {
-        println!("[ProxyPal] Cleaning up orphaned cliproxyapi processes on startup");
+        println!("[ProxyPal] Cleaning up orphaned clipproxyapi processes on startup");
         let _ = std::process::Command::new("sh")
-            .args(["-c", "pkill -9 -f cliproxyapi 2>/dev/null"])
+            .args(["-c", "pkill -9 -f clipproxyapi 2>/dev/null"])
             .spawn()
             .and_then(|mut child| child.wait());
     }
     #[cfg(windows)]
     {
         let mut cmd = std::process::Command::new("cmd");
-        cmd.args(["/C", "taskkill /F /IM cliproxyapi*.exe 2>nul"]);
+        cmd.args(["/C", "taskkill /F /IM clipproxyapi*.exe 2>nul"]);
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
         let _ = cmd.spawn().and_then(|mut child| child.wait());
@@ -5101,6 +5324,8 @@ pub fn run() {
             import_vertex_credential,
             commands::config::get_config,
             commands::config::save_config,
+            commands::config::get_config_yaml,
+            commands::config::save_config_yaml,
             detect_ai_tools,
             configure_continue,
             get_tool_setup_info,
@@ -5160,6 +5385,9 @@ pub fn run() {
             // Window behavior
             get_close_to_tray,
             set_close_to_tray,
+            // Claude Code Settings
+            get_claude_code_settings,
+            set_claude_code_model,
             // Updater support check
             is_updater_supported,
         ])

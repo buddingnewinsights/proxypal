@@ -35,7 +35,7 @@ const DISPLAY_CHUNK_SIZE = 100;
 type LogTab = "server" | "errors";
 
 export function LogViewerPage() {
-	const { setCurrentPage, proxyStatus } = appStore;
+	const { proxyStatus } = appStore;
 	const [activeTab, setActiveTab] = createSignal<LogTab>("server");
 	const [logs, setLogs] = createSignal<LogEntry[]>([]);
 	const [loading, setLoading] = createSignal(true); // Start true for immediate skeleton
@@ -260,29 +260,10 @@ export function LogViewerPage() {
 	return (
 		<div class="min-h-screen flex flex-col">
 			{/* Header */}
-			<header class="sticky top-0 z-10 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+			<header class="sticky top-0 z-10 px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2 sm:gap-3">
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => setCurrentPage("settings")}
-						>
-							<svg
-								class="w-5 h-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M15 19l-7-7 7-7"
-								/>
-							</svg>
-						</Button>
-						<h1 class="font-bold text-lg text-gray-900 dark:text-gray-100">
+						<h1 class="font-semibold text-lg text-gray-900 dark:text-gray-100">
 							Logs
 						</h1>
 

@@ -4,38 +4,30 @@ import { ApiEndpoint } from "../components/ApiEndpoint";
 import { openCommandPalette } from "../components/CommandPalette";
 import { CopilotCard } from "../components/CopilotCard";
 import { HealthIndicator } from "../components/HealthIndicator";
-import { ModelsWidget } from "../components/ModelsWidget";
 import { OpenCodeKitBanner } from "../components/OpenCodeKitBanner";
 import { StatusIndicator } from "../components/StatusIndicator";
-import { ThemeToggleCompact } from "../components/ThemeToggle";
 import { Button } from "../components/ui";
 import {
 	type AgentConfigResult,
-	type AgentStatus,
 	type AvailableModel,
 	appendToShellProfile,
 	type CopilotConfig,
-	configureCliAgent,
 	detectCliAgents,
 	disconnectProvider,
-	getAvailableModels,
 	getUsageStats,
 	importVertexCredential,
 	onRequestLog,
 	openOAuth,
 	type Provider,
 	pollOAuthStatus,
-	type RequestHistory,
 	refreshAuthStatus,
 	startProxy,
 	stopProxy,
 	syncUsageFromProxy,
-	testAgentConnection,
 	type UsageStats,
 } from "../lib/tauri";
 import { appStore } from "../stores/app";
 import { requestStore } from "../stores/requests";
-import { themeStore } from "../stores/theme";
 import { toastStore } from "../stores/toast";
 
 const providers = [
@@ -161,179 +153,6 @@ function KpiTile(props: {
 	);
 }
 
-// Mini request feed (last 5)
-function MiniRequestFeed(props: {
-	requests: RequestHistory["requests"];
-	onViewAll: () => void;
-}) {
-	const recent = () => props.requests.slice(-5).reverse();
-
-	const formatTime = (ts: number) => {
-		const date = new Date(ts);
-		return date.toLocaleTimeString("en-US", {
-			hour: "2-digit",
-			minute: "2-digit",
-		});
-	};
-
-	const formatTokens = (n?: number) => {
-		if (!n || n === 0) return null; // Return null to hide when no data
-		if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-		return n.toString();
-	};
-
-	// Get provider badge color
-	const getProviderColor = (provider: string) => {
-		switch (provider.toLowerCase()) {
-			case "claude":
-				return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400";
-			case "openai":
-			case "openai-compat":
-				return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400";
-			case "gemini":
-				return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
-			case "qwen":
-				return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400";
-			case "deepseek":
-				return "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400";
-			case "zhipu":
-				return "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400";
-			case "copilot":
-				return "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300";
-			default:
-				return "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400";
-		}
-	};
-
-	// Format provider name for display
-	const formatProvider = (provider: string) => {
-		switch (provider.toLowerCase()) {
-			case "claude":
-				return "Claude";
-			case "openai":
-				return "OpenAI";
-			case "openai-compat":
-				return "OpenAI";
-			case "gemini":
-				return "Gemini";
-			case "qwen":
-				return "Qwen";
-			case "deepseek":
-				return "DeepSeek";
-			case "zhipu":
-				return "Zhipu";
-			case "copilot":
-				return "Copilot";
-			default:
-				return provider.charAt(0).toUpperCase() + provider.slice(1);
-		}
-	};
-
-	// Format model/endpoint for display
-	const formatEndpoint = (req: RequestHistory["requests"][0]) => {
-		const model = req.model;
-		// If we have a real model name (not placeholder), show it
-		if (
-			model &&
-			model !== "unknown" &&
-			model !== "api-request" &&
-			!model.includes("/")
-		) {
-			return model;
-		}
-		// Otherwise derive from path
-		if (req.path.includes("/messages")) {
-			return "Chat";
-		}
-		if (req.path.includes("/chat/completions")) {
-			return "Chat";
-		}
-		if (
-			req.path.includes(":generateContent") ||
-			req.path.includes(":streamGenerateContent")
-		) {
-			return "Generate";
-		}
-		if (req.path.includes("/completions")) {
-			return "Complete";
-		}
-		return "API";
-	};
-
-	// Format duration
-	const formatDuration = (ms?: number) => {
-		if (!ms || ms === 0) return null;
-		if (ms < 1000) return `${ms}ms`;
-		return `${(ms / 1000).toFixed(1)}s`;
-	};
-
-	return (
-		<div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-			<div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700">
-				<span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-					Recent Activity
-				</span>
-				<button
-					onClick={props.onViewAll}
-					class="text-xs text-brand-500 hover:text-brand-600 font-medium"
-				>
-					View all →
-				</button>
-			</div>
-			<Show
-				when={recent().length > 0}
-				fallback={
-					<div class="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
-						No requests yet
-					</div>
-				}
-			>
-				<div class="divide-y divide-gray-100 dark:divide-gray-700">
-					<For each={recent()}>
-						{(req) => {
-							const tokens = formatTokens(
-								(req.tokensIn || 0) + (req.tokensOut || 0),
-							);
-							const duration = formatDuration(req.durationMs);
-							return (
-								<div class="px-4 py-2 flex items-center gap-2 text-xs">
-									<span class="text-gray-400 dark:text-gray-500 tabular-nums w-12 flex-shrink-0">
-										{formatTime(req.timestamp)}
-									</span>
-									<span
-										class={`w-8 text-center px-1 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${req.status < 400 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}
-									>
-										{req.status}
-									</span>
-									<span
-										class={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${getProviderColor(req.provider)}`}
-									>
-										{formatProvider(req.provider)}
-									</span>
-									<span class="text-gray-500 dark:text-gray-400 flex-shrink-0">
-										{formatEndpoint(req)}
-									</span>
-									<span class="flex-1" />
-									<Show when={duration}>
-										<span class="text-gray-400 dark:text-gray-500 tabular-nums flex-shrink-0">
-											{duration}
-										</span>
-									</Show>
-									<Show when={tokens}>
-										<span class="text-gray-400 dark:text-gray-500 tabular-nums flex-shrink-0">
-											{tokens}
-										</span>
-									</Show>
-								</div>
-							);
-						}}
-					</For>
-				</div>
-			</Show>
-		</div>
-	);
-}
-
 export function DashboardPage() {
 	const {
 		proxyStatus,
@@ -350,11 +169,6 @@ export function DashboardPage() {
 		new Set(),
 	);
 	const [hasConfiguredAgent, setHasConfiguredAgent] = createSignal(false);
-	const [agents, setAgents] = createSignal<AgentStatus[]>([]);
-	const [configuringAgent, setConfiguringAgent] = createSignal<string | null>(
-		null,
-	);
-	const [testingAgent, setTestingAgent] = createSignal<string | null>(null);
 	const [refreshingAgents, setRefreshingAgents] = createSignal(false);
 	const [configResult, setConfigResult] = createSignal<{
 		result: AgentConfigResult;
@@ -365,7 +179,6 @@ export function DashboardPage() {
 	// Use centralized store for history
 	const history = requestStore.history;
 	const [stats, setStats] = createSignal<UsageStats | null>(null);
-	const [models, setModels] = createSignal<AvailableModel[]>([]);
 
 	// Copilot config handler
 	const handleCopilotConfigChange = (copilotConfig: CopilotConfig) => {
@@ -374,15 +187,13 @@ export function DashboardPage() {
 
 	// Load data on mount
 	const loadAgents = async () => {
-		if (refreshingAgents()) return; // Prevent multiple simultaneous refreshes
+		if (refreshingAgents()) return;
 		setRefreshingAgents(true);
 		try {
 			const detected = await detectCliAgents();
-			setAgents(detected);
 			setHasConfiguredAgent(detected.some((a) => a.configured));
 		} catch (err) {
 			console.error("Failed to load agents:", err);
-			toastStore.error("Failed to refresh agents", String(err));
 		} finally {
 			setRefreshingAgents(false);
 		}
@@ -392,8 +203,6 @@ export function DashboardPage() {
 		// Load agents - handle independently to avoid one failure blocking others
 		try {
 			const agentList = await detectCliAgents();
-			console.log("Detected CLI agents:", agentList);
-			setAgents(agentList);
 			setHasConfiguredAgent(agentList.some((a) => a.configured));
 		} catch (err) {
 			console.error("Failed to detect CLI agents:", err);
@@ -423,16 +232,6 @@ export function DashboardPage() {
 			setStats(usage);
 		} catch (err) {
 			console.error("Failed to load usage stats:", err);
-		}
-
-		// Load available models if proxy is running
-		if (appStore.proxyStatus().running) {
-			try {
-				const availableModels = await getAvailableModels();
-				setModels(availableModels);
-			} catch (err) {
-				console.error("Failed to load available models:", err);
-			}
 		}
 
 		// Listen for new requests and refresh stats only
@@ -603,109 +402,6 @@ export function DashboardPage() {
 		providers.filter((p) => !authStatus()[p.provider]);
 	const hasAnyProvider = () => connectedProviders().length > 0;
 
-	// Agent handlers
-	const configuredAgents = () => agents().filter((a) => a.configured);
-
-	// Simple timeout helper so UI never hangs indefinitely
-	const withTimeout = async <T,>(
-		promise: Promise<T>,
-		ms: number,
-		label: string,
-	): Promise<T> => {
-		return Promise.race([
-			promise,
-			new Promise<T>((_, reject) =>
-				setTimeout(
-					() => reject(new Error(`${label} timed out after ${ms}ms`)),
-					ms,
-				),
-			),
-		]);
-	};
-
-	const handleConfigureAgent = async (agentId: string) => {
-		// Agents that need models from the proxy (they configure with available model list)
-		// claude-code also benefits from showing available models in the success modal
-		const agentsNeedingModels = ["factory-droid", "opencode", "claude-code"];
-		const needsModels = agentsNeedingModels.includes(agentId);
-
-		if (needsModels && !proxyStatus().running) {
-			toastStore.warning(
-				"Start the proxy first",
-				"The proxy must be running to configure this agent",
-			);
-			return;
-		}
-		setConfiguringAgent(agentId);
-		try {
-			// Fetch available models only for agents that need them
-			let models: AvailableModel[] = [];
-			if (needsModels) {
-				models = await withTimeout(
-					getAvailableModels(),
-					15000,
-					"Fetching available models",
-				);
-				if (models.length === 0) {
-					toastStore.warning(
-						"No models available",
-						"Connect at least one provider to configure agents",
-					);
-					return;
-				}
-			}
-			const result = await withTimeout(
-				configureCliAgent(agentId, models),
-				15000,
-				"Configuring agent",
-			);
-			const agent = agents().find((a) => a.id === agentId);
-			if (result.success) {
-				setConfigResult({
-					result,
-					agentName: agent?.name || agentId,
-					models, // Store models for display in modal
-				});
-				await withTimeout(loadAgents(), 15000, "Refreshing agents");
-				toastStore.success(`${agent?.name || agentId} configured!`);
-			}
-		} catch (error) {
-			console.error("Failed to configure agent:", error);
-			toastStore.error("Configuration failed", String(error));
-		} finally {
-			setConfiguringAgent(null);
-		}
-	};
-
-	const handleTestAgent = async (agentId: string) => {
-		if (!proxyStatus().running) {
-			toastStore.warning(
-				"Start the proxy first",
-				"The proxy must be running to test connections",
-			);
-			return;
-		}
-		const agent = agents().find((a) => a.id === agentId);
-		setTestingAgent(agentId);
-		try {
-			const result = await testAgentConnection(agentId);
-			if (result.success) {
-				const latencyText = result.latencyMs ? ` (${result.latencyMs}ms)` : "";
-				toastStore.success(
-					`${agent?.name || agentId} connected!`,
-					`Connection successful${latencyText}`,
-				);
-			} else {
-				toastStore.error(`${agent?.name || agentId} failed`, result.message);
-			}
-		} catch (error) {
-			console.error("Failed to test agent:", error);
-			toastStore.error("Test failed", String(error));
-		} finally {
-			setTestingAgent(null);
-		}
-	};
-
 	const handleApplyEnv = async () => {
 		const result = configResult();
 		if (!result?.result.shellConfig) return;
@@ -776,32 +472,16 @@ export function DashboardPage() {
 
 	return (
 		<div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-			{/* Header */}
-			<header class="sticky top-0 z-10 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+			{/* Header - Simplified (navigation handled by sidebar) */}
+			<header class="sticky top-0 z-10 px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
 				<div class="flex items-center justify-between max-w-3xl mx-auto">
-					<div class="flex items-center gap-2 sm:gap-3">
-						<img
-							src={
-								themeStore.resolvedTheme() === "dark"
-									? "/proxypal-white.png"
-									: "/proxypal-black.png"
-							}
-							alt="ProxyPal Logo"
-							class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-contain"
-						/>
-						<div>
-							<h1 class="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100">
-								ProxyPal
-							</h1>
-							<p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-								AI Proxy Manager
-							</p>
-						</div>
-					</div>
-					<div class="flex items-center gap-2 sm:gap-3">
+					<h1 class="font-semibold text-lg text-gray-900 dark:text-gray-100">
+						Dashboard
+					</h1>
+					<div class="flex items-center gap-3">
 						<button
 							onClick={openCommandPalette}
-							class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors"
+							class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors"
 							title="Command Palette (⌘K)"
 						>
 							<svg
@@ -821,57 +501,11 @@ export function DashboardPage() {
 								⌘K
 							</kbd>
 						</button>
-						<ThemeToggleCompact />
 						<StatusIndicator
 							running={proxyStatus().running}
 							onToggle={toggleProxy}
 							disabled={toggling()}
 						/>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => setCurrentPage("analytics")}
-							title="Analytics"
-						>
-							<svg
-								class="w-5 h-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-								/>
-							</svg>
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => setCurrentPage("settings")}
-						>
-							<svg
-								class="w-5 h-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-								/>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-								/>
-							</svg>
-						</Button>
 					</div>
 				</div>
 			</header>
@@ -1263,293 +897,6 @@ export function DashboardPage() {
 						endpoint={proxyStatus().endpoint}
 						running={proxyStatus().running}
 					/>
-
-					{/* === ZONE 5: Mini Request Feed === */}
-					<MiniRequestFeed
-						requests={history().requests}
-						onViewAll={() => setCurrentPage("logs")}
-					/>
-
-					{/* === ZONE 5.5: Available Models === */}
-					<ModelsWidget models={models()} loading={!proxyStatus().running} />
-
-					{/* === ZONE 6: CLI Agents (always full detail) === */}
-					<div class="space-y-3">
-						<div class="flex items-center justify-between">
-							<div>
-								<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-									CLI Agents
-								</h2>
-								<p class="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-									{configuredAgents().length} of {agents().length} configured
-								</p>
-							</div>
-							<button
-								onClick={loadAgents}
-								disabled={refreshingAgents()}
-								class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-								title="Refresh"
-							>
-								<svg
-									class={`w-4 h-4 ${refreshingAgents() ? "animate-spin" : ""}`}
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-									/>
-								</svg>
-							</button>
-						</div>
-
-						<Show when={!proxyStatus().running}>
-							<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-								<div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-									<svg
-										class="w-4 h-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-										/>
-									</svg>
-									<span class="text-sm">
-										Start the proxy to configure agents
-									</span>
-								</div>
-							</div>
-						</Show>
-
-						<Show when={agents().length > 0}>
-							<div class="space-y-3">
-								<For each={agents()}>
-									{(agent) => (
-										<div class="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 transition-all">
-											<div class="flex items-start gap-3">
-												<img
-													src={agent.logo}
-													alt={agent.name}
-													class="w-10 h-10 rounded-lg"
-													onError={(e) => {
-														(e.target as HTMLImageElement).src =
-															"/logos/openai.svg";
-													}}
-												/>
-												<div class="flex-1 min-w-0">
-													<div class="flex items-center gap-2">
-														<h3 class="font-semibold text-gray-900 dark:text-gray-100">
-															{agent.name}
-														</h3>
-														<div class="flex items-center gap-1.5">
-															<div
-																class={`w-2 h-2 rounded-full ${agent.configured ? "bg-green-500" : agent.installed ? "bg-amber-500" : "bg-gray-400"}`}
-															/>
-															<span class="text-xs text-gray-500 dark:text-gray-400">
-																{agent.configured
-																	? "Configured"
-																	: agent.installed
-																		? "Installed"
-																		: "Not installed"}
-															</span>
-														</div>
-													</div>
-													<p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-														{agent.description}
-													</p>
-													<div class="flex items-center gap-2 mt-3">
-														<Show when={!agent.installed}>
-															<a
-																href={agent.docsUrl}
-																target="_blank"
-																rel="noopener noreferrer"
-																class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/30 rounded-lg transition-colors"
-															>
-																<svg
-																	class="w-3.5 h-3.5"
-																	fill="none"
-																	stroke="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path
-																		stroke-linecap="round"
-																		stroke-linejoin="round"
-																		stroke-width="2"
-																		d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-																	/>
-																</svg>
-																Install
-															</a>
-														</Show>
-														<Show when={agent.installed && !agent.configured}>
-															<Button
-																size="sm"
-																variant="primary"
-																onClick={() => handleConfigureAgent(agent.id)}
-																disabled={configuringAgent() === agent.id}
-															>
-																{configuringAgent() === agent.id ? (
-																	<span class="flex items-center gap-1.5">
-																		<svg
-																			class="w-3 h-3 animate-spin"
-																			fill="none"
-																			viewBox="0 0 24 24"
-																		>
-																			<circle
-																				class="opacity-25"
-																				cx="12"
-																				cy="12"
-																				r="10"
-																				stroke="currentColor"
-																				stroke-width="4"
-																			/>
-																			<path
-																				class="opacity-75"
-																				fill="currentColor"
-																				d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-																			/>
-																		</svg>
-																		Configuring...
-																	</span>
-																) : (
-																	"Configure"
-																)}
-															</Button>
-														</Show>
-														<Show when={agent.configured}>
-															<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 rounded-full">
-																<svg
-																	class="w-3 h-3"
-																	fill="none"
-																	stroke="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path
-																		stroke-linecap="round"
-																		stroke-linejoin="round"
-																		stroke-width="2"
-																		d="M5 13l4 4L19 7"
-																	/>
-																</svg>
-																Ready
-															</span>
-															<Button
-																size="sm"
-																variant="ghost"
-																onClick={() => handleConfigureAgent(agent.id)}
-																disabled={configuringAgent() === agent.id}
-																title="Update configuration with latest models"
-															>
-																{configuringAgent() === agent.id ? (
-																	<svg
-																		class="w-3.5 h-3.5 animate-spin"
-																		fill="none"
-																		viewBox="0 0 24 24"
-																	>
-																		<circle
-																			class="opacity-25"
-																			cx="12"
-																			cy="12"
-																			r="10"
-																			stroke="currentColor"
-																			stroke-width="4"
-																		/>
-																		<path
-																			class="opacity-75"
-																			fill="currentColor"
-																			d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-																		/>
-																	</svg>
-																) : (
-																	<svg
-																		class="w-3.5 h-3.5"
-																		fill="none"
-																		stroke="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path
-																			stroke-linecap="round"
-																			stroke-linejoin="round"
-																			stroke-width="2"
-																			d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-																		/>
-																	</svg>
-																)}
-															</Button>
-															<Button
-																size="sm"
-																variant="secondary"
-																onClick={() => handleTestAgent(agent.id)}
-																disabled={testingAgent() === agent.id}
-															>
-																{testingAgent() === agent.id ? (
-																	<span class="flex items-center gap-1.5">
-																		<svg
-																			class="w-3 h-3 animate-spin"
-																			fill="none"
-																			viewBox="0 0 24 24"
-																		>
-																			<circle
-																				class="opacity-25"
-																				cx="12"
-																				cy="12"
-																				r="10"
-																				stroke="currentColor"
-																				stroke-width="4"
-																			/>
-																			<path
-																				class="opacity-75"
-																				fill="currentColor"
-																				d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-																			/>
-																		</svg>
-																		Testing...
-																	</span>
-																) : (
-																	<span class="flex items-center gap-1.5">
-																		<svg
-																			class="w-3 h-3"
-																			fill="none"
-																			stroke="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path
-																				stroke-linecap="round"
-																				stroke-linejoin="round"
-																				stroke-width="2"
-																				d="M13 10V3L4 14h7v7l9-11h-7z"
-																			/>
-																		</svg>
-																		Test
-																	</span>
-																)}
-															</Button>
-														</Show>
-														<a
-															href={agent.docsUrl}
-															target="_blank"
-															rel="noopener noreferrer"
-															class="text-xs text-gray-400 hover:text-brand-500 transition-colors"
-														>
-															Docs
-														</a>
-													</div>
-												</div>
-											</div>
-										</div>
-									)}
-								</For>
-							</div>
-						</Show>
-					</div>
 
 					{/* Config Modal */}
 					<Show when={configResult()}>

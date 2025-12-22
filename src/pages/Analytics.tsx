@@ -1,14 +1,23 @@
 import { Chart, registerables } from "chart.js";
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	For,
 	onCleanup,
 	onMount,
 	Show,
 } from "solid-js";
+import {
+	BarChart,
+	type BarChartData,
+	DonutChart,
+	type DonutChartData,
+	GaugeChart,
+	HeatmapChart,
+	type HeatmapData,
+} from "../components/charts";
 import { getUsageStats, type UsageStats } from "../lib/tauri";
-import { appStore } from "../stores/app";
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -125,8 +134,6 @@ function LineChart(props: {
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
-				parsing: false, // Performance: skip parsing since data is already formatted
-				normalized: true, // Performance: data is already normalized
 				animation: {
 					duration: 300, // Faster animations
 				},
@@ -301,7 +308,6 @@ function StatCard(props: {
 }
 
 export function Analytics() {
-	const { setCurrentPage } = appStore;
 	const [stats, setStats] = createSignal<UsageStats | null>(null);
 	const [loading, setLoading] = createSignal(true);
 	const [timeRange, setTimeRange] = createSignal<TimeRange>("day");
@@ -389,14 +395,76 @@ export function Analytics() {
 	// Privacy blur class
 	const blurClass = () => (privacyMode() ? "blur-sm select-none" : "");
 
-	// Provider breakdown from backend (detected from API path, not model name)
-	const providerBreakdown = () => {
+	// Provider donut chart data
+	const providerDonutData = createMemo((): DonutChartData[] => {
 		const s = stats();
-		if (!s || !s.providers) return [];
-		return s.providers.filter(
-			(p) => p.provider !== "unknown" && p.provider !== "",
-		);
-	};
+		if (!s) return [];
+		return s.providers
+			.filter((p) => p.provider !== "unknown" && p.provider !== "")
+			.map((p) => ({
+				name: p.provider,
+				value: p.requests,
+			}));
+	});
+
+	// Model bar chart data
+	const modelBarData = createMemo((): BarChartData[] => {
+		const s = stats();
+		if (!s) return [];
+		return s.models
+			.filter((m) => m.model !== "unknown" && m.model !== "")
+			.slice(0, 7)
+			.map((m) => ({
+				name: m.model,
+				value: m.requests,
+			}));
+	});
+
+	// Activity heatmap data (simulated from hourly data)
+	const heatmapData = createMemo((): HeatmapData[] => {
+		const s = stats();
+		if (!s) return [];
+
+		// Generate heatmap data from requestsByHour
+		// Group by day of week and hour
+		const data: HeatmapData[] = [];
+		const hourlyData = s.requestsByHour || [];
+
+		for (const point of hourlyData) {
+			try {
+				// Parse label like "2025-12-02T14"
+				const [datePart, hourPart] = point.label.split("T");
+				if (!datePart || hourPart === undefined) continue;
+
+				const date = new Date(datePart);
+				const dayOfWeek = (date.getDay() + 6) % 7; // Mon=0, Sun=6
+				const hour = parseInt(hourPart, 10);
+
+				// Accumulate values for same day+hour
+				const existing = data.find(
+					(d) => d.day === dayOfWeek && d.hour === hour,
+				);
+				if (existing) {
+					existing.value += point.value;
+				} else {
+					data.push({ day: dayOfWeek, hour, value: point.value });
+				}
+			} catch {
+				// Skip invalid data points
+			}
+		}
+
+		// Fill in missing cells with 0
+		for (let day = 0; day < 7; day++) {
+			for (let hour = 0; hour < 24; hour++) {
+				if (!data.find((d) => d.day === day && d.hour === hour)) {
+					data.push({ day, hour, value: 0 });
+				}
+			}
+		}
+
+		return data;
+	});
 
 	// Estimated cost (rough pricing per 1M tokens)
 	const estimatedCost = () => {
@@ -419,33 +487,13 @@ export function Analytics() {
 			<div class="max-w-6xl mx-auto space-y-6">
 				{/* Header */}
 				<div class="flex items-center justify-between flex-wrap gap-3">
-					<div class="flex items-center gap-3">
-						<button
-							onClick={() => setCurrentPage("dashboard")}
-							class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-						>
-							<svg
-								class="w-5 h-5 text-gray-600 dark:text-gray-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M15 19l-7-7 7-7"
-								/>
-							</svg>
-						</button>
-						<div>
-							<h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-								Analytics
-							</h1>
-							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Track usage & insights
-							</p>
-						</div>
+					<div>
+						<h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+							Analytics
+						</h1>
+						<p class="text-sm text-gray-500 dark:text-gray-400">
+							Track usage & insights
+						</p>
 					</div>
 
 					<div class="flex items-center gap-2 flex-wrap">
@@ -815,12 +863,77 @@ export function Analytics() {
 						</div>
 					</Show>
 
-					{/* Provider Breakdown */}
-					<Show when={providerBreakdown().length > 0}>
+					{/* Provider Breakdown - Donut Chart */}
+					<Show when={providerDonutData().length > 0}>
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							{/* Provider Donut Chart */}
+							<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+								<div class="flex items-center gap-2 mb-4">
+									<svg
+										class="w-5 h-5 text-cyan-500"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+										/>
+									</svg>
+									<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+										Provider Breakdown
+									</h2>
+								</div>
+								<div class="h-64">
+									<DonutChart
+										data={providerDonutData()}
+										centerText={formatNumber(stats()!.totalRequests)}
+										centerSubtext="requests"
+									/>
+								</div>
+							</div>
+
+							{/* Success Rate Gauge */}
+							<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+								<div class="flex items-center gap-2 mb-4">
+									<svg
+										class="w-5 h-5 text-green-500"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+										Success Rate
+									</h2>
+								</div>
+								<div class="h-64">
+									<GaugeChart value={successRate()} />
+								</div>
+							</div>
+						</div>
+					</Show>
+
+					{/* Model Usage - Bar Chart */}
+					<Show when={modelBarData().length > 0}>
 						<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
 							<div class="flex items-center gap-2 mb-4">
 								<svg
-									class="w-5 h-5 text-cyan-500"
+									class="w-5 h-5 text-indigo-500"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -829,31 +942,55 @@ export function Analytics() {
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+										d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
 									/>
 								</svg>
 								<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-									Provider Breakdown
+									Model Usage
 								</h2>
 							</div>
-							<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-								<For each={providerBreakdown()}>
-									{(provider) => (
-										<div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
-											<p class="font-medium text-gray-900 dark:text-gray-100 text-sm">
-												{provider.provider}
-											</p>
-											<p class="text-lg font-bold text-gray-700 dark:text-gray-300">
-												{formatNumber(provider.requests)}
-											</p>
-											<p
-												class={`text-xs text-gray-500 dark:text-gray-400 ${blurClass()}`}
-											>
-												{formatTokens(provider.tokens)} tokens
-											</p>
-										</div>
-									)}
-								</For>
+							<div class="h-72">
+								<BarChart
+									data={modelBarData()}
+									valueLabel="Requests"
+									horizontal={true}
+								/>
+							</div>
+						</div>
+					</Show>
+
+					{/* Activity Heatmap */}
+					<Show when={heatmapData().length > 0}>
+						<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+							<div class="flex items-center gap-2 mb-4">
+								<svg
+									class="w-5 h-5 text-orange-500"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+									/>
+								</svg>
+								<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+									Activity Patterns
+								</h2>
+								<span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+									Hour × Day of Week
+								</span>
+							</div>
+							<div class="h-48">
+								<HeatmapChart data={heatmapData()} />
 							</div>
 						</div>
 					</Show>

@@ -65,6 +65,55 @@ pub struct ProviderUsage {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ModelStats {
+    pub requests: u64,
+    pub success_count: u64,
+    pub tokens: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Aggregate {
+    pub created_at: u64,
+    pub total_requests: u64,
+    pub total_success_count: u64,
+    pub total_failure_count: u64,
+    pub total_tokens_in: u64,
+    pub total_tokens_out: u64,
+    pub total_cost_usd: f64,
+    #[serde(default)]
+    pub requests_by_day: Vec<TimeSeriesPoint>,
+    #[serde(default)]
+    pub tokens_by_day: Vec<TimeSeriesPoint>,
+    #[serde(default)]
+    pub model_stats: std::collections::HashMap<String, ModelStats>,
+    #[serde(default)]
+    pub provider_stats: std::collections::HashMap<String, ModelStats>,
+}
+
+impl Default for Aggregate {
+    fn default() -> Self {
+        Self {
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            total_requests: 0,
+            total_success_count: 0,
+            total_failure_count: 0,
+            total_tokens_in: 0,
+            total_tokens_out: 0,
+            total_cost_usd: 0.0,
+            requests_by_day: vec![],
+            tokens_by_day: vec![],
+            model_stats: std::collections::HashMap::new(),
+            provider_stats: std::collections::HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct RequestHistory {
     pub requests: Vec<RequestLog>,
     pub total_tokens_in: u64,
@@ -74,4 +123,8 @@ pub struct RequestHistory {
     pub tokens_by_day: Vec<TimeSeriesPoint>,
     #[serde(default)]
     pub tokens_by_hour: Vec<TimeSeriesPoint>,
+    #[serde(default)]
+    pub total_request_count: u64,  // Actual total requests (not capped at 500)
+    #[serde(default)]
+    pub total_success_count: u64,  // Successful requests (status < 400) across all history
 }

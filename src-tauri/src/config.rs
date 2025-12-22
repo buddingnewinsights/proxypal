@@ -159,6 +159,11 @@ pub fn get_history_path() -> std::path::PathBuf {
     get_proxypal_config_dir().join("history.json")
 }
 
+/// Aggregate analytics file path (cumulative stats, never trimmed)
+pub fn get_aggregate_path() -> std::path::PathBuf {
+    get_proxypal_config_dir().join("aggregate.json")
+}
+
 /// Load config from file
 pub fn load_config() -> AppConfig {
     let path = get_config_path();

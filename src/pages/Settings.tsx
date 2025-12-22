@@ -1,6 +1,10 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { createEffect, createSignal, For, onMount, Show } from "solid-js";
+import { ModelsWidget } from "../components/ModelsWidget";
 import { Button, Switch } from "../components/ui";
+
+type SettingsTab = "general" | "providers" | "models" | "advanced";
+
 import type {
 	AmpModelMapping,
 	AmpOpenAIModel,
@@ -9,11 +13,16 @@ import type {
 	ProviderTestResult,
 } from "../lib/tauri";
 import {
+	type AgentConfigResult,
+	type AgentStatus,
 	AMP_MODEL_SLOTS,
 	type AvailableModel,
+	appendToShellProfile,
 	type CopilotApiDetection,
 	checkForUpdates,
+	configureCliAgent,
 	deleteOAuthExcludedModels,
+	detectCliAgents,
 	detectCopilotApi,
 	downloadAndInstallUpdate,
 	getAvailableModels,
@@ -53,7 +62,13 @@ import { toastStore } from "../stores/toast";
 export function SettingsPage() {
 	const { config, setConfig, setCurrentPage, authStatus } = appStore;
 	const [saving, setSaving] = createSignal(false);
+	const [activeTab, setActiveTab] = createSignal<SettingsTab>("general");
 	const [appVersion, setAppVersion] = createSignal("0.0.0");
+	const [models, setModels] = createSignal<AvailableModel[]>([]);
+	const [agents, setAgents] = createSignal<AgentStatus[]>([]);
+	const [configuringAgent, setConfiguringAgent] = createSignal<string | null>(
+		null,
+	);
 
 	// Fetch app version on mount
 	onMount(async () => {
@@ -63,7 +78,76 @@ export function SettingsPage() {
 		} catch (error) {
 			console.error("Failed to get app version:", error);
 		}
+
+		// Load models if proxy is running
+		if (appStore.proxyStatus().running) {
+			try {
+				const availableModels = await getAvailableModels();
+				setModels(availableModels);
+			} catch (err) {
+				console.error("Failed to load models:", err);
+			}
+		}
+
+		// Load agents
+		try {
+			const agentList = await detectCliAgents();
+			setAgents(agentList);
+		} catch (err) {
+			console.error("Failed to load agents:", err);
+		}
 	});
+
+	// Handle agent configuration
+	const [configResult, setConfigResult] = createSignal<{
+		result: AgentConfigResult;
+		agentName: string;
+	} | null>(null);
+
+	const handleConfigureAgent = async (agentId: string) => {
+		if (!appStore.proxyStatus().running) {
+			toastStore.warning(
+				"Start the proxy first",
+				"The proxy must be running to configure agents",
+			);
+			return;
+		}
+		setConfiguringAgent(agentId);
+		try {
+			const availableModels = await getAvailableModels();
+			const result = await configureCliAgent(agentId, availableModels);
+			const agent = agents().find((a) => a.id === agentId);
+			if (result.success) {
+				setConfigResult({
+					result,
+					agentName: agent?.name || agentId,
+				});
+				const refreshed = await detectCliAgents();
+				setAgents(refreshed);
+				toastStore.success(`${agent?.name || agentId} configured!`);
+			}
+		} catch (error) {
+			console.error("Failed to configure agent:", error);
+			toastStore.error("Configuration failed", String(error));
+		} finally {
+			setConfiguringAgent(null);
+		}
+	};
+
+	const handleApplyEnv = async () => {
+		const result = configResult();
+		if (!result?.result.shellConfig) return;
+
+		try {
+			const profilePath = await appendToShellProfile(result.result.shellConfig);
+			toastStore.success("Added to shell profile", `Updated ${profilePath}`);
+			setConfigResult(null);
+			const refreshed = await detectCliAgents();
+			setAgents(refreshed);
+		} catch (error) {
+			toastStore.error("Failed to update shell profile", String(error));
+		}
+	};
 
 	// Custom OpenAI providers section collapsed by default
 	const [customProvidersExpanded, setCustomProvidersExpanded] =
@@ -139,8 +223,6 @@ export function SettingsPage() {
 	const [copilotDetection, setCopilotDetection] =
 		createSignal<CopilotApiDetection | null>(null);
 	const [detectingCopilot, setDetectingCopilot] = createSignal(false);
-	const [copilotDetectionExpanded, setCopilotDetectionExpanded] =
-		createSignal(false);
 
 	// App Updates state
 	const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
@@ -820,8 +902,15 @@ export function SettingsPage() {
 
 	const connectedCount = () => {
 		const auth = authStatus();
-		return [auth.claude, auth.openai, auth.gemini, auth.qwen].filter(Boolean)
-			.length;
+		return [
+			auth.claude,
+			auth.openai,
+			auth.gemini,
+			auth.antigravity,
+			auth.qwen,
+			auth.iflow,
+			auth.vertex,
+		].filter(Boolean).length;
 	};
 
 	const addProviderModel = () => {
@@ -910,60 +999,65 @@ export function SettingsPage() {
 
 	return (
 		<div class="min-h-screen flex flex-col">
-			{/* Header */}
+			{/* Header with Tabs */}
 			<header class="sticky top-0 z-10 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-				<div class="flex items-center gap-2 sm:gap-3">
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => setCurrentPage("dashboard")}
-					>
-						<svg
-							class="w-5 h-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
+				<div class="flex items-center justify-between gap-2 sm:gap-3">
+					<div class="flex items-center gap-2 sm:gap-3">
+						<h1 class="font-bold text-lg text-gray-900 dark:text-gray-100">
+							Settings
+						</h1>
+						{saving() && (
+							<span class="text-xs text-gray-400 ml-2 flex items-center gap-1">
+								<svg
+									class="w-3 h-3 animate-spin"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<circle
+										class="opacity-25"
+										cx="12"
+										cy="12"
+										r="10"
+										stroke="currentColor"
+										stroke-width="4"
+									/>
+									<path
+										class="opacity-75"
+										fill="currentColor"
+										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+									/>
+								</svg>
+								Saving
+							</span>
+						)}
+					</div>
+					{/* Tab Navigation */}
+					<div class="flex gap-1">
+						<For
+							each={[
+								{ id: "general" as SettingsTab, label: "General" },
+								{ id: "providers" as SettingsTab, label: "Providers" },
+								{ id: "models" as SettingsTab, label: "Models" },
+								{ id: "advanced" as SettingsTab, label: "Advanced" },
+							]}
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M15 19l-7-7 7-7"
-							/>
-						</svg>
-					</Button>
-					<img
-						src={
-							themeStore.resolvedTheme() === "dark"
-								? "/proxypal-white.png"
-								: "/proxypal-black.png"
-						}
-						alt="ProxyPal Logo"
-						class="w-8 h-8 rounded-xl object-contain"
-					/>
-					<h1 class="font-bold text-lg text-gray-900 dark:text-gray-100">
-						Settings
-					</h1>
-					{saving() && (
-						<span class="text-xs text-gray-400 ml-2 flex items-center gap-1">
-							<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-								<circle
-									class="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									stroke-width="4"
-								/>
-								<path
-									class="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								/>
-							</svg>
-							Saving
-						</span>
-					)}
+							{(tab) => (
+								<button
+									type="button"
+									onClick={() => setActiveTab(tab.id)}
+									class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+									classList={{
+										"bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400":
+											activeTab() === tab.id,
+										"text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800":
+											activeTab() !== tab.id,
+									}}
+								>
+									{tab.label}
+								</button>
+							)}
+						</For>
+					</div>
 				</div>
 			</header>
 
@@ -971,7 +1065,10 @@ export function SettingsPage() {
 			<main class="flex-1 p-4 sm:p-6 overflow-y-auto">
 				<div class="max-w-xl mx-auto space-y-4 sm:space-y-6 animate-stagger">
 					{/* General settings */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "general" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							General
 						</h2>
@@ -1008,7 +1105,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Proxy settings */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "general" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Proxy Configuration
 						</h2>
@@ -1137,7 +1237,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Thinking Budget Settings */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "general" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Thinking Budget (Antigravity Claude Models)
 						</h2>
@@ -1225,7 +1328,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Reasoning Effort (GPT/Codex Models) */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "general" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Reasoning Effort (GPT/Codex Models)
 						</h2>
@@ -1297,7 +1403,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Claude Code Settings */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "general" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Claude Code Settings
 						</h2>
@@ -1454,7 +1563,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Amp CLI Integration */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "general" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Amp CLI Integration
 						</h2>
@@ -2021,7 +2133,10 @@ export function SettingsPage() {
 							<div class="border-t border-gray-200 dark:border-gray-700" />
 
 							{/* Custom OpenAI-Compatible Providers - Collapsible */}
-							<div class="space-y-4">
+							<div
+								class="space-y-4"
+								classList={{ hidden: activeTab() !== "models" }}
+							>
 								<button
 									type="button"
 									onClick={() =>
@@ -2512,7 +2627,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Advanced Settings */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "advanced" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Advanced Settings
 						</h2>
@@ -2645,7 +2763,10 @@ export function SettingsPage() {
 					</div>
 
 					{/* Quota Exceeded Behavior */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "advanced" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Quota Exceeded Behavior
 						</h2>
@@ -2675,7 +2796,10 @@ export function SettingsPage() {
 
 					{/* OAuth Excluded Models */}
 					<Show when={appStore.proxyStatus().running}>
-						<div class="space-y-4">
+						<div
+							class="space-y-4"
+							classList={{ hidden: activeTab() !== "advanced" }}
+						>
 							<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 								OAuth Excluded Models
 							</h2>
@@ -2701,6 +2825,7 @@ export function SettingsPage() {
 										<option value="qwen">Qwen</option>
 										<option value="iflow">iFlow</option>
 										<option value="openai">OpenAI</option>
+										<option value="copilot">GitHub Copilot</option>
 									</select>
 									{/* Model dropdown with mapped models from Amp CLI */}
 									{(() => {
@@ -2724,6 +2849,8 @@ export function SettingsPage() {
 													return builtInModels.qwen;
 												case "iflow":
 													return builtInModels.iflow;
+												case "copilot":
+													return builtInModels.copilot;
 												default:
 													return [];
 											}
@@ -2878,143 +3005,126 @@ export function SettingsPage() {
 					</Show>
 
 					{/* Copilot Detection */}
-					<div class="space-y-4">
-						<button
-							type="button"
-							onClick={() =>
-								setCopilotDetectionExpanded(!copilotDetectionExpanded())
-							}
-							class="flex items-center justify-between w-full text-left"
-						>
-							<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-								Copilot API Detection
-							</h2>
-							<svg
-								class={`w-5 h-5 text-gray-400 transition-transform ${copilotDetectionExpanded() ? "rotate-180" : ""}`}
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "providers" }}
+					>
+						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+							Copilot API Detection
+						</h2>
+
+						<div class="space-y-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Check if Node.js and copilot-api are detected on your system.
+								This helps diagnose Copilot startup issues.
+							</p>
+
+							<Button
+								variant="secondary"
+								size="sm"
+								onClick={runCopilotDetection}
+								disabled={detectingCopilot()}
 							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M19 9l-7 7-7-7"
-								/>
-							</svg>
-						</button>
+								{detectingCopilot() ? "Detecting..." : "Run Detection"}
+							</Button>
 
-						<Show when={copilotDetectionExpanded()}>
-							<div class="space-y-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-								<p class="text-xs text-gray-500 dark:text-gray-400">
-									Check if Node.js and copilot-api are detected on your system.
-									This helps diagnose Copilot startup issues.
-								</p>
-
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={runCopilotDetection}
-									disabled={detectingCopilot()}
-								>
-									{detectingCopilot() ? "Detecting..." : "Run Detection"}
-								</Button>
-
-								<Show when={copilotDetection()}>
-									{(detection) => (
-										<div class="space-y-3 text-xs">
-											<div class="flex items-center gap-2">
-												<span
-													class={`w-2 h-2 rounded-full ${detection().nodeAvailable ? "bg-green-500" : "bg-red-500"}`}
-												/>
-												<span class="font-medium">Node.js:</span>
-												<span
-													class={
-														detection().nodeAvailable
-															? "text-green-600 dark:text-green-400"
-															: "text-red-600 dark:text-red-400"
-													}
-												>
-													{detection().nodeAvailable
-														? detection().nodeBin || "Available"
-														: "Not Found"}
-												</span>
-											</div>
-
-											<div class="flex items-center gap-2">
-												<span
-													class={`w-2 h-2 rounded-full ${detection().installed ? "bg-green-500" : "bg-yellow-500"}`}
-												/>
-												<span class="font-medium">copilot-api:</span>
-												<span
-													class={
-														detection().installed
-															? "text-green-600 dark:text-green-400"
-															: "text-yellow-600 dark:text-yellow-400"
-													}
-												>
-													{detection().installed
-														? `Installed${detection().version ? ` (v${detection().version})` : ""}`
-														: "Not installed (will use npx)"}
-												</span>
-											</div>
-
-											<Show when={detection().copilotBin}>
-												<div class="text-gray-500 dark:text-gray-400 pl-4">
-													Path:{" "}
-													<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
-														{detection().copilotBin}
-													</code>
-												</div>
-											</Show>
-
-											<Show when={detection().npxBin}>
-												<div class="text-gray-500 dark:text-gray-400 pl-4">
-													npx:{" "}
-													<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
-														{detection().npxBin}
-													</code>
-												</div>
-											</Show>
-
-											<Show when={!detection().nodeAvailable}>
-												<div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400">
-													<p class="font-medium">Node.js not found</p>
-													<p class="mt-1">
-														Install Node.js from{" "}
-														<a
-															href="https://nodejs.org/"
-															target="_blank"
-															class="underline"
-															rel="noopener"
-														>
-															nodejs.org
-														</a>{" "}
-														or use a version manager (nvm, volta, fnm).
-													</p>
-													<Show when={detection().checkedNodePaths.length > 0}>
-														<details class="mt-2">
-															<summary class="cursor-pointer text-xs">
-																Checked paths
-															</summary>
-															<ul class="mt-1 pl-4 text-xs opacity-75">
-																<For each={detection().checkedNodePaths}>
-																	{(p) => <li>{p}</li>}
-																</For>
-															</ul>
-														</details>
-													</Show>
-												</div>
-											</Show>
+							<Show when={copilotDetection()}>
+								{(detection) => (
+									<div class="space-y-3 text-xs">
+										<div class="flex items-center gap-2">
+											<span
+												class={`w-2 h-2 rounded-full ${detection().nodeAvailable ? "bg-green-500" : "bg-red-500"}`}
+											/>
+											<span class="font-medium">Node.js:</span>
+											<span
+												class={
+													detection().nodeAvailable
+														? "text-green-600 dark:text-green-400"
+														: "text-red-600 dark:text-red-400"
+												}
+											>
+												{detection().nodeAvailable
+													? detection().nodeBin || "Available"
+													: "Not Found"}
+											</span>
 										</div>
-									)}
-								</Show>
-							</div>
-						</Show>
+
+										<div class="flex items-center gap-2">
+											<span
+												class={`w-2 h-2 rounded-full ${detection().installed ? "bg-green-500" : "bg-yellow-500"}`}
+											/>
+											<span class="font-medium">copilot-api:</span>
+											<span
+												class={
+													detection().installed
+														? "text-green-600 dark:text-green-400"
+														: "text-yellow-600 dark:text-yellow-400"
+												}
+											>
+												{detection().installed
+													? `Installed${detection().version ? ` (v${detection().version})` : ""}`
+													: "Not installed (will use npx)"}
+											</span>
+										</div>
+
+										<Show when={detection().copilotBin}>
+											<div class="text-gray-500 dark:text-gray-400 pl-4">
+												Path:{" "}
+												<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+													{detection().copilotBin}
+												</code>
+											</div>
+										</Show>
+
+										<Show when={detection().npxBin}>
+											<div class="text-gray-500 dark:text-gray-400 pl-4">
+												npx:{" "}
+												<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+													{detection().npxBin}
+												</code>
+											</div>
+										</Show>
+
+										<Show when={!detection().nodeAvailable}>
+											<div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400">
+												<p class="font-medium">Node.js not found</p>
+												<p class="mt-1">
+													Install Node.js from{" "}
+													<a
+														href="https://nodejs.org/"
+														target="_blank"
+														class="underline"
+														rel="noopener"
+													>
+														nodejs.org
+													</a>{" "}
+													or use a version manager (nvm, volta, fnm).
+												</p>
+												<Show when={detection().checkedNodePaths.length > 0}>
+													<details class="mt-2">
+														<summary class="cursor-pointer text-xs">
+															Checked paths
+														</summary>
+														<ul class="mt-1 pl-4 text-xs opacity-75">
+															<For each={detection().checkedNodePaths}>
+																{(p) => <li>{p}</li>}
+															</For>
+														</ul>
+													</details>
+												</Show>
+											</div>
+										</Show>
+									</div>
+								)}
+							</Show>
+						</div>
 					</div>
 
 					{/* Accounts */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "providers" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							Connected Accounts
 						</h2>
@@ -3053,169 +3163,12 @@ export function SettingsPage() {
 						</div>
 					</div>
 
-					{/* API Keys */}
-					<div class="space-y-4">
-						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-							API Keys
-						</h2>
-
-						<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center justify-between">
-								<div>
-									<p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-										Manage API Keys
-									</p>
-									<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-										Add Gemini, Claude, Codex, or OpenAI-compatible API keys
-									</p>
-								</div>
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => setCurrentPage("api-keys")}
-								>
-									<svg
-										class="w-4 h-4 mr-1.5"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-										/>
-									</svg>
-									Configure
-								</Button>
-							</div>
-						</div>
-					</div>
-
-					{/* Auth Files */}
-					<div class="space-y-4">
-						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-							Auth Files
-						</h2>
-
-						<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center justify-between">
-								<div>
-									<p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-										Manage Auth Files
-									</p>
-									<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-										Upload, enable, or remove OAuth credential files
-									</p>
-								</div>
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => setCurrentPage("auth-files")}
-								>
-									<svg
-										class="w-4 h-4 mr-1.5"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-										/>
-									</svg>
-									Manage
-								</Button>
-							</div>
-						</div>
-					</div>
-
-					{/* Logs */}
-					<div class="space-y-4">
-						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-							Logs
-						</h2>
-
-						<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center justify-between">
-								<div>
-									<p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-										View Logs
-									</p>
-									<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-										Live proxy server logs with filtering
-									</p>
-								</div>
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => setCurrentPage("logs")}
-								>
-									<svg
-										class="w-4 h-4 mr-1.5"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M4 6h16M4 12h16M4 18h7"
-										/>
-									</svg>
-									View
-								</Button>
-							</div>
-						</div>
-					</div>
-
-					{/* Analytics */}
-					<div class="space-y-4">
-						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-							Analytics
-						</h2>
-
-						<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center justify-between">
-								<div>
-									<p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-										Usage Analytics
-									</p>
-									<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-										View request and token usage trends with charts
-									</p>
-								</div>
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => setCurrentPage("analytics")}
-								>
-									<svg
-										class="w-4 h-4 mr-1.5"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-										/>
-									</svg>
-									View
-								</Button>
-							</div>
-						</div>
-					</div>
-
 					{/* Raw YAML Config Editor (Power Users) */}
 					<Show when={appStore.proxyStatus().running}>
-						<div class="space-y-4">
+						<div
+							class="space-y-4"
+							classList={{ hidden: activeTab() !== "advanced" }}
+						>
 							<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 								Raw Configuration
 							</h2>
@@ -3350,7 +3303,10 @@ export function SettingsPage() {
 					</Show>
 
 					{/* App Updates */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "advanced" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							App Updates
 						</h2>
@@ -3595,8 +3551,105 @@ export function SettingsPage() {
 						</div>
 					</div>
 
+					{/* Available Models */}
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "models" }}
+					>
+						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+							Available Models
+						</h2>
+						<ModelsWidget
+							models={models()}
+							loading={!appStore.proxyStatus().running}
+						/>
+					</div>
+
+					{/* CLI Agents */}
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "models" }}
+					>
+						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+							CLI Agents
+						</h2>
+						<div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+							<For each={agents()}>
+								{(agent) => (
+									<div class="p-3 flex items-center justify-between">
+										<div class="flex items-center gap-3">
+											<Show when={agent.logo}>
+												<img
+													src={agent.logo}
+													alt={agent.name}
+													class="w-6 h-6 rounded"
+												/>
+											</Show>
+											<div>
+												<div class="flex items-center gap-2">
+													<span class="font-medium text-sm text-gray-900 dark:text-gray-100">
+														{agent.name}
+													</span>
+													<Show when={agent.configured}>
+														<span class="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded">
+															Configured
+														</span>
+													</Show>
+												</div>
+												<p class="text-xs text-gray-500 dark:text-gray-400">
+													{agent.description}
+												</p>
+											</div>
+										</div>
+										<Button
+											size="sm"
+											variant={agent.configured ? "secondary" : "primary"}
+											disabled={configuringAgent() === agent.id}
+											onClick={() => handleConfigureAgent(agent.id)}
+										>
+											<Show
+												when={configuringAgent() !== agent.id}
+												fallback={
+													<svg
+														class="w-4 h-4 animate-spin"
+														fill="none"
+														viewBox="0 0 24 24"
+													>
+														<circle
+															class="opacity-25"
+															cx="12"
+															cy="12"
+															r="10"
+															stroke="currentColor"
+															stroke-width="4"
+														/>
+														<path
+															class="opacity-75"
+															fill="currentColor"
+															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+														/>
+													</svg>
+												}
+											>
+												{agent.configured ? "Reconfigure" : "Configure"}
+											</Show>
+										</Button>
+									</div>
+								)}
+							</For>
+							<Show when={agents().length === 0}>
+								<div class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+									No CLI agents detected
+								</div>
+							</Show>
+						</div>
+					</div>
+
 					{/* About */}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						classList={{ hidden: activeTab() !== "advanced" }}
+					>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							About
 						</h2>
@@ -3626,6 +3679,118 @@ export function SettingsPage() {
 					</div>
 				</div>
 			</main>
+
+			{/* Agent Config Modal */}
+			<Show when={configResult()}>
+				{(result) => (
+					<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
+						<div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in">
+							<div class="p-6">
+								<div class="flex items-center justify-between mb-4">
+									<h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+										{result().agentName} Configured
+									</h2>
+									<button
+										onClick={() => setConfigResult(null)}
+										class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									>
+										<svg
+											class="w-5 h-5"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											/>
+										</svg>
+									</button>
+								</div>
+
+								<div class="space-y-4">
+									<Show when={result().result.configPath}>
+										<div class="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+											<div class="flex items-center gap-2 text-green-700 dark:text-green-300">
+												<svg
+													class="w-4 h-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M5 13l4 4L19 7"
+													/>
+												</svg>
+												<span class="text-sm font-medium">
+													Config file created
+												</span>
+											</div>
+											<p class="mt-1 text-xs text-green-600 dark:text-green-400 font-mono break-all">
+												{result().result.configPath}
+											</p>
+										</div>
+									</Show>
+
+									<Show when={result().result.shellConfig}>
+										<div class="space-y-2">
+											<div class="flex items-center justify-between">
+												<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+													Environment Variables
+												</span>
+												<button
+													onClick={() => {
+														navigator.clipboard.writeText(
+															result().result.shellConfig!,
+														);
+														toastStore.success("Copied to clipboard");
+													}}
+													class="text-xs text-brand-500 hover:text-brand-600"
+												>
+													Copy
+												</button>
+											</div>
+											<pre class="p-3 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-mono text-gray-700 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap">
+												{result().result.shellConfig}
+											</pre>
+											<Button
+												size="sm"
+												variant="secondary"
+												onClick={handleApplyEnv}
+												class="w-full"
+											>
+												Add to Shell Profile Automatically
+											</Button>
+										</div>
+									</Show>
+
+									<Show when={result().result.instructions}>
+										<div class="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+											<p class="text-sm text-blue-700 dark:text-blue-300">
+												{result().result.instructions}
+											</p>
+										</div>
+									</Show>
+								</div>
+
+								<div class="mt-6 flex justify-end">
+									<Button
+										variant="primary"
+										onClick={() => setConfigResult(null)}
+									>
+										Done
+									</Button>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+			</Show>
 		</div>
 	);
 }
