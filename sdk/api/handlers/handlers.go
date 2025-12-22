@@ -437,7 +437,21 @@ func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handl
 
 	outer:
 		for {
-			for chunk := range chunks {
+			for {
+				var chunk coreexecutor.StreamChunk
+				var ok bool
+				if ctx != nil {
+					select {
+					case <-ctx.Done():
+						return
+					case chunk, ok = <-chunks:
+					}
+				} else {
+					chunk, ok = <-chunks
+				}
+				if !ok {
+					return
+				}
 				if chunk.Err != nil {
 					streamErr := chunk.Err
 					// Safe bootstrap recovery: if the upstream fails before any payload bytes are sent,
@@ -474,7 +488,6 @@ func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handl
 					dataChan <- cloneBytes(chunk.Payload)
 				}
 			}
-			return
 		}
 	}()
 	return dataChan, errChan
