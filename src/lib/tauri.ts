@@ -998,7 +998,7 @@ export async function getConfigYaml(): Promise<string> {
 }
 
 export async function setConfigYaml(yaml: string): Promise<void> {
-	return invoke("set_config_yaml", { yaml });
+	return invoke("save_config_yaml", { yaml });
 }
 
 // Request Error Logs - view error-specific logs

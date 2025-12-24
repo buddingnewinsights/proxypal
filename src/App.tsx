@@ -1,4 +1,4 @@
-import { Match, onMount, Show, Switch } from "solid-js";
+import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { CommandPalette } from "./components/CommandPalette";
 import { Sidebar } from "./components/Sidebar";
 import { ToastContainer } from "./components/ui";
@@ -15,10 +15,22 @@ import { appStore } from "./stores/app";
 import { themeStore } from "./stores/theme";
 
 function App() {
-	const { currentPage, isInitialized, initialize } = appStore;
+	const { currentPage, isInitialized, initialize, setCurrentPage } = appStore;
 
 	onMount(() => {
 		initialize();
+
+		// Listen for navigation events from child components
+		const handleNavigateToSettings = () => {
+			setCurrentPage("settings");
+		};
+		window.addEventListener("navigate-to-settings", handleNavigateToSettings);
+		onCleanup(() => {
+			window.removeEventListener(
+				"navigate-to-settings",
+				handleNavigateToSettings,
+			);
+		});
 	});
 
 	return (
