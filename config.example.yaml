@@ -39,6 +39,9 @@ api-keys:
 # Enable debug logging
 debug: false
 
+# When true, disable high-overhead HTTP middleware features to reduce per-request memory usage under high concurrency.
+commercial-mode: false
+
 # When true, write application logs to rotating files instead of stdout
 logging-to-file: false
 
