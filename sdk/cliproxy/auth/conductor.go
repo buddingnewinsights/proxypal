@@ -386,7 +386,10 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 			return cliproxyexecutor.Response{}, errPick
 		}
 
-		debugLogAuthSelection(ctx, auth, provider, req.Model)
+		if log.IsLevelEnabled(log.DebugLevel) {
+			entry := logEntryWithRequestID(ctx)
+			debugLogAuthSelection(entry, auth, provider, req.Model)
+		}
 
 		tried[auth.ID] = struct{}{}
 		execCtx := ctx
@@ -432,7 +435,10 @@ func (m *Manager) executeCountWithProvider(ctx context.Context, provider string,
 			return cliproxyexecutor.Response{}, errPick
 		}
 
-		debugLogAuthSelection(ctx, auth, provider, req.Model)
+		if log.IsLevelEnabled(log.DebugLevel) {
+			entry := logEntryWithRequestID(ctx)
+			debugLogAuthSelection(entry, auth, provider, req.Model)
+		}
 
 		tried[auth.ID] = struct{}{}
 		execCtx := ctx
@@ -478,7 +484,10 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 			return nil, errPick
 		}
 
-		debugLogAuthSelection(ctx, auth, provider, req.Model)
+		if log.IsLevelEnabled(log.DebugLevel) {
+			entry := logEntryWithRequestID(ctx)
+			debugLogAuthSelection(entry, auth, provider, req.Model)
+		}
 
 		tried[auth.ID] = struct{}{}
 		execCtx := ctx
@@ -1566,33 +1575,27 @@ func logEntryWithRequestID(ctx context.Context) *log.Entry {
 	return log.NewEntry(log.StandardLogger())
 }
 
-func debugLogAuthSelection(ctx context.Context, auth *Auth, provider string, model string) {
-	if !log.IsLevelEnabled(log.DebugLevel) {
+func debugLogAuthSelection(entry *log.Entry, auth *Auth, provider string, model string) {
+	if entry == nil || auth == nil {
 		return
 	}
-	if auth == nil {
-		return
-	}
-	entry := logEntryWithRequestID(ctx)
 	accountType, accountInfo := auth.AccountInfo()
 	proxyInfo := auth.ProxyInfo()
-	if accountType == "api_key" {
+	switch accountType {
+	case "api_key":
 		if proxyInfo != "" {
 			entry.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), model, proxyInfo)
-		} else {
-			entry.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), model)
+			return
 		}
-		return
+		entry.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), model)
+	case "oauth":
+		ident := formatOauthIdentity(auth, provider, accountInfo)
+		if proxyInfo != "" {
+			entry.Debugf("Use OAuth %s for model %s %s", ident, model, proxyInfo)
+			return
+		}
+		entry.Debugf("Use OAuth %s for model %s", ident, model)
 	}
-	if accountType != "oauth" {
-		return
-	}
-	ident := formatOauthIdentity(auth, provider, accountInfo)
-	if proxyInfo != "" {
-		entry.Debugf("Use OAuth %s for model %s %s", ident, model, proxyInfo)
-		return
-	}
-	entry.Debugf("Use OAuth %s for model %s", ident, model)
 }
 
 func formatOauthIdentity(auth *Auth, provider string, accountInfo string) string {
