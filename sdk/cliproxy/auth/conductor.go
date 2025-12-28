@@ -386,25 +386,7 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 			return cliproxyexecutor.Response{}, errPick
 		}
 
-		entry := logEntryWithRequestID(ctx)
-		if log.IsLevelEnabled(log.DebugLevel) {
-			accountType, accountInfo := auth.AccountInfo()
-			proxyInfo := auth.ProxyInfo()
-			if accountType == "api_key" {
-				if proxyInfo != "" {
-					entry.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), req.Model, proxyInfo)
-				} else {
-					entry.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
-				}
-			} else if accountType == "oauth" {
-				ident := formatOauthIdentity(auth, provider, accountInfo)
-				if proxyInfo != "" {
-					entry.Debugf("Use OAuth %s for model %s %s", ident, req.Model, proxyInfo)
-				} else {
-					entry.Debugf("Use OAuth %s for model %s", ident, req.Model)
-				}
-			}
-		}
+		debugLogAuthSelection(ctx, auth, provider, req.Model)
 
 		tried[auth.ID] = struct{}{}
 		execCtx := ctx
@@ -450,25 +432,7 @@ func (m *Manager) executeCountWithProvider(ctx context.Context, provider string,
 			return cliproxyexecutor.Response{}, errPick
 		}
 
-		entry := logEntryWithRequestID(ctx)
-		if log.IsLevelEnabled(log.DebugLevel) {
-			accountType, accountInfo := auth.AccountInfo()
-			proxyInfo := auth.ProxyInfo()
-			if accountType == "api_key" {
-				if proxyInfo != "" {
-					entry.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), req.Model, proxyInfo)
-				} else {
-					entry.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
-				}
-			} else if accountType == "oauth" {
-				ident := formatOauthIdentity(auth, provider, accountInfo)
-				if proxyInfo != "" {
-					entry.Debugf("Use OAuth %s for model %s %s", ident, req.Model, proxyInfo)
-				} else {
-					entry.Debugf("Use OAuth %s for model %s", ident, req.Model)
-				}
-			}
-		}
+		debugLogAuthSelection(ctx, auth, provider, req.Model)
 
 		tried[auth.ID] = struct{}{}
 		execCtx := ctx
@@ -514,25 +478,7 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 			return nil, errPick
 		}
 
-		entry := logEntryWithRequestID(ctx)
-		if log.IsLevelEnabled(log.DebugLevel) {
-			accountType, accountInfo := auth.AccountInfo()
-			proxyInfo := auth.ProxyInfo()
-			if accountType == "api_key" {
-				if proxyInfo != "" {
-					entry.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), req.Model, proxyInfo)
-				} else {
-					entry.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
-				}
-			} else if accountType == "oauth" {
-				ident := formatOauthIdentity(auth, provider, accountInfo)
-				if proxyInfo != "" {
-					entry.Debugf("Use OAuth %s for model %s %s", ident, req.Model, proxyInfo)
-				} else {
-					entry.Debugf("Use OAuth %s for model %s", ident, req.Model)
-				}
-			}
-		}
+		debugLogAuthSelection(ctx, auth, provider, req.Model)
 
 		tried[auth.ID] = struct{}{}
 		execCtx := ctx
@@ -1618,6 +1564,35 @@ func logEntryWithRequestID(ctx context.Context) *log.Entry {
 		return log.WithField("request_id", reqID)
 	}
 	return log.NewEntry(log.StandardLogger())
+}
+
+func debugLogAuthSelection(ctx context.Context, auth *Auth, provider string, model string) {
+	if !log.IsLevelEnabled(log.DebugLevel) {
+		return
+	}
+	if auth == nil {
+		return
+	}
+	entry := logEntryWithRequestID(ctx)
+	accountType, accountInfo := auth.AccountInfo()
+	proxyInfo := auth.ProxyInfo()
+	if accountType == "api_key" {
+		if proxyInfo != "" {
+			entry.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), model, proxyInfo)
+		} else {
+			entry.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), model)
+		}
+		return
+	}
+	if accountType != "oauth" {
+		return
+	}
+	ident := formatOauthIdentity(auth, provider, accountInfo)
+	if proxyInfo != "" {
+		entry.Debugf("Use OAuth %s for model %s %s", ident, model, proxyInfo)
+		return
+	}
+	entry.Debugf("Use OAuth %s for model %s", ident, model)
 }
 
 func formatOauthIdentity(auth *Auth, provider string, accountInfo string) string {
