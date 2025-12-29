@@ -104,3 +104,16 @@ pub fn save_config_yaml(yaml: String) -> Result<(), String> {
     fs::write(&custom_config_path, yaml)
         .map_err(|e| format!("Failed to save custom config YAML: {}", e))
 }
+
+#[tauri::command]
+pub fn reload_config(state: State<AppState>) -> Result<AppConfig, String> {
+    // Reload config from disk
+    let fresh_config = crate::config::load_config();
+    
+    // Update the in-memory state
+    let mut current_config = state.config.lock().unwrap();
+    *current_config = fresh_config.clone();
+    
+    eprintln!("[ProxyPal Debug] Config reloaded from disk");
+    Ok(fresh_config)
+}

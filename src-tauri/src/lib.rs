@@ -6240,6 +6240,22 @@ pub fn run() {
                 }
             });
 
+            // Auto-start Copilot if enabled
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let config = crate::config::load_config();
+                if config.copilot.enabled {
+                    println!("[Copilot] Auto-starting copilot-api...");
+                    // Small delay to let the app fully initialize
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    let state = app_handle.state::<AppState>();
+                    match start_copilot(app_handle.clone(), state).await {
+                        Ok(status) => println!("[Copilot] Auto-start successful: running={}", status.running),
+                        Err(e) => eprintln!("[Copilot] Auto-start failed: {}", e),
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -6265,6 +6281,7 @@ pub fn run() {
             commands::config::save_config,
             commands::config::get_config_yaml,
             commands::config::save_config_yaml,
+            commands::config::reload_config,
             detect_ai_tools,
             configure_continue,
             get_tool_setup_info,
