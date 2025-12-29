@@ -5317,6 +5317,27 @@ async fn set_openai_compatible_providers(state: State<'_, AppState>, providers: 
         return Err(format!("Failed to set OpenAI-compatible providers: {} - {}", status, text));
     }
     
+    // Persist to local config for restart persistence
+    {
+        let mut config = state.config.lock().unwrap();
+        config.amp_openai_providers = providers.iter().map(|p| {
+            crate::types::amp::AmpOpenAIProvider {
+                id: uuid::Uuid::new_v4().to_string(),
+                name: p.name.clone(),
+                base_url: p.base_url.clone(),
+                api_key: p.api_key_entries.first().map(|e| e.api_key.clone()).unwrap_or_default(),
+                models: p.models.as_ref().map(|m| {
+                    m.iter().map(|model| crate::types::amp::AmpOpenAIModel {
+                        name: model.name.clone(),
+                        alias: model.alias.clone().unwrap_or_default(),
+                    }).collect()
+                }).unwrap_or_default(),
+            }
+        }).collect();
+    }
+    let config_to_save = state.config.lock().unwrap().clone();
+    crate::config::save_config_to_file(&config_to_save)?;
+    
     Ok(())
 }
 
