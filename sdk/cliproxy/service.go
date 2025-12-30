@@ -710,6 +710,9 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 	case "gemini":
 		models = registry.GetGeminiModels()
 		if entry := s.resolveConfigGeminiKey(a); entry != nil {
+			if len(entry.Models) > 0 {
+				models = buildGeminiConfigModels(entry)
+			}
 			if authKind == "apikey" {
 				excluded = entry.ExcludedModels
 			}
@@ -1146,7 +1149,7 @@ func buildVertexCompatConfigModels(entry *config.VertexCompatKey) []*ModelInfo {
 			ID:          alias,
 			Object:      "model",
 			Created:     now,
-			OwnedBy:     "vertex",
+			OwnedBy:     "google",
 			Type:        "vertex",
 			DisplayName: display,
 		})
@@ -1241,6 +1244,44 @@ func applyOAuthModelMappings(cfg *config.Config, provider, authKind string, mode
 	return out
 }
 
+func buildGeminiConfigModels(entry *config.GeminiKey) []*ModelInfo {
+	if entry == nil || len(entry.Models) == 0 {
+		return nil
+	}
+	now := time.Now().Unix()
+	out := make([]*ModelInfo, 0, len(entry.Models))
+	seen := make(map[string]struct{}, len(entry.Models))
+	for i := range entry.Models {
+		model := entry.Models[i]
+		name := strings.TrimSpace(model.Name)
+		alias := strings.TrimSpace(model.Alias)
+		if alias == "" {
+			alias = name
+		}
+		if alias == "" {
+			continue
+		}
+		key := strings.ToLower(alias)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		display := name
+		if display == "" {
+			display = alias
+		}
+		out = append(out, &ModelInfo{
+			ID:          alias,
+			Object:      "model",
+			Created:     now,
+			OwnedBy:     "google",
+			Type:        "gemini",
+			DisplayName: display,
+		})
+	}
+	return out
+}
+
 func buildClaudeConfigModels(entry *config.ClaudeKey) []*ModelInfo {
 	if entry == nil || len(entry.Models) == 0 {
 		return nil
@@ -1271,7 +1312,7 @@ func buildClaudeConfigModels(entry *config.ClaudeKey) []*ModelInfo {
 			ID:          alias,
 			Object:      "model",
 			Created:     now,
-			OwnedBy:     "claude",
+			OwnedBy:     "anthropic",
 			Type:        "claude",
 			DisplayName: display,
 		})
