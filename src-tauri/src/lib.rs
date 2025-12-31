@@ -5535,10 +5535,10 @@ async fn delete_codex_api_key(state: State<'_, AppState>, index: usize) -> Resul
 
 #[tauri::command]
 async fn check_provider_health(state: State<'_, AppState>) -> Result<ProviderHealth, String> {
-    let (port, proxy_running) = {
+    let (port, proxy_running, proxy_api_key) = {
         let config = state.config.lock().unwrap();
         let status = state.proxy_status.lock().unwrap();
-        (config.port, status.running)
+        (config.port, status.running, config.proxy_api_key.clone())
     };
     
     let auth_status = state.auth_status.lock().unwrap().clone();
@@ -5577,7 +5577,7 @@ async fn check_provider_health(state: State<'_, AppState>) -> Result<ProviderHea
     let start = std::time::Instant::now();
     let (proxy_healthy, latency) = match client
         .get(&models_url)
-        .header("Authorization", "Bearer proxypal-local")
+        .header("Authorization", format!("Bearer {}", proxy_api_key))
         .send()
         .await
     {

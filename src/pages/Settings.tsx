@@ -1094,6 +1094,8 @@ export function SettingsPage() {
 			if (key === "managementKey" && appStore.proxyStatus().running) {
 				toastStore.info("Restarting proxy to apply new management key...");
 				await stopProxy();
+				// Small delay to ensure config file is fully written and flushed
+				await new Promise((resolve) => setTimeout(resolve, 500));
 				await startProxy();
 				toastStore.success("Proxy restarted with new management key");
 			} else {
