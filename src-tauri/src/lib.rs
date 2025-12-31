@@ -2223,17 +2223,209 @@ fn fetch_live_usage_stats_blocking(port: u16) -> Option<LiveUsageData> {
     })
 }
 
+// Blocking version of sync_usage_from_proxy for use in sync contexts
+fn sync_usage_from_proxy_blocking(port: u16) {
+    let url = format!("http://127.0.0.1:{}/v0/management/usage", port);
+    let client = reqwest::blocking::Client::new();
+    
+    let response = match client.get(&url)
+        .header("X-Management-Key", &get_management_key())
+        .timeout(std::time::Duration::from_secs(5))
+        .send() {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+    
+    if !response.status().is_success() {
+        return;
+    }
+    
+    let body: serde_json::Value = match response.json() {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+    
+    let usage = match body.get("usage") {
+        Some(u) => u,
+        None => return,
+    };
+    
+    // Parse time-series data from CLIProxyAPI
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    
+    // Parse tokens_by_day
+    let mut tokens_by_day: Vec<TimeSeriesPoint> = Vec::new();
+    if let Some(tbd) = usage.get("tokens_by_day").and_then(|v| v.as_object()) {
+        for (day, value) in tbd {
+            if let Some(v) = value.as_u64() {
+                tokens_by_day.push(TimeSeriesPoint { label: day.clone(), value: v });
+            }
+        }
+        tokens_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    }
+    
+    // Parse tokens_by_hour with normalized format
+    let mut tokens_by_hour: Vec<TimeSeriesPoint> = Vec::new();
+    if let Some(tbh) = usage.get("tokens_by_hour").and_then(|v| v.as_object()) {
+        for (hour, value) in tbh {
+            if let Some(v) = value.as_u64() {
+                let label = if hour.len() == 2 {
+                    format!("{}T{}", today, hour)
+                } else {
+                    hour.clone()
+                };
+                tokens_by_hour.push(TimeSeriesPoint { label, value: v });
+            }
+        }
+        tokens_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+    }
+    
+    // Parse requests_by_day
+    let mut requests_by_day: Vec<TimeSeriesPoint> = Vec::new();
+    if let Some(rbd) = usage.get("requests_by_day").and_then(|v| v.as_object()) {
+        for (day, value) in rbd {
+            if let Some(v) = value.as_u64() {
+                requests_by_day.push(TimeSeriesPoint { label: day.clone(), value: v });
+            }
+        }
+        requests_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    }
+    
+    // Parse requests_by_hour with normalized format
+    let mut requests_by_hour: Vec<TimeSeriesPoint> = Vec::new();
+    if let Some(rbh) = usage.get("requests_by_hour").and_then(|v| v.as_object()) {
+        for (hour, value) in rbh {
+            if let Some(v) = value.as_u64() {
+                let label = if hour.len() == 2 {
+                    format!("{}T{}", today, hour)
+                } else {
+                    hour.clone()
+                };
+                requests_by_hour.push(TimeSeriesPoint { label, value: v });
+            }
+        }
+        requests_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+    }
+    
+    // Parse model stats and totals
+    let mut total_requests: u64 = 0;
+    let mut model_stats: std::collections::HashMap<String, ModelStats> = std::collections::HashMap::new();
+    
+    if let Some(apis) = usage.get("apis").and_then(|v| v.as_object()) {
+        for (_api_name, api_data) in apis {
+            if let Some(models) = api_data.get("models").and_then(|v| v.as_object()) {
+                for (model_name, model_data) in models {
+                    let model_requests = model_data.get("total_requests").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let model_tokens = model_data.get("total_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                    
+                    total_requests += model_requests;
+                    
+                    let stats = model_stats.entry(model_name.clone()).or_insert_with(Default::default);
+                    stats.requests += model_requests;
+                    stats.tokens += model_tokens;
+                    stats.success_count += model_requests;
+                    
+                    // Parse token breakdown from details
+                    if let Some(details) = model_data.get("details").and_then(|v| v.as_array()) {
+                        for detail in details {
+                            if let Some(tokens) = detail.get("tokens") {
+                                stats.input_tokens += tokens.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                                stats.output_tokens += tokens.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                                stats.cached_tokens += tokens.get("cached_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Update aggregate
+    let mut agg = load_aggregate();
+    
+    // Merge time-series data
+    for point in &tokens_by_day {
+        if let Some(existing) = agg.tokens_by_day.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value;
+        } else {
+            agg.tokens_by_day.push(point.clone());
+        }
+    }
+    agg.tokens_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    
+    for point in &tokens_by_hour {
+        if let Some(existing) = agg.tokens_by_hour.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value;
+        } else {
+            agg.tokens_by_hour.push(point.clone());
+        }
+    }
+    agg.tokens_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+    if agg.tokens_by_hour.len() > 168 {
+        agg.tokens_by_hour = agg.tokens_by_hour.split_off(agg.tokens_by_hour.len() - 168);
+    }
+    
+    for point in &requests_by_day {
+        if let Some(existing) = agg.requests_by_day.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value;
+        } else {
+            agg.requests_by_day.push(point.clone());
+        }
+    }
+    agg.requests_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    
+    for point in &requests_by_hour {
+        if let Some(existing) = agg.requests_by_hour.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value;
+        } else {
+            agg.requests_by_hour.push(point.clone());
+        }
+    }
+    agg.requests_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+    if agg.requests_by_hour.len() > 168 {
+        agg.requests_by_hour = agg.requests_by_hour.split_off(agg.requests_by_hour.len() - 168);
+    }
+    
+    // Update model stats
+    for (model_name, stats) in model_stats {
+        let agg_stats = agg.model_stats.entry(model_name).or_insert_with(Default::default);
+        agg_stats.requests = stats.requests;
+        agg_stats.success_count = stats.success_count;
+        agg_stats.tokens = stats.tokens;
+        agg_stats.input_tokens = stats.input_tokens;
+        agg_stats.output_tokens = stats.output_tokens;
+        agg_stats.cached_tokens = stats.cached_tokens;
+    }
+    
+    // Update totals
+    if total_requests > agg.total_requests {
+        agg.total_requests = total_requests;
+    }
+    let synced_success: u64 = agg.model_stats.values().map(|s| s.success_count).sum();
+    if synced_success > agg.total_success_count {
+        agg.total_success_count = synced_success;
+    }
+    
+    let _ = save_aggregate(&agg);
+}
+
 // Compute usage statistics - fetches live data from Go backend when proxy is running
 #[tauri::command]
 fn get_usage_stats(state: State<'_, AppState>) -> Result<UsageStats, String> {
-    let agg = load_aggregate();
-    let history = load_request_history();
-    
     // Get proxy status
     let (is_running, port) = {
         let status = state.proxy_status.lock().unwrap();
         (status.running, status.port)
     };
+    
+    // Sync from proxy first if running (this updates aggregate with latest data from CLIProxyAPI)
+    if is_running {
+        sync_usage_from_proxy_blocking(port);
+    }
+    
+    // Now load the updated aggregate and history
+    let agg = load_aggregate();
+    let history = load_request_history();
     
     // Try to fetch live data from Go backend if proxy is running
     let live_data = if is_running {
@@ -2551,10 +2743,11 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
     }
     
     // Extract time-series data from CLIProxyAPI response
-    // Structure: { "usage": { "tokens_by_day": {...}, "tokens_by_hour": {...}, "requests_by_day": {...} } }
+    // Structure: { "usage": { "tokens_by_day": {...}, "tokens_by_hour": {...}, "requests_by_day": {...}, "requests_by_hour": {...} } }
     let mut tokens_by_day: Vec<TimeSeriesPoint> = Vec::new();
     let mut tokens_by_hour: Vec<TimeSeriesPoint> = Vec::new();
     let mut requests_by_day: Vec<TimeSeriesPoint> = Vec::new();
+    let mut requests_by_hour: Vec<TimeSeriesPoint> = Vec::new();
     
     if let Some(tbd) = usage.get("tokens_by_day").and_then(|v| v.as_object()) {
         for (day, value) in tbd {
@@ -2572,17 +2765,25 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
     }
     
     if let Some(tbh) = usage.get("tokens_by_hour").and_then(|v| v.as_object()) {
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         for (hour, value) in tbh {
             if let Some(v) = value.as_u64() {
+                // Normalize to YYYY-MM-DDTHH format if only HH is provided
+                let label = if hour.len() == 2 {
+                    format!("{}T{}", today, hour)
+                } else {
+                    hour.clone()
+                };
                 tokens_by_hour.push(TimeSeriesPoint {
-                    label: hour.clone(),
+                    label,
                     value: v,
                 });
             }
         }
         tokens_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
-        if tokens_by_hour.len() > 24 {
-            tokens_by_hour = tokens_by_hour.split_off(tokens_by_hour.len() - 24);
+        // Keep last 168 hours (7 days worth)
+        if tokens_by_hour.len() > 168 {
+            tokens_by_hour = tokens_by_hour.split_off(tokens_by_hour.len() - 168);
         }
     }
     
@@ -2602,6 +2803,30 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
         }
     }
     
+    // Parse requests_by_hour from proxy (source of truth for Activity Patterns heatmap)
+    if let Some(rbh) = usage.get("requests_by_hour").and_then(|v| v.as_object()) {
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        for (hour, value) in rbh {
+            if let Some(v) = value.as_u64() {
+                // Normalize to YYYY-MM-DDTHH format if only HH is provided
+                let label = if hour.len() == 2 {
+                    format!("{}T{}", today, hour)
+                } else {
+                    hour.clone()
+                };
+                requests_by_hour.push(TimeSeriesPoint {
+                    label,
+                    value: v,
+                });
+            }
+        }
+        requests_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+        // Keep last 168 hours (7 days worth)
+        if requests_by_hour.len() > 168 {
+            requests_by_hour = requests_by_hour.split_off(requests_by_hour.len() - 168);
+        }
+    }
+    
     // Update local history with synced data
     let mut history = load_request_history();
     history.total_tokens_in = total_input;
@@ -2609,7 +2834,7 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
     history.total_tokens_cached = total_cached;
     history.total_cost_usd = total_cost;
     history.tokens_by_day = tokens_by_day.clone();
-    history.tokens_by_hour = tokens_by_hour;
+    history.tokens_by_hour = tokens_by_hour.clone();
     
     // Save updated history
     save_request_history(&history)?;
@@ -2638,6 +2863,34 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
         }
     }
     agg.requests_by_day.sort_by(|a, b| a.label.cmp(&b.label));
+    
+    // Merge requests_by_hour into aggregate (for Activity Patterns heatmap)
+    for point in &requests_by_hour {
+        if let Some(existing) = agg.requests_by_hour.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value; // Update with proxy value
+        } else {
+            agg.requests_by_hour.push(point.clone());
+        }
+    }
+    agg.requests_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+    // Trim to last 168 hours (7 days)
+    if agg.requests_by_hour.len() > 168 {
+        agg.requests_by_hour = agg.requests_by_hour.split_off(agg.requests_by_hour.len() - 168);
+    }
+    
+    // Merge tokens_by_hour into aggregate
+    for point in &tokens_by_hour {
+        if let Some(existing) = agg.tokens_by_hour.iter_mut().find(|p| p.label == point.label) {
+            existing.value = point.value; // Update with proxy value
+        } else {
+            agg.tokens_by_hour.push(point.clone());
+        }
+    }
+    agg.tokens_by_hour.sort_by(|a, b| a.label.cmp(&b.label));
+    // Trim to last 168 hours (7 days)
+    if agg.tokens_by_hour.len() > 168 {
+        agg.tokens_by_hour = agg.tokens_by_hour.split_off(agg.tokens_by_hour.len() - 168);
+    }
     
     // Update total_requests from proxy data if available
     if !requests_by_day.is_empty() {
@@ -2683,6 +2936,14 @@ async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHist
             }
         }
     }
+    
+    // Update total_success_count from synced model stats (proxy only tracks successful requests)
+    let synced_success: u64 = agg.model_stats.values().map(|s| s.success_count).sum();
+    if synced_success > agg.total_success_count {
+        agg.total_success_count = synced_success;
+    }
+    // Update total_tokens_cached in aggregate
+    agg.total_tokens_cached = total_cached;
     
     let _ = save_aggregate(&agg);
     
