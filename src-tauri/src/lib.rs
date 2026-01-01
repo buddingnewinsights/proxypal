@@ -3719,7 +3719,7 @@ async fn get_available_models(state: State<'_, AppState>) -> Result<Vec<Availabl
     let endpoint = format!("http://localhost:{}/v1/models", config.port);
     
     let response = match client.get(&endpoint)
-        .header("Authorization", "Bearer proxypal-local")
+        .header("Authorization", format!("Bearer {}", config.proxy_api_key))
         .send()
         .await
     {
