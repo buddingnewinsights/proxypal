@@ -126,6 +126,10 @@ Native macOS SwiftUI app for managing CLI AI sessions (Codex, Claude Code, Gemin
 
 Windows-native CLIProxyAPI fork with TUI, system tray, and multi-provider OAuth for AI coding tools - no API keys needed.
 
+### [9Router](https://github.com/decolua/9router)
+
+A Next.js implementation inspired by CLIProxyAPI. Easy to install and use. Built from scratch with format translation (OpenAI/Claude/Gemini/Ollama), combo system with auto-fallback, multi-account management with exponential backoff, and Next.js web dashboard. Supports CLI tools (Cursor, Claude Code, Cline, RooCode).
+
 > [!NOTE]  
 > If you developed a project based on CLIProxyAPI, please open a PR to add it to this list.
 
