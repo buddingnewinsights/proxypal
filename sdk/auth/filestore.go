@@ -300,13 +300,10 @@ func metadataEqualIgnoringTimestamps(a, b []byte, provider string) bool {
 	// - timestamp, expired, expires_in, last_refresh: time-related fields that change on refresh
 	ignoredFields := []string{"timestamp", "expired", "expires_in", "last_refresh"}
 
-	// Providers that issue new access_token on every refresh and can re-fetch when needed.
-	// For these providers, we also ignore access_token to avoid unnecessary file writes.
-	providersIgnoringAccessToken := map[string]bool{
-		"gemini":     true,
-		"gemini-cli": true,
-	}
-	if providersIgnoringAccessToken[provider] {
+	// For providers that can re-fetch tokens when needed (e.g., Google OAuth),
+	// we ignore access_token to avoid unnecessary file writes.
+	switch provider {
+	case "gemini", "gemini-cli":
 		ignoredFields = append(ignoredFields, "access_token")
 	}
 
