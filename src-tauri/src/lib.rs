@@ -902,8 +902,17 @@ async fn start_proxy(
     // apply to ALL requests matching gpt-5*, including those routed to Claude via model mapping.
     // Users should use model suffix like gpt-5(high) to specify reasoning effort, which
     // CLIProxyAPI handles via applyReasoningEffortMetadata() from request metadata.
+    // Gemini 3 models get higher thinking budget (they support up to 24k)
+    let gemini3_thinking_budget = match thinking_budget {
+        2048 => 4096,      // low -> slightly higher for Gemini
+        8192 => 16384,     // medium -> 16k for Gemini
+        32768 => 24576,    // high -> max 24k for Gemini
+        custom => std::cmp::min(custom, 24576), // cap at 24k
+    };
+    
     let payload_section = format!(r#"# Payload injection for thinking models
 # Antigravity Claude: Thinking budget mode: {} ({} tokens)
+# Gemini 3: Thinking budget: {} tokens
 payload:
   default:
     # Antigravity Claude models - thinking budget
@@ -921,12 +930,22 @@ payload:
           protocol: "claude"
       params:
         "thinking.budget_tokens": {}
+    # Gemini 3 models - thinking budget
+    - models:
+        - name: "gemini-3-pro-preview"
+          protocol: "gemini"
+        - name: "gemini-3-flash-preview"
+          protocol: "gemini"
+      params:
+        "generationConfig.thinkingConfig.thinkingBudget": {}
 
 "#, 
         thinking_mode_display,
         thinking_budget,
+        gemini3_thinking_budget,
         thinking_budget,
-        thinking_budget
+        thinking_budget,
+        gemini3_thinking_budget
     );
     
     // Build routing section based on config
