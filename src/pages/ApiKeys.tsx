@@ -96,6 +96,10 @@ export function ApiKeysPage() {
 	// Fetch models state
 	const [fetchingModels, setFetchingModels] = createSignal(false);
 
+	// Bulk add mode for OpenAI-compatible providers
+	const [bulkAddMode, setBulkAddMode] = createSignal(false);
+	const [bulkKeysInput, setBulkKeysInput] = createSignal("");
+
 	// Load keys when tab changes or proxy starts
 	createEffect(() => {
 		if (proxyStatus().running) {
@@ -305,6 +309,8 @@ export function ApiKeysPage() {
 				apiKeyEntries: [{ apiKey: "" }],
 			});
 			setShowAddForm(false);
+			setBulkAddMode(false);
+			setBulkKeysInput("");
 			toastStore.success("OpenAI-compatible provider added");
 		} catch (error) {
 			toastStore.error("Failed to add provider", String(error));
@@ -329,10 +335,24 @@ export function ApiKeysPage() {
 
 	const handleEditProvider = (index: number) => {
 		setEditingIndex(index);
+		const provider = openaiProviders()[index];
 		setNewOpenaiProvider({
-			...openaiProviders()[index],
-			apiKeyEntries: [...openaiProviders()[index].apiKeyEntries],
+			...provider,
+			apiKeyEntries: [...provider.apiKeyEntries],
 		});
+		// If provider has multiple keys, default to bulk mode
+		if (provider.apiKeyEntries.length > 1) {
+			setBulkAddMode(true);
+			setBulkKeysInput(
+				provider.apiKeyEntries
+					.map((e) => e.apiKey)
+					.filter((k) => k.trim())
+					.join("\n"),
+			);
+		} else {
+			setBulkAddMode(false);
+			setBulkKeysInput("");
+		}
 		setShowAddForm(true);
 	};
 
@@ -365,6 +385,8 @@ export function ApiKeysPage() {
 			});
 			setEditingIndex(null);
 			setShowAddForm(false);
+			setBulkAddMode(false);
+			setBulkKeysInput("");
 			toastStore.success("Provider updated");
 		} catch (error) {
 			toastStore.error("Failed to update provider", String(error));
@@ -382,6 +404,8 @@ export function ApiKeysPage() {
 			models: [],
 		});
 		setShowAddForm(false);
+		setBulkAddMode(false);
+		setBulkKeysInput("");
 	};
 
 	const handleOpenModelManager = (index: number) => {
@@ -1479,23 +1503,79 @@ export function ApiKeysPage() {
 											class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
 										/>
 									</label>
-									<label class="block">
-										<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-											API Key *
-										</span>
-										<input
-											type="password"
-											value={newOpenaiProvider().apiKeyEntries[0]?.apiKey || ""}
-											onInput={(e) =>
-												setNewOpenaiProvider({
-													...newOpenaiProvider(),
-													apiKeyEntries: [{ apiKey: e.currentTarget.value }],
-												})
-											}
-											placeholder="sk-or-..."
-											class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-										/>
-									</label>
+									{/* API Key(s) section with toggle */}
+									<div class="space-y-2">
+										<div class="flex items-center justify-between">
+											<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+												API Key(s) *
+											</span>
+											<button
+												type="button"
+												onClick={() => {
+													setBulkAddMode(!bulkAddMode());
+													// When switching to bulk mode, populate textarea with existing keys
+													if (!bulkAddMode()) {
+														const existingKeys = newOpenaiProvider()
+															.apiKeyEntries.map((e) => e.apiKey)
+															.filter((k) => k.trim())
+															.join("\n");
+														setBulkKeysInput(existingKeys);
+													}
+												}}
+												class="text-xs text-brand-600 dark:text-brand-400 hover:underline"
+											>
+												{bulkAddMode() ? "Single key" : "Bulk add"}
+											</button>
+										</div>
+
+										<Show when={!bulkAddMode()}>
+											<input
+												type="password"
+												value={
+													newOpenaiProvider().apiKeyEntries[0]?.apiKey || ""
+												}
+												onInput={(e) =>
+													setNewOpenaiProvider({
+														...newOpenaiProvider(),
+														apiKeyEntries: [{ apiKey: e.currentTarget.value }],
+													})
+												}
+												placeholder="sk-or-..."
+												class="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+											/>
+										</Show>
+
+										<Show when={bulkAddMode()}>
+											<textarea
+												value={bulkKeysInput()}
+												onInput={(e) => {
+													setBulkKeysInput(e.currentTarget.value);
+													// Parse keys and update provider state
+													const keys = e.currentTarget.value
+														.split("\n")
+														.map((k) => k.trim())
+														.filter((k) => k.length > 0)
+														.map((apiKey) => ({ apiKey }));
+													setNewOpenaiProvider({
+														...newOpenaiProvider(),
+														apiKeyEntries:
+															keys.length > 0 ? keys : [{ apiKey: "" }],
+													});
+												}}
+												placeholder="Paste multiple API keys, one per line:&#10;sk-key1...&#10;sk-key2...&#10;sk-key3..."
+												rows={5}
+												class="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono"
+											/>
+											<p class="text-xs text-gray-500 dark:text-gray-400">
+												{
+													newOpenaiProvider().apiKeyEntries.filter((e) =>
+														e.apiKey.trim(),
+													).length
+												}{" "}
+												key(s) detected
+											</p>
+										</Show>
+									</div>
 									<label class="block">
 										<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
 											Prefix (optional)

@@ -2,8 +2,7 @@
 
 ## Commands
 
-- **Dev**: `pnpm dev` (Vite) or `pnpm tauri dev` (Tauri app)
-- **Build**: `pnpm build` or `pnpm tauri build`
+- **Dev**: `pnpm tauri dev`
 - **Type check**: `pnpm tsc --noEmit`
 - **Rust check**: `cd src-tauri && cargo check`
 
@@ -11,80 +10,68 @@
 
 ### TypeScript (Frontend - SolidJS)
 
-- Use functional components with arrow functions for handlers
-- Props interfaces: `interface ComponentProps { ... }` directly above component
-- Imports: external libs → internal aliases (`../lib`, `../stores`) → relative (`./ui`)
-- Use `type` imports for type-only: `import type { Provider } from "../lib/tauri"`
-- Signals: `const [value, setValue] = createSignal(initial)`
-- Tailwind for styling; use `class` not `className`
+- **Components**: Functional components with `interface Props` directly above.
+- **Reactivity**: Use `createSignal`, `createMemo`, and `splitProps` for clean prop handling.
+- **Tailwind**: Use `class` instead of `className`.
+- **Imports**: External -> Internal Aliases (`../lib`, `../stores`) -> Relative.
+
+```tsx
+interface ButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary" | "secondary";
+}
+
+export function Button(props: ButtonProps) {
+  const [local, others] = splitProps(props, ["variant", "class", "children"]);
+  return (
+    <button class={`btn-${local.variant} ${local.class}`} {...others}>
+      {local.children}
+    </button>
+  );
+}
+```
 
 ### Rust (Backend - Tauri)
 
-- Structs: derive `Serialize, Deserialize` for IPC types
-- Use `#[tauri::command]` for exposed functions
-- State: wrap in `Mutex<T>`, access via `State<AppState>`
-- camelCase for JSON fields via `#[serde(rename = "camelCase")]`
-- Error handling: return `Result<T, String>` from commands
+- **Commands**: Return `Result<T, String>` for error propagation.
+- **State**: Access via `State<AppState>`, handle mutex locking gracefully.
+- **JSON**: Use `#[serde(rename_all = "camelCase")]` for frontend compatibility.
 
-<!-- bv-agent-instructions-v1 -->
+```rust
+#[tauri::command]
+pub fn save_config(state: State<AppState>, config: AppConfig) -> Result<(), String> {
+    let mut current_config = state.config.lock().unwrap();
+    *current_config = config;
+    save_config_to_file(&current_config)?;
+    Ok(())
+}
+```
+
+## Boundaries
+
+✅ **Always**:
+
+- Run `pnpm tsc --noEmit` and `cargo check` before claiming a task is done.
+- Use `bd sync` after creating or closing issues.
+- Preserve existing Tailwind styling patterns for cards and badges.
+
+⚠️ **Ask first**:
+
+- Adding new external dependencies.
+- Modifying `AppConfig` schema or global state structure.
+- Changing CLIProxyAPI lifecycle management logic.
+
+🚫 **Never**:
+
+- Commit secrets or `.env` files.
+- Use blocking IO in async Rust tasks without `spawn_blocking`.
+- Modify `dist/` or `src-tauri/target/` directories manually.
+
+## Beads Workflow
+
+1. **Claim**: `bd update <id> --status in_progress`
+2. **Work**: Implement change -> `git add` -> `bd sync`
+3. **Finish**: `bd close <id> --reason "..."` -> `bd sync` -> `git commit` -> `git push`
 
 ---
 
-## Beads Workflow Integration
-
-This project uses [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) for issue tracking. Issues are stored in `.beads/` and tracked in git.
-
-### Essential Commands
-
-```bash
-# View issues (launches TUI - avoid in automated sessions)
-bv
-
-# CLI commands for agents (use these instead)
-bd ready              # Show issues ready to work (no blockers)
-bd list --status=open # All open issues
-bd show <id>          # Full issue details with dependencies
-bd create --title="..." --type=task --priority=2
-bd update <id> --status=in_progress
-bd close <id> --reason="Completed"
-bd close <id1> <id2>  # Close multiple issues at once
-bd sync               # Commit and push changes
-```
-
-### Workflow Pattern
-
-1. **Start**: Run `bd ready` to find actionable work
-2. **Claim**: Use `bd update <id> --status=in_progress`
-3. **Work**: Implement the task
-4. **Complete**: Use `bd close <id>`
-5. **Sync**: Always run `bd sync` at session end
-
-### Key Concepts
-
-- **Dependencies**: Issues can block other issues. `bd ready` shows only unblocked work.
-- **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers, not words)
-- **Types**: task, bug, feature, epic, question, docs
-- **Blocking**: `bd dep add <issue> <depends-on>` to add dependencies
-
-### Session Protocol
-
-**Before ending any session, run this checklist:**
-
-```bash
-git status              # Check what changed
-git add <files>         # Stage code changes
-bd sync                 # Commit beads changes
-git commit -m "..."     # Commit code
-bd sync                 # Commit any new beads changes
-git push                # Push to remote
-```
-
-### Best Practices
-
-- Check `bd ready` at session start to find available work
-- Update status as you work (in_progress → closed)
-- Create new issues with `bd create` when you discover tasks
-- Use descriptive titles and set appropriate priority/type
-- Always `bd sync` before ending session
-
-<!-- end-bv-agent-instructions -->
+_Refer to .opencode/memory/ for detailed architecture and conventions._
