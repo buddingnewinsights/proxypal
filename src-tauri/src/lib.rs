@@ -5014,21 +5014,6 @@ export AMP_API_KEY="proxypal-local"
                             "reasoningEffort": "high"
                         });
                     }
-                } else if m.id.starts_with("gemini-3-") && (m.id.contains("-pro") || m.id.contains("-flash")) && !m.id.contains("-image") {
-                    // Gemini 3 Pro/Flash models support thinking (not image models)
-                    // Scale budget for Gemini 3 (max 24k)
-                    let gemini_budget: u64 = match thinking_budget {
-                        b if b <= 2048 => 4096,
-                        b if b <= 8192 => 16384,
-                        _ => 24576,
-                    };
-                    model_config["reasoning"] = serde_json::json!(true);
-                    model_config["options"] = serde_json::json!({
-                        "thinking": {
-                            "type": "enabled",
-                            "budgetTokens": gemini_budget
-                        }
-                    });
                 } else if is_gpt5_model && user_reasoning_effort != "none" {
                     // Add reasoning effort for GPT-5.x models (Codex)
                     model_config["reasoning"] = serde_json::json!(true);
