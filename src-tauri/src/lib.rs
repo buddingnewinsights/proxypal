@@ -4991,10 +4991,12 @@ export AMP_API_KEY="proxypal-local"
                 let is_thinking_model = m.id.ends_with("-thinking");
                 // Check if this is a GPT-5.x model (Codex reasoning models)
                 let is_gpt5_model = m.id.starts_with("gpt-5");
+                // Check if this is a Gemini 3 model (native thinking support)
+                let is_gemini3_model = m.id.starts_with("gemini-3-") && !m.id.contains("image");
                 // Use user's configured thinking budget
                 let thinking_budget: u64 = user_thinking_budget;
                 let min_thinking_output: u64 = thinking_budget + 8192;  // thinking + 8K buffer for response
-                let effective_output_limit = if is_thinking_model { 
+                let effective_output_limit = if is_thinking_model || is_gemini3_model { 
                     std::cmp::max(output_limit, min_thinking_output) 
                 } else { 
                     output_limit 
@@ -5023,6 +5025,17 @@ export AMP_API_KEY="proxypal-local"
                             "reasoningEffort": "high"
                         });
                     }
+                } else if is_gemini3_model {
+                    // Gemini 3 models use generationConfig.thinkingConfig
+                    model_config["reasoning"] = serde_json::json!(true);
+                    model_config["options"] = serde_json::json!({
+                        "generationConfig": {
+                            "thinkingConfig": {
+                                "thinkingLevel": "HIGH",
+                                "includeThoughts": true
+                            }
+                        }
+                    });
                 } else if is_gpt5_model && user_reasoning_effort != "none" {
                     // Add reasoning effort for GPT-5.x models (Codex)
                     model_config["reasoning"] = serde_json::json!(true);
