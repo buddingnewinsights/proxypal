@@ -49,7 +49,6 @@ const idempotencyKeyMetadataKey = "idempotency_key"
 const (
 	defaultStreamingKeepAliveSeconds = 0
 	defaultStreamingBootstrapRetries = 0
-	nonStreamingKeepAliveInterval    = 5 * time.Second
 )
 
 // BuildErrorResponseBody builds an OpenAI-compatible JSON error response body.
@@ -108,6 +107,19 @@ func StreamingKeepAliveInterval(cfg *config.SDKConfig) time.Duration {
 	seconds := defaultStreamingKeepAliveSeconds
 	if cfg != nil {
 		seconds = cfg.Streaming.KeepAliveSeconds
+	}
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+// NonStreamingKeepAliveInterval returns the keep-alive interval for non-streaming responses.
+// Returning 0 disables keep-alives (default when unset).
+func NonStreamingKeepAliveInterval(cfg *config.SDKConfig) time.Duration {
+	seconds := 0
+	if cfg != nil {
+		seconds = cfg.NonStreamKeepAliveInterval
 	}
 	if seconds <= 0 {
 		return 0
@@ -298,10 +310,11 @@ func (h *BaseAPIHandler) GetContextWithCancel(handler interfaces.APIHandler, c *
 // StartNonStreamingKeepAlive emits blank lines every 5 seconds while waiting for a non-streaming response.
 // It returns a stop function that must be called before writing the final response.
 func (h *BaseAPIHandler) StartNonStreamingKeepAlive(c *gin.Context, ctx context.Context) func() {
-	if h == nil || h.Cfg == nil || !h.Cfg.NonStreamKeepAlive {
+	if h == nil || c == nil {
 		return func() {}
 	}
-	if c == nil {
+	interval := NonStreamingKeepAliveInterval(h.Cfg)
+	if interval <= 0 {
 		return func() {}
 	}
 	flusher, ok := c.Writer.(http.Flusher)
@@ -318,7 +331,7 @@ func (h *BaseAPIHandler) StartNonStreamingKeepAlive(c *gin.Context, ctx context.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(nonStreamingKeepAliveInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {

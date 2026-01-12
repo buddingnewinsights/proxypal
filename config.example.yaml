@@ -77,8 +77,8 @@ routing:
 # When true, enable authentication for the WebSocket API (/v1/ws).
 ws-auth: false
 
-# When true, emit blank lines every 5s for non-streaming responses to prevent idle timeouts.
-nonstream-keepalive: false
+# When > 0, emit blank lines every N seconds for non-streaming responses to prevent idle timeouts.
+nonstream-keepalive-interval: 0
 
 # Streaming behavior (SSE keep-alives + safe bootstrap retries).
 # streaming:
