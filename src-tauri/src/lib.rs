@@ -5004,7 +5004,11 @@ export AMP_API_KEY="proxypal-local"
                 // Determine modalities based on model capabilities
                 // Multimodal models support text + image + pdf input
                 // gemini-claude-* models are ProxyPal's Gemini-powered Claude-compatible models
-                let is_multimodal = m.id.starts_with("gemini-claude-");
+                // gemini-2.5-* models also support image/pdf
+                // gemini-3-* models also support image/pdf
+                let is_multimodal = m.id.starts_with("gemini-claude-") 
+                    || m.id.starts_with("gemini-2.5-") 
+                    || (m.id.starts_with("gemini-3-") && !m.id.contains("image"));
                 
                 let mut model_config = serde_json::json!({
                     "name": display_name,
@@ -5019,6 +5023,13 @@ export AMP_API_KEY="proxypal-local"
                     });
                 }
                 
+                // Map thinking budget mode to thinking level string for Gemini 3 variants
+                let thinking_level_from_budget = match user_thinking_budget {
+                    0..=2048 => "low",
+                    2049..=16383 => "medium",
+                    _ => "high"
+                };
+                
                 if is_thinking_model {
                     // Enable extended thinking
                     model_config["reasoning"] = serde_json::json!(true);
@@ -5026,6 +5037,21 @@ export AMP_API_KEY="proxypal-local"
                     // vs OpenAI o-series (uses reasoningEffort)
                     let is_claude_thinking = m.id.contains("claude") && m.id.ends_with("-thinking");
                     if is_claude_thinking {
+                        // Add variants for gemini-claude-*-thinking models
+                        let low_budget = 8192u64;
+                        let max_budget = 32768u64;
+                        model_config["variants"] = serde_json::json!({
+                            "low": {
+                                "thinkingConfig": {
+                                    "thinkingBudget": low_budget
+                                }
+                            },
+                            "max": {
+                                "thinkingConfig": {
+                                    "thinkingBudget": max_budget
+                                }
+                            }
+                        });
                         model_config["options"] = serde_json::json!({
                             "thinking": {
                                 "type": "enabled",
@@ -5041,10 +5067,24 @@ export AMP_API_KEY="proxypal-local"
                 } else if is_gemini3_model {
                     // Gemini 3 models use generationConfig.thinkingConfig
                     model_config["reasoning"] = serde_json::json!(true);
+                    
+                    // Add variants for Gemini 3 models based on user's thinking budget
+                    model_config["variants"] = serde_json::json!({
+                        "low": {
+                            "thinkingLevel": "low"
+                        },
+                        "medium": {
+                            "thinkingLevel": "medium"
+                        },
+                        "high": {
+                            "thinkingLevel": "high"
+                        }
+                    });
+                    
                     model_config["options"] = serde_json::json!({
                         "generationConfig": {
                             "thinkingConfig": {
-                                "thinkingLevel": "HIGH",
+                                "thinkingLevel": thinking_level_from_budget,
                                 "includeThoughts": true
                             }
                         }
