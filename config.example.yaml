@@ -206,7 +206,22 @@ nonstream-keepalive-interval: 0
 # Supported channels: gemini-cli, vertex, aistudio, antigravity, claude, codex, qwen, iflow.
 # NOTE: Mappings do not apply to gemini-api-key, codex-api-key, claude-api-key, openai-compatibility, vertex-api-key, or ampcode.
 # You can repeat the same name with different aliases to expose multiple client model names.
-# oauth-model-mappings:
+oauth-model-mappings:
+  antigravity:
+    - name: "rev19-uic3-1p"
+      alias: "gemini-2.5-computer-use-preview-10-2025"
+    - name: "gemini-3-pro-image"
+      alias: "gemini-3-pro-image-preview"
+    - name: "gemini-3-pro-high"
+      alias: "gemini-3-pro-preview"
+    - name: "gemini-3-flash"
+      alias: "gemini-3-flash-preview"
+    - name: "claude-sonnet-4-5"
+      alias: "gemini-claude-sonnet-4-5"
+    - name: "claude-sonnet-4-5-thinking"
+      alias: "gemini-claude-sonnet-4-5-thinking"
+    - name: "claude-opus-4-5-thinking"
+      alias: "gemini-claude-opus-4-5-thinking"
 #   gemini-cli:
 #     - name: "gemini-2.5-pro"          # original model name under this channel
 #       alias: "g2.5p"                  # client-visible alias
@@ -217,9 +232,6 @@ nonstream-keepalive-interval: 0
 #   aistudio:
 #     - name: "gemini-2.5-pro"
 #       alias: "g2.5p"
-#   antigravity:
-#     - name: "gemini-3-pro-preview"
-#       alias: "g3p"
 #   claude:
 #     - name: "claude-sonnet-4-5-20250929"
 #       alias: "cs4.5"
