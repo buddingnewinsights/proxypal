@@ -66,7 +66,7 @@ func TestLookupAPIKeyUpstreamModel(t *testing.T) {
 	}
 }
 
-func TestAPIKeyModelMappings_ConfigHotReload(t *testing.T) {
+func TestAPIKeyModelAlias_ConfigHotReload(t *testing.T) {
 	cfg := &internalconfig.Config{
 		GeminiKey: []internalconfig.GeminiKey{
 			{
@@ -82,12 +82,12 @@ func TestAPIKeyModelMappings_ConfigHotReload(t *testing.T) {
 	ctx := context.Background()
 	_, _ = mgr.Register(ctx, &Auth{ID: "a1", Provider: "gemini", Attributes: map[string]string{"api_key": "k"}})
 
-	// Initial mapping
+	// Initial alias
 	if resolved := mgr.lookupAPIKeyUpstreamModel("a1", "g25p"); resolved != "gemini-2.5-pro-exp-03-25" {
 		t.Fatalf("before reload: got %q, want %q", resolved, "gemini-2.5-pro-exp-03-25")
 	}
 
-	// Hot reload with new mapping
+	// Hot reload with new alias
 	mgr.SetConfig(&internalconfig.Config{
 		GeminiKey: []internalconfig.GeminiKey{
 			{
@@ -97,13 +97,13 @@ func TestAPIKeyModelMappings_ConfigHotReload(t *testing.T) {
 		},
 	})
 
-	// New mapping should take effect
+	// New alias should take effect
 	if resolved := mgr.lookupAPIKeyUpstreamModel("a1", "g25p"); resolved != "gemini-2.5-flash" {
 		t.Fatalf("after reload: got %q, want %q", resolved, "gemini-2.5-flash")
 	}
 }
 
-func TestAPIKeyModelMappings_MultipleProviders(t *testing.T) {
+func TestAPIKeyModelAlias_MultipleProviders(t *testing.T) {
 	cfg := &internalconfig.Config{
 		GeminiKey: []internalconfig.GeminiKey{{APIKey: "gemini-key", Models: []internalconfig.GeminiModel{{Name: "gemini-2.5-pro", Alias: "gp"}}}},
 		ClaudeKey: []internalconfig.ClaudeKey{{APIKey: "claude-key", Models: []internalconfig.ClaudeModel{{Name: "claude-sonnet-4", Alias: "cs4"}}}},
@@ -133,7 +133,7 @@ func TestAPIKeyModelMappings_MultipleProviders(t *testing.T) {
 	}
 }
 
-func TestApplyAPIKeyModelMapping(t *testing.T) {
+func TestApplyAPIKeyModelAlias(t *testing.T) {
 	cfg := &internalconfig.Config{
 		GeminiKey: []internalconfig.GeminiKey{
 			{APIKey: "k", Models: []internalconfig.GeminiModel{{Name: "gemini-2.5-pro-exp-03-25", Alias: "g25p"}}},
@@ -170,7 +170,7 @@ func TestApplyAPIKeyModelMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolvedModel := mgr.applyAPIKeyModelMapping(tt.auth, tt.inputModel)
+			resolvedModel := mgr.applyAPIKeyModelAlias(tt.auth, tt.inputModel)
 
 			if resolvedModel != tt.wantModel {
 				t.Errorf("model = %q, want %q", resolvedModel, tt.wantModel)

@@ -10,15 +10,15 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		mappings map[string][]internalconfig.ModelNameMapping
-		channel  string
-		input    string
-		want     string
+		name    string
+		aliases map[string][]internalconfig.OAuthModelAlias
+		channel string
+		input   string
+		want    string
 	}{
 		{
 			name: "numeric suffix preserved",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "gemini-cli",
@@ -27,7 +27,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "level suffix preserved",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"claude": {{Name: "claude-sonnet-4-5-20250514", Alias: "claude-sonnet-4-5"}},
 			},
 			channel: "claude",
@@ -36,7 +36,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "no suffix unchanged",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "gemini-cli",
@@ -45,7 +45,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "config suffix takes priority",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"claude": {{Name: "claude-sonnet-4-5-20250514(low)", Alias: "claude-sonnet-4-5"}},
 			},
 			channel: "claude",
@@ -54,7 +54,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "auto suffix preserved",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "gemini-cli",
@@ -63,7 +63,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "none suffix preserved",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "gemini-cli",
@@ -72,7 +72,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "case insensitive alias lookup with suffix",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "Gemini-2.5-Pro"}},
 			},
 			channel: "gemini-cli",
@@ -80,8 +80,8 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 			want:    "gemini-2.5-pro-exp-03-25(high)",
 		},
 		{
-			name: "no mapping returns empty",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			name: "no alias returns empty",
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "gemini-cli",
@@ -90,7 +90,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "wrong channel returns empty",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "claude",
@@ -99,7 +99,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "empty suffix filtered out",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 			},
 			channel: "gemini-cli",
@@ -108,7 +108,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 		},
 		{
 			name: "incomplete suffix treated as no suffix",
-			mappings: map[string][]internalconfig.ModelNameMapping{
+			aliases: map[string][]internalconfig.OAuthModelAlias{
 				"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro(high"}},
 			},
 			channel: "gemini-cli",
@@ -123,7 +123,7 @@ func TestResolveOAuthUpstreamModel_SuffixPreservation(t *testing.T) {
 
 			mgr := NewManager(nil, nil, nil)
 			mgr.SetConfig(&internalconfig.Config{})
-			mgr.SetOAuthModelMappings(tt.mappings)
+			mgr.SetOAuthModelAlias(tt.aliases)
 
 			auth := createAuthForChannel(tt.channel)
 			got := mgr.resolveOAuthUpstreamModel(auth, tt.input)
@@ -157,21 +157,21 @@ func createAuthForChannel(channel string) *Auth {
 	}
 }
 
-func TestApplyOAuthModelMapping_SuffixPreservation(t *testing.T) {
+func TestApplyOAuthModelAlias_SuffixPreservation(t *testing.T) {
 	t.Parallel()
 
-	mappings := map[string][]internalconfig.ModelNameMapping{
+	aliases := map[string][]internalconfig.OAuthModelAlias{
 		"gemini-cli": {{Name: "gemini-2.5-pro-exp-03-25", Alias: "gemini-2.5-pro"}},
 	}
 
 	mgr := NewManager(nil, nil, nil)
 	mgr.SetConfig(&internalconfig.Config{})
-	mgr.SetOAuthModelMappings(mappings)
+	mgr.SetOAuthModelAlias(aliases)
 
 	auth := &Auth{ID: "test-auth-id", Provider: "gemini-cli"}
 
-	resolvedModel := mgr.applyOAuthModelMapping(auth, "gemini-2.5-pro(8192)")
+	resolvedModel := mgr.applyOAuthModelAlias(auth, "gemini-2.5-pro(8192)")
 	if resolvedModel != "gemini-2.5-pro-exp-03-25(8192)" {
-		t.Errorf("applyOAuthModelMapping() model = %q, want %q", resolvedModel, "gemini-2.5-pro-exp-03-25(8192)")
+		t.Errorf("applyOAuthModelAlias() model = %q, want %q", resolvedModel, "gemini-2.5-pro-exp-03-25(8192)")
 	}
 }

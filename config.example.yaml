@@ -201,12 +201,12 @@ nonstream-keepalive-interval: 0
 #     - from: "claude-haiku-4-5-20251001"
 #       to: "gemini-2.5-flash"
 
-# Global OAuth model name mappings (per channel)
-# These mappings rename model IDs for both model listing and request routing.
+# Global OAuth model name aliases (per channel)
+# These aliases rename model IDs for both model listing and request routing.
 # Supported channels: gemini-cli, vertex, aistudio, antigravity, claude, codex, qwen, iflow.
-# NOTE: Mappings do not apply to gemini-api-key, codex-api-key, claude-api-key, openai-compatibility, vertex-api-key, or ampcode.
+# NOTE: Aliases do not apply to gemini-api-key, codex-api-key, claude-api-key, openai-compatibility, vertex-api-key, or ampcode.
 # You can repeat the same name with different aliases to expose multiple client model names.
-oauth-model-mappings:
+oauth-model-alias:
   antigravity:
     - name: "rev19-uic3-1p"
       alias: "gemini-2.5-computer-use-preview-10-2025"

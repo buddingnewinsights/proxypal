@@ -119,16 +119,16 @@ type Manager struct {
 	requestRetry     atomic.Int32
 	maxRetryInterval atomic.Int64
 
-	// modelNameMappings stores global model name alias mappings (alias -> upstream name) keyed by channel.
-	modelNameMappings atomic.Value
+	// oauthModelAlias stores global OAuth model alias mappings (alias -> upstream name) keyed by channel.
+	oauthModelAlias atomic.Value
+
+	// apiKeyModelAlias caches resolved model alias mappings for API-key auths.
+	// Keyed by auth.ID, value is alias(lower) -> upstream model (including suffix).
+	apiKeyModelAlias atomic.Value
 
 	// runtimeConfig stores the latest application config for request-time decisions.
 	// It is initialized in NewManager; never Load() before first Store().
 	runtimeConfig atomic.Value
-
-	// apiKeyModelMappings caches resolved model alias mappings for API-key auths.
-	// Keyed by auth.ID, value is alias(lower) -> upstream model (including suffix).
-	apiKeyModelMappings atomic.Value
 
 	// Optional HTTP RoundTripper provider injected by host.
 	rtProvider RoundTripperProvider
@@ -155,7 +155,7 @@ func NewManager(store Store, selector Selector, hook Hook) *Manager {
 	}
 	// atomic.Value requires non-nil initial value.
 	manager.runtimeConfig.Store(&internalconfig.Config{})
-	manager.apiKeyModelMappings.Store(apiKeyModelMappingTable(nil))
+	manager.apiKeyModelAlias.Store(apiKeyModelAliasTable(nil))
 	return manager
 }
 
@@ -195,7 +195,7 @@ func (m *Manager) SetConfig(cfg *internalconfig.Config) {
 		cfg = &internalconfig.Config{}
 	}
 	m.runtimeConfig.Store(cfg)
-	m.rebuildAPIKeyModelMappingsFromRuntimeConfig()
+	m.rebuildAPIKeyModelAliasFromRuntimeConfig()
 }
 
 func (m *Manager) lookupAPIKeyUpstreamModel(authID, requestedModel string) string {
@@ -210,7 +210,7 @@ func (m *Manager) lookupAPIKeyUpstreamModel(authID, requestedModel string) strin
 	if requestedModel == "" {
 		return ""
 	}
-	table, _ := m.apiKeyModelMappings.Load().(apiKeyModelMappingTable)
+	table, _ := m.apiKeyModelAlias.Load().(apiKeyModelAliasTable)
 	if table == nil {
 		return ""
 	}
@@ -238,7 +238,7 @@ func (m *Manager) lookupAPIKeyUpstreamModel(authID, requestedModel string) strin
 
 }
 
-func (m *Manager) rebuildAPIKeyModelMappingsFromRuntimeConfig() {
+func (m *Manager) rebuildAPIKeyModelAliasFromRuntimeConfig() {
 	if m == nil {
 		return
 	}
@@ -248,10 +248,10 @@ func (m *Manager) rebuildAPIKeyModelMappingsFromRuntimeConfig() {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.rebuildAPIKeyModelMappingsLocked(cfg)
+	m.rebuildAPIKeyModelAliasLocked(cfg)
 }
 
-func (m *Manager) rebuildAPIKeyModelMappingsLocked(cfg *internalconfig.Config) {
+func (m *Manager) rebuildAPIKeyModelAliasLocked(cfg *internalconfig.Config) {
 	if m == nil {
 		return
 	}
@@ -259,7 +259,7 @@ func (m *Manager) rebuildAPIKeyModelMappingsLocked(cfg *internalconfig.Config) {
 		cfg = &internalconfig.Config{}
 	}
 
-	out := make(apiKeyModelMappingTable)
+	out := make(apiKeyModelAliasTable)
 	for _, auth := range m.auths {
 		if auth == nil {
 			continue
@@ -277,19 +277,19 @@ func (m *Manager) rebuildAPIKeyModelMappingsLocked(cfg *internalconfig.Config) {
 		switch provider {
 		case "gemini":
 			if entry := resolveGeminiAPIKeyConfig(cfg, auth); entry != nil {
-				compileAPIKeyModelMappingsForModels(byAlias, entry.Models)
+				compileAPIKeyModelAliasForModels(byAlias, entry.Models)
 			}
 		case "claude":
 			if entry := resolveClaudeAPIKeyConfig(cfg, auth); entry != nil {
-				compileAPIKeyModelMappingsForModels(byAlias, entry.Models)
+				compileAPIKeyModelAliasForModels(byAlias, entry.Models)
 			}
 		case "codex":
 			if entry := resolveCodexAPIKeyConfig(cfg, auth); entry != nil {
-				compileAPIKeyModelMappingsForModels(byAlias, entry.Models)
+				compileAPIKeyModelAliasForModels(byAlias, entry.Models)
 			}
 		case "vertex":
 			if entry := resolveVertexAPIKeyConfig(cfg, auth); entry != nil {
-				compileAPIKeyModelMappingsForModels(byAlias, entry.Models)
+				compileAPIKeyModelAliasForModels(byAlias, entry.Models)
 			}
 		default:
 			// OpenAI-compat uses config selection from auth.Attributes.
@@ -301,7 +301,7 @@ func (m *Manager) rebuildAPIKeyModelMappingsLocked(cfg *internalconfig.Config) {
 			}
 			if compatName != "" || strings.EqualFold(strings.TrimSpace(auth.Provider), "openai-compatibility") {
 				if entry := resolveOpenAICompatConfig(cfg, providerKey, compatName, auth.Provider); entry != nil {
-					compileAPIKeyModelMappingsForModels(byAlias, entry.Models)
+					compileAPIKeyModelAliasForModels(byAlias, entry.Models)
 				}
 			}
 		}
@@ -311,10 +311,10 @@ func (m *Manager) rebuildAPIKeyModelMappingsLocked(cfg *internalconfig.Config) {
 		}
 	}
 
-	m.apiKeyModelMappings.Store(out)
+	m.apiKeyModelAlias.Store(out)
 }
 
-func compileAPIKeyModelMappingsForModels[T interface {
+func compileAPIKeyModelAliasForModels[T interface {
 	GetName() string
 	GetAlias() string
 }](out map[string]string, models []T) {
@@ -408,7 +408,7 @@ func (m *Manager) Register(ctx context.Context, auth *Auth) (*Auth, error) {
 	m.mu.Lock()
 	m.auths[auth.ID] = auth.Clone()
 	m.mu.Unlock()
-	m.rebuildAPIKeyModelMappingsFromRuntimeConfig()
+	m.rebuildAPIKeyModelAliasFromRuntimeConfig()
 	_ = m.persist(ctx, auth)
 	m.hook.OnAuthRegistered(ctx, auth.Clone())
 	return auth.Clone(), nil
@@ -427,7 +427,7 @@ func (m *Manager) Update(ctx context.Context, auth *Auth) (*Auth, error) {
 	auth.EnsureIndex()
 	m.auths[auth.ID] = auth.Clone()
 	m.mu.Unlock()
-	m.rebuildAPIKeyModelMappingsFromRuntimeConfig()
+	m.rebuildAPIKeyModelAliasFromRuntimeConfig()
 	_ = m.persist(ctx, auth)
 	m.hook.OnAuthUpdated(ctx, auth.Clone())
 	return auth.Clone(), nil
@@ -456,7 +456,7 @@ func (m *Manager) Load(ctx context.Context) error {
 	if cfg == nil {
 		cfg = &internalconfig.Config{}
 	}
-	m.rebuildAPIKeyModelMappingsLocked(cfg)
+	m.rebuildAPIKeyModelAliasLocked(cfg)
 	return nil
 }
 
@@ -592,8 +592,8 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 		}
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
-		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
-		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyOAuthModelAlias(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelAlias(auth, execReq.Model)
 		resp, errExec := executor.Execute(execCtx, auth, execReq, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: errExec == nil}
 		if errExec != nil {
@@ -641,8 +641,8 @@ func (m *Manager) executeCountMixedOnce(ctx context.Context, providers []string,
 		}
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
-		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
-		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyOAuthModelAlias(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelAlias(auth, execReq.Model)
 		resp, errExec := executor.CountTokens(execCtx, auth, execReq, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: errExec == nil}
 		if errExec != nil {
@@ -690,8 +690,8 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 		}
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
-		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
-		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyOAuthModelAlias(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelAlias(auth, execReq.Model)
 		chunks, errStream := executor.ExecuteStream(execCtx, auth, execReq, opts)
 		if errStream != nil {
 			rerr := &Error{Message: errStream.Error()}
@@ -756,8 +756,8 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 		}
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
-		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
-		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyOAuthModelAlias(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelAlias(auth, execReq.Model)
 		resp, errExec := executor.Execute(execCtx, auth, execReq, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: errExec == nil}
 		if errExec != nil {
@@ -805,8 +805,8 @@ func (m *Manager) executeCountWithProvider(ctx context.Context, provider string,
 		}
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
-		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
-		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyOAuthModelAlias(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelAlias(auth, execReq.Model)
 		resp, errExec := executor.CountTokens(execCtx, auth, execReq, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: errExec == nil}
 		if errExec != nil {
@@ -854,8 +854,8 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 		}
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
-		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
-		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyOAuthModelAlias(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelAlias(auth, execReq.Model)
 		chunks, errStream := executor.ExecuteStream(execCtx, auth, execReq, opts)
 		if errStream != nil {
 			rerr := &Error{Message: errStream.Error()}
@@ -908,7 +908,7 @@ func rewriteModelForAuth(model string, auth *Auth) string {
 	return strings.TrimPrefix(model, needle)
 }
 
-func (m *Manager) applyAPIKeyModelMapping(auth *Auth, requestedModel string) string {
+func (m *Manager) applyAPIKeyModelAlias(auth *Auth, requestedModel string) string {
 	if m == nil || auth == nil {
 		return requestedModel
 	}
@@ -1079,7 +1079,7 @@ func resolveUpstreamModelForOpenAICompatAPIKey(cfg *internalconfig.Config, auth 
 	return resolveModelAliasFromConfigModels(requestedModel, asModelAliasEntries(entry.Models))
 }
 
-type apiKeyModelMappingTable map[string]map[string]string
+type apiKeyModelAliasTable map[string]map[string]string
 
 func resolveOpenAICompatConfig(cfg *internalconfig.Config, providerKey, compatName, authProvider string) *internalconfig.OpenAICompatibility {
 	if cfg == nil {
@@ -1109,11 +1109,11 @@ func resolveOpenAICompatConfig(cfg *internalconfig.Config, providerKey, compatNa
 func asModelAliasEntries[T interface {
 	GetName() string
 	GetAlias() string
-}](models []T) []modelMappingEntry {
+}](models []T) []modelAliasEntry {
 	if len(models) == 0 {
 		return nil
 	}
-	out := make([]modelMappingEntry, 0, len(models))
+	out := make([]modelAliasEntry, 0, len(models))
 	for i := range models {
 		out = append(out, models[i])
 	}

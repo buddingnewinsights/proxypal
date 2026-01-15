@@ -7,24 +7,24 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/thinking"
 )
 
-type modelMappingEntry interface {
+type modelAliasEntry interface {
 	GetName() string
 	GetAlias() string
 }
 
-type modelNameMappingTable struct {
+type oauthModelAliasTable struct {
 	// reverse maps channel -> alias (lower) -> original upstream model name.
 	reverse map[string]map[string]string
 }
 
-func compileModelNameMappingTable(mappings map[string][]internalconfig.ModelNameMapping) *modelNameMappingTable {
-	if len(mappings) == 0 {
-		return &modelNameMappingTable{}
+func compileOAuthModelAliasTable(aliases map[string][]internalconfig.OAuthModelAlias) *oauthModelAliasTable {
+	if len(aliases) == 0 {
+		return &oauthModelAliasTable{}
 	}
-	out := &modelNameMappingTable{
-		reverse: make(map[string]map[string]string, len(mappings)),
+	out := &oauthModelAliasTable{
+		reverse: make(map[string]map[string]string, len(aliases)),
 	}
-	for rawChannel, entries := range mappings {
+	for rawChannel, entries := range aliases {
 		channel := strings.ToLower(strings.TrimSpace(rawChannel))
 		if channel == "" || len(entries) == 0 {
 			continue
@@ -55,24 +55,24 @@ func compileModelNameMappingTable(mappings map[string][]internalconfig.ModelName
 	return out
 }
 
-// SetOAuthModelMappings updates the OAuth model name mapping table used during execution.
-// The mapping is applied per-auth channel to resolve the upstream model name while keeping the
+// SetOAuthModelAlias updates the OAuth model name alias table used during execution.
+// The alias is applied per-auth channel to resolve the upstream model name while keeping the
 // client-visible model name unchanged for translation/response formatting.
-func (m *Manager) SetOAuthModelMappings(mappings map[string][]internalconfig.ModelNameMapping) {
+func (m *Manager) SetOAuthModelAlias(aliases map[string][]internalconfig.OAuthModelAlias) {
 	if m == nil {
 		return
 	}
-	table := compileModelNameMappingTable(mappings)
+	table := compileOAuthModelAliasTable(aliases)
 	// atomic.Value requires non-nil store values.
 	if table == nil {
-		table = &modelNameMappingTable{}
+		table = &oauthModelAliasTable{}
 	}
-	m.modelNameMappings.Store(table)
+	m.oauthModelAlias.Store(table)
 }
 
-// applyOAuthModelMapping resolves the upstream model from OAuth model mappings.
-// If a mapping exists, the returned model is the upstream model.
-func (m *Manager) applyOAuthModelMapping(auth *Auth, requestedModel string) string {
+// applyOAuthModelAlias resolves the upstream model from OAuth model alias.
+// If an alias exists, the returned model is the upstream model.
+func (m *Manager) applyOAuthModelAlias(auth *Auth, requestedModel string) string {
 	upstreamModel := m.resolveOAuthUpstreamModel(auth, requestedModel)
 	if upstreamModel == "" {
 		return requestedModel
@@ -80,7 +80,7 @@ func (m *Manager) applyOAuthModelMapping(auth *Auth, requestedModel string) stri
 	return upstreamModel
 }
 
-func resolveModelAliasFromConfigModels(requestedModel string, models []modelMappingEntry) string {
+func resolveModelAliasFromConfigModels(requestedModel string, models []modelAliasEntry) string {
 	requestedModel = strings.TrimSpace(requestedModel)
 	if requestedModel == "" {
 		return ""
@@ -131,18 +131,18 @@ func resolveModelAliasFromConfigModels(requestedModel string, models []modelMapp
 	return ""
 }
 
-// resolveOAuthUpstreamModel resolves the upstream model name from OAuth model mappings.
-// If a mapping exists, returns the original (upstream) model name that corresponds
+// resolveOAuthUpstreamModel resolves the upstream model name from OAuth model alias.
+// If an alias exists, returns the original (upstream) model name that corresponds
 // to the requested alias.
 //
 // If the requested model contains a thinking suffix (e.g., "gemini-2.5-pro(8192)"),
-// the suffix is preserved in the returned model name. However, if the mapping's
+// the suffix is preserved in the returned model name. However, if the alias's
 // original name already contains a suffix, the config suffix takes priority.
 func (m *Manager) resolveOAuthUpstreamModel(auth *Auth, requestedModel string) string {
-	return resolveUpstreamModelFromMappingTable(m, auth, requestedModel, modelMappingChannel(auth))
+	return resolveUpstreamModelFromAliasTable(m, auth, requestedModel, modelAliasChannel(auth))
 }
 
-func resolveUpstreamModelFromMappingTable(m *Manager, auth *Auth, requestedModel, channel string) string {
+func resolveUpstreamModelFromAliasTable(m *Manager, auth *Auth, requestedModel, channel string) string {
 	if m == nil || auth == nil {
 		return ""
 	}
@@ -160,8 +160,8 @@ func resolveUpstreamModelFromMappingTable(m *Manager, auth *Auth, requestedModel
 		candidates = append(candidates, requestedModel)
 	}
 
-	raw := m.modelNameMappings.Load()
-	table, _ := raw.(*modelNameMappingTable)
+	raw := m.oauthModelAlias.Load()
+	table, _ := raw.(*oauthModelAliasTable)
 	if table == nil || table.reverse == nil {
 		return ""
 	}
@@ -197,10 +197,10 @@ func resolveUpstreamModelFromMappingTable(m *Manager, auth *Auth, requestedModel
 	return ""
 }
 
-// modelMappingChannel extracts the OAuth model mapping channel from an Auth object.
+// modelAliasChannel extracts the OAuth model alias channel from an Auth object.
 // It determines the provider and auth kind from the Auth's attributes and delegates
-// to OAuthModelMappingChannel for the actual channel resolution.
-func modelMappingChannel(auth *Auth) string {
+// to OAuthModelAliasChannel for the actual channel resolution.
+func modelAliasChannel(auth *Auth) string {
 	if auth == nil {
 		return ""
 	}
@@ -214,20 +214,20 @@ func modelMappingChannel(auth *Auth) string {
 			authKind = "apikey"
 		}
 	}
-	return OAuthModelMappingChannel(provider, authKind)
+	return OAuthModelAliasChannel(provider, authKind)
 }
 
-// OAuthModelMappingChannel returns the OAuth model mapping channel name for a given provider
+// OAuthModelAliasChannel returns the OAuth model alias channel name for a given provider
 // and auth kind. Returns empty string if the provider/authKind combination doesn't support
-// OAuth model mappings (e.g., API key authentication).
+// OAuth model alias (e.g., API key authentication).
 //
 // Supported channels: gemini-cli, vertex, aistudio, antigravity, claude, codex, qwen, iflow.
-func OAuthModelMappingChannel(provider, authKind string) string {
+func OAuthModelAliasChannel(provider, authKind string) string {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	authKind = strings.ToLower(strings.TrimSpace(authKind))
 	switch provider {
 	case "gemini":
-		// gemini provider uses gemini-api-key config, not oauth-model-mappings.
+		// gemini provider uses gemini-api-key config, not oauth-model-alias.
 		// OAuth-based gemini auth is converted to "gemini-cli" by the synthesizer.
 		return ""
 	case "vertex":
