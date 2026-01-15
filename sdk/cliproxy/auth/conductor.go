@@ -593,6 +593,7 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
 		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
 		resp, errExec := executor.Execute(execCtx, auth, execReq, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: errExec == nil}
 		if errExec != nil {
@@ -641,6 +642,7 @@ func (m *Manager) executeCountMixedOnce(ctx context.Context, providers []string,
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
 		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
 		resp, errExec := executor.CountTokens(execCtx, auth, execReq, opts)
 		result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: errExec == nil}
 		if errExec != nil {
@@ -689,6 +691,7 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 		execReq := req
 		execReq.Model = rewriteModelForAuth(routeModel, auth)
 		execReq.Model = m.applyOAuthModelMapping(auth, execReq.Model)
+		execReq.Model = m.applyAPIKeyModelMapping(auth, execReq.Model)
 		chunks, errStream := executor.ExecuteStream(execCtx, auth, execReq, opts)
 		if errStream != nil {
 			rerr := &Error{Message: errStream.Error()}
