@@ -553,7 +553,8 @@ func (s *Service) Run(ctx context.Context) error {
 		s.cfg = newCfg
 		s.cfgMu.Unlock()
 		if s.coreManager != nil {
-			s.coreManager.SetOAuthModelMappings(newCfg.OAuthModelMappings)
+			s.coreManager.SetConfig(newCfg)
+			s.coreManager.SetOAuthModelAlias(newCfg.OAuthModelAlias)
 		}
 		s.rebindExecutors()
 	}
@@ -825,6 +826,7 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 							OwnedBy:     compat.Name,
 							Type:        "openai-compatibility",
 							DisplayName: modelID,
+							UserDefined: true,
 						})
 					}
 					// Register and return
@@ -847,7 +849,7 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 			}
 		}
 	}
-	models = applyOAuthModelMappings(s.cfg, provider, authKind, models)
+	models = applyOAuthModelAlias(s.cfg, provider, authKind, models)
 	if len(models) > 0 {
 		key := provider
 		if key == "" {
@@ -1157,6 +1159,7 @@ func buildConfigModels[T modelEntry](models []T, ownedBy, modelType string) []*M
 			OwnedBy:     ownedBy,
 			Type:        modelType,
 			DisplayName: display,
+			UserDefined: true,
 		}
 		if name != "" {
 			if upstream := registry.LookupStaticModelInfo(name); upstream != nil && upstream.Thinking != nil {
@@ -1219,28 +1222,28 @@ func rewriteModelInfoName(name, oldID, newID string) string {
 	return name
 }
 
-func applyOAuthModelMappings(cfg *config.Config, provider, authKind string, models []*ModelInfo) []*ModelInfo {
+func applyOAuthModelAlias(cfg *config.Config, provider, authKind string, models []*ModelInfo) []*ModelInfo {
 	if cfg == nil || len(models) == 0 {
 		return models
 	}
-	channel := coreauth.OAuthModelMappingChannel(provider, authKind)
-	if channel == "" || len(cfg.OAuthModelMappings) == 0 {
+	channel := coreauth.OAuthModelAliasChannel(provider, authKind)
+	if channel == "" || len(cfg.OAuthModelAlias) == 0 {
 		return models
 	}
-	mappings := cfg.OAuthModelMappings[channel]
-	if len(mappings) == 0 {
+	aliases := cfg.OAuthModelAlias[channel]
+	if len(aliases) == 0 {
 		return models
 	}
 
-	type mappingEntry struct {
+	type aliasEntry struct {
 		alias string
 		fork  bool
 	}
 
-	forward := make(map[string][]mappingEntry, len(mappings))
-	for i := range mappings {
-		name := strings.TrimSpace(mappings[i].Name)
-		alias := strings.TrimSpace(mappings[i].Alias)
+	forward := make(map[string][]aliasEntry, len(aliases))
+	for i := range aliases {
+		name := strings.TrimSpace(aliases[i].Name)
+		alias := strings.TrimSpace(aliases[i].Alias)
 		if name == "" || alias == "" {
 			continue
 		}
@@ -1248,7 +1251,7 @@ func applyOAuthModelMappings(cfg *config.Config, provider, authKind string, mode
 			continue
 		}
 		key := strings.ToLower(name)
-		forward[key] = append(forward[key], mappingEntry{alias: alias, fork: mappings[i].Fork})
+		forward[key] = append(forward[key], aliasEntry{alias: alias, fork: aliases[i].Fork})
 	}
 	if len(forward) == 0 {
 		return models
