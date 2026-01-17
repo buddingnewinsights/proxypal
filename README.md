@@ -132,7 +132,7 @@ VSCode extension for quick switching between Claude Code models, featuring integ
 
 ### [ZeroLimit](https://github.com/0xtbug/zero-limit)
 
-Windows desktop app built with Tauri + React for monitoring AI coding assistant quotas. Track usage across Gemini, Claude, OpenAI Codex, and Antigravity accounts with real-time dashboard, system tray integration, and one-click proxy control - no API keys needed.
+Windows desktop app built with Tauri + React for monitoring AI coding assistant quotas via CLIProxyAPI. Track usage across Gemini, Claude, OpenAI Codex, and Antigravity accounts with real-time dashboard, system tray integration, and one-click proxy control - no API keys needed.
 
 > [!NOTE]  
 > If you developed a project based on CLIProxyAPI, please open a PR to add it to this list.
