@@ -1,0 +1,13 @@
+node_modules
+
+.vscode/
+
+.git/
+.github/
+.gitignore
+
+dist/
+tests/
+*.md
+
+.eslintcache

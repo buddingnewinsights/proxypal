@@ -1,7 +1,7 @@
-export { WelcomePage } from "./Welcome";
-export { DashboardPage } from "./Dashboard";
-export { SettingsPage } from "./Settings";
+export { Analytics as AnalyticsPage } from "./Analytics";
 export { ApiKeysPage } from "./ApiKeys";
 export { AuthFilesPage } from "./AuthFiles";
+export { DashboardPage } from "./Dashboard";
 export { LogViewerPage } from "./LogViewer";
-export { Analytics as AnalyticsPage } from "./Analytics";
+export { SettingsPage } from "./Settings";
+export { WelcomePage } from "./Welcome";

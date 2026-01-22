@@ -1305,6 +1305,36 @@ export async function fetchCodexQuota(): Promise<CodexQuotaResult[]> {
 	return invoke("fetch_codex_quota");
 }
 
+export interface CopilotQuotaResult {
+	accountLogin: string;
+	plan: string;
+	premiumInteractionsPercent: number;
+	chatPercent: number;
+	fetchedAt: string;
+	error?: string;
+}
+
+export interface ClaudeQuotaResult {
+	accountEmail: string;
+	plan: string;
+	fiveHourPercent: number;
+	fiveHourResetAt?: number;
+	sevenDayPercent: number;
+	sevenDayResetAt?: number;
+	extraUsageSpend?: number;
+	extraUsageLimit?: number;
+	fetchedAt: string;
+	error?: string;
+}
+
+export async function fetchCopilotQuota(): Promise<CopilotQuotaResult[]> {
+	return invoke("fetch_copilot_quota");
+}
+
+export async function fetchClaudeQuota(): Promise<ClaudeQuotaResult[]> {
+	return invoke("fetch_claude_quota");
+}
+
 // ============================================
 // SSH Management
 // ============================================

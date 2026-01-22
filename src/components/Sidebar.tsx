@@ -50,7 +50,9 @@ const AnalyticsIcon: Component<{ class?: string }> = (props) => (
 		stroke="currentColor"
 		stroke-width="1.5"
 	>
-		<path d="M18 20V10M12 20V4M6 20v-6" stroke-linecap="round" />
+		<path d="M18 20V10" />
+		<path d="M12 20V4" />
+		<path d="M6 20v-6" />
 	</svg>
 );
 

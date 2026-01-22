@@ -3849,6 +3849,348 @@ async fn fetch_codex_quota() -> Result<Vec<types::CodexQuotaResult>, String> {
     Ok(results)
 }
 
+// Fetch Copilot/GitHub quota for all authenticated accounts
+// Uses the GitHub internal API: https://api.github.com/copilot_internal/user
+// Supports credentials from:
+// - copilot-api: ~/.local/share/copilot-api/github_token (plain text)
+// - cli-proxy-api: ~/.cli-proxy-api/copilot-*.json
+#[tauri::command]
+async fn fetch_copilot_quota() -> Result<Vec<types::CopilotQuotaResult>, String> {
+    let home = dirs::home_dir().ok_or("Could not determine home directory")?;
+    
+    let mut results: Vec<types::CopilotQuotaResult> = Vec::new();
+    
+    // First, check for copilot-api token (plain text file)
+    let copilot_api_token_path = home.join(".local/share/copilot-api/github_token");
+    if copilot_api_token_path.exists() {
+        let token = match std::fs::read_to_string(&copilot_api_token_path) {
+            Ok(t) => t.trim().to_string(),
+            Err(e) => {
+                results.push(types::CopilotQuotaResult {
+                    account_login: "copilot-api".to_string(),
+                    plan: "unknown".to_string(),
+                    premium_interactions_percent: 0.0,
+                    chat_percent: 0.0,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: Some(format!("Failed to read token: {}", e)),
+                });
+                return Ok(results);
+            }
+        };
+        
+        if !token.is_empty() {
+            // Fetch quota using copilot-api token
+            let result = fetch_copilot_quota_with_token(&token, "copilot-api").await;
+            results.push(result);
+        }
+    }
+    
+    // Also check for cli-proxy-api copilot credentials
+    let auth_dir = home.join(".cli-proxy-api");
+    if auth_dir.exists() {
+        let entries = std::fs::read_dir(&auth_dir)
+            .map_err(|e| format!("Failed to read auth directory: {}", e))?;
+        
+        for entry in entries.flatten() {
+            let filename = entry.file_name().to_string_lossy().to_string();
+            if filename.starts_with("copilot-") && filename.ends_with(".json") {
+                let file_path = entry.path();
+                
+                let content = match std::fs::read_to_string(&file_path) {
+                    Ok(c) => c,
+                    Err(_) => continue,
+                };
+                
+                let cred: serde_json::Value = match serde_json::from_str(&content) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                
+                let login = cred["login"].as_str()
+                    .or_else(|| cred["user"].as_str())
+                    .unwrap_or("unknown").to_string();
+                
+                if let Some(token) = cred["access_token"].as_str()
+                    .or_else(|| cred["token"].as_str()) {
+                    let result = fetch_copilot_quota_with_token(token, &login).await;
+                    results.push(result);
+                }
+            }
+        }
+    }
+    
+    Ok(results)
+}
+
+// Helper function to fetch Copilot quota with a given token
+async fn fetch_copilot_quota_with_token(token: &str, login: &str) -> types::CopilotQuotaResult {
+    let client = reqwest::Client::new();
+    let url = "https://api.github.com/copilot_internal/user";
+    
+    let response = client
+        .get(url)
+        .header("Authorization", format!("token {}", token))
+        .header("Accept", "application/json")
+        .header("User-Agent", "ProxyPal/1.0")
+        .header("Editor-Version", "vscode/1.91.1")
+        .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
+        .header("X-Github-Api-Version", "2025-04-01")
+        .send()
+        .await;
+    
+    match response {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                
+                // Parse the Copilot user response
+                // Expected format from copilot-api:
+                // {
+                //   "copilot_plan": "individual",
+                //   "quota_snapshots": {
+                //     "premium_interactions": { "percent_remaining": 90.0 },
+                //     "chat": { "percent_remaining": 100.0, "unlimited": true }
+                //   }
+                // }
+                
+                let plan = body["copilot_plan"].as_str()
+                    .or_else(|| body["copilotPlan"].as_str())
+                    .unwrap_or("unknown").to_string();
+                
+                let quota_snapshots = body.get("quota_snapshots")
+                    .or_else(|| body.get("quotaSnapshots"));
+                
+                let (premium_percent, chat_percent) = if let Some(snapshots) = quota_snapshots {
+                    let premium = snapshots.get("premium_interactions")
+                        .or_else(|| snapshots.get("premiumInteractions"));
+                    let chat = snapshots.get("chat");
+                    
+                    let premium_pct = premium
+                        .and_then(|p| p.get("percent_remaining").or_else(|| p.get("percentRemaining")))
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(100.0);
+                    
+                    let chat_pct = chat
+                        .and_then(|c| c.get("percent_remaining").or_else(|| c.get("percentRemaining")))
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(100.0);
+                    
+                    (premium_pct, chat_pct)
+                } else {
+                    (100.0, 100.0)
+                };
+                
+                types::CopilotQuotaResult {
+                    account_login: login.to_string(),
+                    plan,
+                    premium_interactions_percent: premium_percent,
+                    chat_percent,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: None,
+                }
+            } else {
+                let status = resp.status();
+                let error_body = resp.text().await.unwrap_or_default();
+                types::CopilotQuotaResult {
+                    account_login: login.to_string(),
+                    plan: "unknown".to_string(),
+                    premium_interactions_percent: 0.0,
+                    chat_percent: 0.0,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: Some(format!("API error {}: {}", status, error_body)),
+                }
+            }
+        }
+        Err(e) => {
+            types::CopilotQuotaResult {
+                account_login: login.to_string(),
+                plan: "unknown".to_string(),
+                premium_interactions_percent: 0.0,
+                chat_percent: 0.0,
+                fetched_at: chrono::Local::now().to_rfc3339(),
+                error: Some(format!("Request failed: {}", e)),
+            }
+        }
+    }
+}
+
+// Fetch Claude/Anthropic quota for all authenticated accounts
+// Uses the Anthropic OAuth API: https://api.anthropic.com/api/oauth/usage
+#[tauri::command]
+async fn fetch_claude_quota() -> Result<Vec<types::ClaudeQuotaResult>, String> {
+    let home = dirs::home_dir().ok_or("Could not determine home directory")?;
+    
+    let mut results: Vec<types::ClaudeQuotaResult> = Vec::new();
+    
+    // Check for Claude credentials in ~/.claude/.credentials.json
+    let claude_creds_path = home.join(".claude").join(".credentials.json");
+    
+    if claude_creds_path.exists() {
+        let content = match std::fs::read_to_string(&claude_creds_path) {
+            Ok(c) => c,
+            Err(e) => {
+                return Ok(vec![types::ClaudeQuotaResult {
+                    account_email: "unknown".to_string(),
+                    plan: "unknown".to_string(),
+                    five_hour_percent: 0.0,
+                    five_hour_reset_at: None,
+                    seven_day_percent: 0.0,
+                    seven_day_reset_at: None,
+                    extra_usage_spend: None,
+                    extra_usage_limit: None,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: Some(format!("Failed to read credentials: {}", e)),
+                }]);
+            }
+        };
+        
+        let cred: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(e) => {
+                return Ok(vec![types::ClaudeQuotaResult {
+                    account_email: "unknown".to_string(),
+                    plan: "unknown".to_string(),
+                    five_hour_percent: 0.0,
+                    five_hour_reset_at: None,
+                    seven_day_percent: 0.0,
+                    seven_day_reset_at: None,
+                    extra_usage_spend: None,
+                    extra_usage_limit: None,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: Some(format!("Failed to parse credentials: {}", e)),
+                }]);
+            }
+        };
+        
+        let email = cred["email"].as_str()
+            .or_else(|| cred["accountEmail"].as_str())
+            .unwrap_or("unknown").to_string();
+        
+        let access_token = match cred["accessToken"].as_str()
+            .or_else(|| cred["access_token"].as_str()) {
+            Some(t) => t,
+            None => {
+                return Ok(vec![types::ClaudeQuotaResult {
+                    account_email: email,
+                    plan: "unknown".to_string(),
+                    five_hour_percent: 0.0,
+                    five_hour_reset_at: None,
+                    seven_day_percent: 0.0,
+                    seven_day_reset_at: None,
+                    extra_usage_spend: None,
+                    extra_usage_limit: None,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: Some("No access token found".to_string()),
+                }]);
+            }
+        };
+        
+        // Fetch usage from Anthropic OAuth API
+        let client = reqwest::Client::new();
+        let url = "https://api.anthropic.com/api/oauth/usage";
+        
+        let response = client
+            .get(url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("Accept", "application/json")
+            .header("User-Agent", "ProxyPal/1.0")
+            .header("anthropic-beta", "oauth-2025-04-20")
+            .send()
+            .await;
+        
+        match response {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                    
+                    // Parse the Claude usage response
+                    // Expected format:
+                    // {
+                    //   "rate_limit_tier": "pro",
+                    //   "five_hour": { "used": 34, "limit": 100, "reset_at": 1737561600 },
+                    //   "seven_day": { "used": 12, "limit": 100, "reset_at": 1738166400 },
+                    //   "extra_usage": { "spend": 5.0, "limit": 200.0 }
+                    // }
+                    
+                    let plan = body["rate_limit_tier"].as_str()
+                        .or_else(|| body["plan"].as_str())
+                        .unwrap_or("unknown").to_string();
+                    
+                    let five_hour = &body["five_hour"];
+                    let seven_day = &body["seven_day"];
+                    let extra_usage = &body["extra_usage"];
+                    
+                    // Calculate percent used
+                    let five_hour_used = five_hour["used"].as_f64().unwrap_or(0.0);
+                    let five_hour_limit = five_hour["limit"].as_f64().unwrap_or(100.0);
+                    let five_hour_percent = if five_hour_limit > 0.0 {
+                        (five_hour_used / five_hour_limit) * 100.0
+                    } else {
+                        0.0
+                    };
+                    let five_hour_reset_at = five_hour["reset_at"].as_i64();
+                    
+                    let seven_day_used = seven_day["used"].as_f64().unwrap_or(0.0);
+                    let seven_day_limit = seven_day["limit"].as_f64().unwrap_or(100.0);
+                    let seven_day_percent = if seven_day_limit > 0.0 {
+                        (seven_day_used / seven_day_limit) * 100.0
+                    } else {
+                        0.0
+                    };
+                    let seven_day_reset_at = seven_day["reset_at"].as_i64();
+                    
+                    let extra_usage_spend = extra_usage["spend"].as_f64();
+                    let extra_usage_limit = extra_usage["limit"].as_f64();
+                    
+                    results.push(types::ClaudeQuotaResult {
+                        account_email: email,
+                        plan,
+                        five_hour_percent,
+                        five_hour_reset_at,
+                        seven_day_percent,
+                        seven_day_reset_at,
+                        extra_usage_spend,
+                        extra_usage_limit,
+                        fetched_at: chrono::Local::now().to_rfc3339(),
+                        error: None,
+                    });
+                } else {
+                    let status = resp.status();
+                    let error_body = resp.text().await.unwrap_or_default();
+                    results.push(types::ClaudeQuotaResult {
+                        account_email: email,
+                        plan: "unknown".to_string(),
+                        five_hour_percent: 0.0,
+                        five_hour_reset_at: None,
+                        seven_day_percent: 0.0,
+                        seven_day_reset_at: None,
+                        extra_usage_spend: None,
+                        extra_usage_limit: None,
+                        fetched_at: chrono::Local::now().to_rfc3339(),
+                        error: Some(format!("API error {}: {}", status, error_body)),
+                    });
+                }
+            }
+            Err(e) => {
+                results.push(types::ClaudeQuotaResult {
+                    account_email: email,
+                    plan: "unknown".to_string(),
+                    five_hour_percent: 0.0,
+                    five_hour_reset_at: None,
+                    seven_day_percent: 0.0,
+                    seven_day_reset_at: None,
+                    extra_usage_spend: None,
+                    extra_usage_limit: None,
+                    fetched_at: chrono::Local::now().to_rfc3339(),
+                    error: Some(format!("Request failed: {}", e)),
+                });
+            }
+        }
+    }
+    
+    Ok(results)
+}
+
 // Import Vertex service account credential (JSON file)
 #[tauri::command]
 async fn import_vertex_credential(
@@ -7229,6 +7571,8 @@ pub fn run() {
             disconnect_provider,
             fetch_antigravity_quota,
             fetch_codex_quota,
+            fetch_copilot_quota,
+            fetch_claude_quota,
             import_vertex_credential,
             commands::config::get_config,
             commands::config::save_config,

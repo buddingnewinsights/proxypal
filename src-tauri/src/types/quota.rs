@@ -61,3 +61,38 @@ pub struct CodexQuotaResult {
     pub fetched_at: String,
     pub error: Option<String>,
 }
+
+/// Copilot/GitHub Usage API Types (from api.github.com/copilot_internal/user)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotQuotaResult {
+    pub account_login: String,
+    /// Plan type: "free", "pro", "business", "enterprise"
+    pub plan: String,
+    /// Premium interactions quota (primary) - percent remaining
+    pub premium_interactions_percent: f64,
+    /// Chat quota (secondary) - percent remaining
+    pub chat_percent: f64,
+    pub fetched_at: String,
+    pub error: Option<String>,
+}
+
+/// Claude/Anthropic Usage API Types (from api.anthropic.com/api/oauth/usage)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeQuotaResult {
+    pub account_email: String,
+    /// Plan type: "free", "pro", "max"
+    pub plan: String,
+    /// 5-hour session limit - percent used
+    pub five_hour_percent: f64,
+    pub five_hour_reset_at: Option<i64>,
+    /// 7-day weekly limit - percent used
+    pub seven_day_percent: f64,
+    pub seven_day_reset_at: Option<i64>,
+    /// Extra usage (spend tracking for paid plans)
+    pub extra_usage_spend: Option<f64>,
+    pub extra_usage_limit: Option<f64>,
+    pub fetched_at: String,
+    pub error: Option<String>,
+}
