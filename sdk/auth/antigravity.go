@@ -49,7 +49,7 @@ func (AntigravityAuthenticator) Login(ctx context.Context, cfg *config.Config, o
 		callbackPort = opts.CallbackPort
 	}
 
-	authSvc := antigravity.NewAntigravityAuth(cfg)
+	authSvc := antigravity.NewAntigravityAuth(cfg, nil)
 
 	state, err := misc.GenerateRandomState()
 	if err != nil {
@@ -67,9 +67,7 @@ func (AntigravityAuthenticator) Login(ctx context.Context, cfg *config.Config, o
 	}()
 
 	redirectURI := fmt.Sprintf("http://localhost:%d/oauth-callback", port)
-	authURL := authSvc.BuildAuthURL(state)
-	// Override redirect URI in authURL
-	authURL = strings.ReplaceAll(authURL, fmt.Sprintf("http://localhost:%d/oauth-callback", antigravity.CallbackPort), redirectURI)
+	authURL := authSvc.BuildAuthURL(state, redirectURI)
 
 	if !opts.NoBrowser {
 		fmt.Println("Opening browser for antigravity authentication")
@@ -256,7 +254,6 @@ func startAntigravityCallbackServer(port int) (*http.Server, int, <-chan callbac
 // FetchAntigravityProjectID exposes project discovery for external callers.
 func FetchAntigravityProjectID(ctx context.Context, accessToken string, httpClient *http.Client) (string, error) {
 	cfg := &config.Config{}
-	// Set the httpClient if provided (for proxy support)
-	authSvc := antigravity.NewAntigravityAuth(cfg)
+	authSvc := antigravity.NewAntigravityAuth(cfg, httpClient)
 	return authSvc.FetchProjectID(ctx, accessToken)
 }
