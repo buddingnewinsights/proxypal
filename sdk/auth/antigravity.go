@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/antigravity"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/browser"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
@@ -204,7 +205,7 @@ waitForCallback:
 		metadata["project_id"] = projectID
 	}
 
-	fileName := sanitizeAntigravityFileName(email)
+	fileName := antigravity.CredentialFileName(email)
 	label := email
 	if label == "" {
 		label = "antigravity"
@@ -352,14 +353,6 @@ func buildAntigravityAuthURL(redirectURI, state string) string {
 	params.Set("scope", strings.Join(antigravityScopes, " "))
 	params.Set("state", state)
 	return "https://accounts.google.com/o/oauth2/v2/auth?" + params.Encode()
-}
-
-func sanitizeAntigravityFileName(email string) string {
-	if strings.TrimSpace(email) == "" {
-		return "antigravity.json"
-	}
-	replacer := strings.NewReplacer("@", "_", ".", "_")
-	return fmt.Sprintf("antigravity-%s.json", replacer.Replace(email))
 }
 
 // Antigravity API constants for project discovery
