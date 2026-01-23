@@ -570,6 +570,7 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "no provider supplied"}
 	}
 	routeModel := req.Model
+	opts = ensureRequestedModelMetadata(opts, routeModel)
 	tried := make(map[string]struct{})
 	var lastErr error
 	for {
@@ -619,6 +620,7 @@ func (m *Manager) executeCountMixedOnce(ctx context.Context, providers []string,
 		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "no provider supplied"}
 	}
 	routeModel := req.Model
+	opts = ensureRequestedModelMetadata(opts, routeModel)
 	tried := make(map[string]struct{})
 	var lastErr error
 	for {
@@ -668,6 +670,7 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 		return nil, &Error{Code: "provider_not_found", Message: "no provider supplied"}
 	}
 	routeModel := req.Model
+	opts = ensureRequestedModelMetadata(opts, routeModel)
 	tried := make(map[string]struct{})
 	var lastErr error
 	for {
@@ -734,6 +737,7 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "provider identifier is empty"}
 	}
 	routeModel := req.Model
+	opts = ensureRequestedModelMetadata(opts, routeModel)
 	tried := make(map[string]struct{})
 	var lastErr error
 	for {
@@ -783,6 +787,7 @@ func (m *Manager) executeCountWithProvider(ctx context.Context, provider string,
 		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "provider identifier is empty"}
 	}
 	routeModel := req.Model
+	opts = ensureRequestedModelMetadata(opts, routeModel)
 	tried := make(map[string]struct{})
 	var lastErr error
 	for {
@@ -832,6 +837,7 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 		return nil, &Error{Code: "provider_not_found", Message: "provider identifier is empty"}
 	}
 	routeModel := req.Model
+	opts = ensureRequestedModelMetadata(opts, routeModel)
 	tried := make(map[string]struct{})
 	var lastErr error
 	for {
@@ -890,6 +896,45 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 			}
 		}(execCtx, auth.Clone(), provider, chunks)
 		return out, nil
+	}
+}
+
+func ensureRequestedModelMetadata(opts cliproxyexecutor.Options, requestedModel string) cliproxyexecutor.Options {
+	requestedModel = strings.TrimSpace(requestedModel)
+	if requestedModel == "" {
+		return opts
+	}
+	if hasRequestedModelMetadata(opts.Metadata) {
+		return opts
+	}
+	if len(opts.Metadata) == 0 {
+		opts.Metadata = map[string]any{cliproxyexecutor.RequestedModelMetadataKey: requestedModel}
+		return opts
+	}
+	meta := make(map[string]any, len(opts.Metadata)+1)
+	for k, v := range opts.Metadata {
+		meta[k] = v
+	}
+	meta[cliproxyexecutor.RequestedModelMetadataKey] = requestedModel
+	opts.Metadata = meta
+	return opts
+}
+
+func hasRequestedModelMetadata(meta map[string]any) bool {
+	if len(meta) == 0 {
+		return false
+	}
+	raw, ok := meta[cliproxyexecutor.RequestedModelMetadataKey]
+	if !ok || raw == nil {
+		return false
+	}
+	switch v := raw.(type) {
+	case string:
+		return strings.TrimSpace(v) != ""
+	case []byte:
+		return strings.TrimSpace(string(v)) != ""
+	default:
+		return false
 	}
 }
 
