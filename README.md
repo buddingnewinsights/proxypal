@@ -128,7 +128,7 @@ Windows-native CLIProxyAPI fork with TUI, system tray, and multi-provider OAuth 
 
 ### [CPA-XXX Panel](https://github.com/ferretgeek/CPA-X)
 
-面向 CLIProxyAPI 的 Web 管理面板，提供健康检查、资源监控、日志查看、自动更新、请求统计与定价展示，支持一键安装与 systemd 服务。（A lightweight web admin panel with health checks, resource monitoring, logs, auto-update, and usage stats.）
+A lightweight web admin panel for CLIProxyAPI with health checks, resource monitoring, real-time logs, auto-update, request statistics and pricing display. Supports one-click installation and systemd service.
 
 ### [Claude Proxy VSCode](https://github.com/uzhao/claude-proxy-vscode)
 
