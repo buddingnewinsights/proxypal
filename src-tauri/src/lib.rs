@@ -5044,35 +5044,35 @@ fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> (u64, u64) 
         // Claude 4.5 models: 200K context, 64K output
         // Claude 3.5 haiku: 200K context, 8K output
         if model_lower.contains("3-5-haiku") || model_lower.contains("3-haiku") {
-            return (168000, 8192);
+            return (200000, 8192);
         } else {
             // sonnet-4-5, opus-4-5, haiku-4-5, and other Claude 4.x models
-            return (168000, 64000);
+            return (200000, 64000);
         }
     }
     
     // Gemini models
     if model_lower.contains("gemini") {
         // Gemini 2.5 models: 1M context, 65K output
-        return (880964, 65536);
+        return (1000000, 65536);
     }
     
     // GPT/OpenAI models
     if model_lower.contains("gpt") || model_lower.starts_with("o1") || model_lower.starts_with("o3") {
         // o1, o3 reasoning models: 200K context, 100K output
         if model_lower.contains("o3") || model_lower.contains("o1") {
-            return (168000, 100000);
+            return (200000, 100000);
         } else if model_lower.contains("gpt-5") || model_lower.contains("gpt5") {
             // GPT-5 via Copilot: 128K context (Copilot limit)
             // GPT-5 via ChatGPT/ProxyPal: 400K context
             if source == "copilot" {
-                return (107520, 32768);
+                return (128000, 32768);
             } else {
-                return (336000, 32768);
+                return (400000, 32768);
             }
         } else {
             // gpt-4o, gpt-4o-mini, gpt-4.1: 128K context, 16K output
-            return (107520, 16384);
+            return (128000, 16384);
         }
     }
     
@@ -5080,11 +5080,32 @@ fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> (u64, u64) 
     if model_lower.contains("qwen") {
         // Qwen3 Coder Plus: 1M context
         if model_lower.contains("coder") {
-            return (880964, 65536);
+            return (1000000, 65536);
         } else {
             // Qwen3 models: 262K context (max), 65K output
-            return (220201, 65536);
+            return (262144, 65536);
         }
+    }
+    
+    // DeepSeek models
+    if model_lower.contains("deepseek") {
+        // deepseek-reasoner: 128K output, deepseek-chat: 8K output
+        if model_lower.contains("reasoner") || model_lower.contains("r1") {
+            return (128000, 128000);
+        } else {
+            return (128000, 8192);
+        }
+    }
+    
+    // Fallback to owned_by for any remaining models
+    match owned_by {
+        "anthropic" => (200000, 64000),
+        "google" => (1000000, 65536),
+        "openai" => (128000, 16384),
+        "qwen" => (262144, 65536),
+        "deepseek" => (128000, 8192),
+        _ => (128000, 16384) // safe defaults
+    }
     }
     
     // DeepSeek models
