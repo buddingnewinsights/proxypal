@@ -5106,27 +5106,6 @@ fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> (u64, u64) 
         "deepseek" => (128000, 8192),
         _ => (128000, 16384) // safe defaults
     }
-    }
-    
-    // DeepSeek models
-    if model_lower.contains("deepseek") {
-        // deepseek-reasoner: 128K output, deepseek-chat: 8K output
-        if model_lower.contains("reasoner") || model_lower.contains("r1") {
-            return (107520, 128000);
-        } else {
-            return (107520, 8192);
-        }
-    }
-    
-    // Fallback to owned_by for any remaining models
-    match owned_by {
-        "anthropic" => (168000, 64000),
-        "google" => (880964, 65536),
-        "openai" => (107520, 16384),
-        "qwen" => (220201, 65536),
-        "deepseek" => (107520, 8192),
-        _ => (107520, 16384) // safe defaults
-    }
 }
 
 // Get display name for a model
