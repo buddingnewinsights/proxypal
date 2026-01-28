@@ -89,6 +89,10 @@ pub struct ClaudeQuotaResult {
     pub five_hour_reset_at: Option<i64>,
     /// 7-day weekly limit - percent used
     pub seven_day_percent: f64,
+    pub seven_day_reset_at: Option<i64>,
+    /// Extra usage (spend tracking for paid plans)
+    pub extra_usage_spend: Option<f64>,
+    pub extra_usage_limit: Option<f64>,
     pub fetched_at: String,
     pub error: Option<String>,
 }

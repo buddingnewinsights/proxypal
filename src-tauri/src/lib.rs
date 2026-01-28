@@ -4048,8 +4048,8 @@ async fn fetch_copilot_quota_with_token(token: &str, login: &str) -> types::Copi
     }
 }
 
-// Fetch Claude/Anthropic quota for all authenticated accounts
-// Uses the Anthropic OAuth API: https://api.anthropic.com/api/oauth/usage
+#[tauri::command]
+async fn fetch_kiro_quota() -> Result<Vec<types::quota::KiroQuotaResult>, String> {
     // For now, return a placeholder as Kiro API for credits is not public
     // Users can see their credits on app.kiro.dev
     Ok(vec![types::quota::KiroQuotaResult {
@@ -4062,6 +4062,9 @@ async fn fetch_copilot_quota_with_token(token: &str, login: &str) -> types::Copi
         error: Some("Kiro quota tracking coming soon. Check app.kiro.dev for credits.".to_string()),
     }])
 }
+
+// Fetch Claude/Anthropic quota for all authenticated accounts
+// Uses the Anthropic OAuth API: https://api.anthropic.com/api/oauth/usage
 
 #[tauri::command]
 async fn fetch_claude_quota() -> Result<Vec<types::quota::ClaudeQuotaResult>, String> {
@@ -7668,6 +7671,7 @@ pub fn run() {
             fetch_codex_quota,
             fetch_copilot_quota,
             fetch_claude_quota,
+            fetch_kiro_quota,
             import_vertex_credential,
             commands::config::get_config,
             commands::config::save_config,

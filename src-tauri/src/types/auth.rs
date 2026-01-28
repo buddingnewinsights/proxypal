@@ -86,6 +86,7 @@ impl Default for ProxyAuthProviders {
             iflow: None,
             vertex: None,
             antigravity: None,
+            kiro: None,
             copilot: None,
         }
     }
