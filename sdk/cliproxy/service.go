@@ -57,6 +57,9 @@ type Service struct {
 	// server is the HTTP API server instance.
 	server *api.Server
 
+	// pprofServer manages the optional pprof HTTP debug server.
+	pprofServer *pprofServer
+
 	// serverErr channel for server startup/shutdown errors.
 	serverErr chan error
 
@@ -501,6 +504,8 @@ func (s *Service) Run(ctx context.Context) error {
 	time.Sleep(100 * time.Millisecond)
 	fmt.Printf("API server started successfully on: %s:%d\n", s.cfg.Host, s.cfg.Port)
 
+	s.applyPprofConfig(s.cfg)
+
 	if s.hooks.OnAfterStart != nil {
 		s.hooks.OnAfterStart(s)
 	}
@@ -546,6 +551,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 
 		s.applyRetryConfig(newCfg)
+		s.applyPprofConfig(newCfg)
 		if s.server != nil {
 			s.server.UpdateClients(newCfg)
 		}
@@ -637,6 +643,13 @@ func (s *Service) Shutdown(ctx context.Context) error {
 		if s.authQueueStop != nil {
 			s.authQueueStop()
 			s.authQueueStop = nil
+		}
+
+		if errShutdownPprof := s.shutdownPprof(ctx); errShutdownPprof != nil {
+			log.Errorf("failed to stop pprof server: %v", errShutdownPprof)
+			if shutdownErr == nil {
+				shutdownErr = errShutdownPprof
+			}
 		}
 
 		// no legacy clients to persist
