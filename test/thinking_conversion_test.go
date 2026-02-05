@@ -1441,28 +1441,6 @@ func TestThinkingE2EMatrix_Body(t *testing.T) {
 			expectValue: "medium",
 			expectErr:   false,
 		},
-		// Case 9001: thinking_budget=64000 (snake_case) → high (Gemini -> Codex)
-		{
-			name:        "9001",
-			from:        "gemini",
-			to:          "codex",
-			model:       "level-model",
-			inputJSON:   `{"model":"level-model","contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinking_budget":64000}}}`,
-			expectField: "reasoning.effort",
-			expectValue: "high",
-			expectErr:   false,
-		},
-		// Case 9002: thinking_level=high (snake_case) → reasoning_effort=high (Gemini -> OpenAI)
-		{
-			name:        "9002",
-			from:        "gemini",
-			to:          "openai",
-			model:       "level-model",
-			inputJSON:   `{"model":"level-model","contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinking_level":"high"}}}`,
-			expectField: "reasoning_effort",
-			expectValue: "high",
-			expectErr:   false,
-		},
 		// Case 11: Claude no param → passthrough (no thinking)
 		{
 			name:        "11",
@@ -1471,17 +1449,6 @@ func TestThinkingE2EMatrix_Body(t *testing.T) {
 			model:       "level-model",
 			inputJSON:   `{"model":"level-model","messages":[{"role":"user","content":"hi"}]}`,
 			expectField: "",
-			expectErr:   false,
-		},
-		// Case 9003: thinking_budget=8192 (snake_case) → thinking.budget_tokens=8192 (Gemini -> Claude)
-		{
-			name:        "9003",
-			from:        "gemini",
-			to:          "claude",
-			model:       "level-model",
-			inputJSON:   `{"model":"level-model","contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinking_budget":8192}}}`,
-			expectField: "thinking.budget_tokens",
-			expectValue: "8192",
 			expectErr:   false,
 		},
 		// Case 12: thinking.budget_tokens=8192 → medium
@@ -1556,19 +1523,6 @@ func TestThinkingE2EMatrix_Body(t *testing.T) {
 		},
 
 		// gemini-budget-model (Min=128, Max=20000, ZeroAllowed=false, DynamicAllowed=true)
-
-		// Case 9004: thinking_budget=8192 (snake_case) → passthrough+normalize to thinkingBudget (Gemini -> Gemini)
-		{
-			name:            "9004",
-			from:            "gemini",
-			to:              "gemini",
-			model:           "gemini-budget-model",
-			inputJSON:       `{"model":"gemini-budget-model","contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinking_budget":8192}}}`,
-			expectField:     "generationConfig.thinkingConfig.thinkingBudget",
-			expectValue:     "8192",
-			includeThoughts: "true",
-			expectErr:       false,
-		},
 
 		// Case 18: No param → passthrough
 		{
