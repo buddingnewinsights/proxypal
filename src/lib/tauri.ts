@@ -34,7 +34,8 @@ export type Provider =
 	| "iflow"
 	| "vertex"
 	| "kiro"
-	| "antigravity";
+	| "antigravity"
+	| "kimi";
 
 export async function openOAuth(provider: Provider): Promise<string> {
 	return invoke("open_oauth", { provider });
@@ -87,6 +88,7 @@ export interface AuthStatus {
 	vertex: number;
 	kiro: number;
 	antigravity: number;
+	kimi: number;
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {
@@ -521,6 +523,7 @@ export interface ProviderHealth {
 	vertex: HealthStatus;
 	kiro: HealthStatus;
 	antigravity: HealthStatus;
+	kimi: HealthStatus;
 }
 
 export async function checkProviderHealth(): Promise<ProviderHealth> {

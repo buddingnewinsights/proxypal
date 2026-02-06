@@ -45,6 +45,7 @@ function createAppStore() {
 		vertex: 0,
 		kiro: 0,
 		antigravity: 0,
+		kimi: 0,
 	});
 
 	// Config

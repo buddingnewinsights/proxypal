@@ -77,6 +77,11 @@ const providers = [
 		provider: "kiro" as Provider,
 		logo: "/logos/kiro.svg",
 	},
+	{
+		name: "Kimi",
+		provider: "kimi" as Provider,
+		logo: "/logos/kimi.png",
+	},
 ];
 
 // Compact KPI tile - matches Analytics StatCard styling

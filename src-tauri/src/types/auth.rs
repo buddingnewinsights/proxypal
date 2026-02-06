@@ -10,6 +10,7 @@ pub struct AuthStatus {
     pub vertex: u32,
     pub kiro: u32,
     pub antigravity: u32,
+    pub kimi: u32,
 }
 
 impl Default for AuthStatus {
@@ -23,6 +24,7 @@ impl Default for AuthStatus {
             vertex: 0,
             kiro: 0,
             antigravity: 0,
+            kimi: 0,
         }
     }
 }
@@ -62,6 +64,8 @@ pub struct ProxyAuthProviders {
     pub kiro: Option<ProxyAuthProviderStatus>,
     #[serde(default)]
     pub copilot: Option<ProxyAuthProviderStatus>,
+    #[serde(default)]
+    pub kimi: Option<ProxyAuthProviderStatus>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,6 +92,7 @@ impl Default for ProxyAuthProviders {
             antigravity: None,
             kiro: None,
             copilot: None,
+            kimi: None,
         }
     }
 }

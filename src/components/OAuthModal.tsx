@@ -13,6 +13,7 @@ const providerLogos: Record<Provider, string> = {
 	vertex: "/logos/vertex.svg",
 	kiro: "/logos/kiro.svg",
 	antigravity: "/logos/antigravity.webp",
+	kimi: "/logos/kimi.png",
 };
 
 interface OAuthModalProps {

@@ -3130,6 +3130,7 @@ async fn get_oauth_url(state: State<'_, AppState>, provider: String) -> Result<O
         "qwen" => format!("http://127.0.0.1:{}/v0/management/qwen-auth-url?is_webui=true", port),
         "iflow" => format!("http://127.0.0.1:{}/v0/management/iflow-auth-url?is_webui=true", port),
         "antigravity" => format!("http://127.0.0.1:{}/v0/management/antigravity-auth-url?is_webui=true", port),
+        "kimi" => format!("http://127.0.0.1:{}/v0/management/kimi-auth-url?is_webui=true", port),
         "vertex" => return Err("Vertex uses service account import, not OAuth. Use import_vertex_credential instead.".to_string()),
         _ => return Err(format!("Unknown provider: {}", provider)),
     };
@@ -3214,6 +3215,7 @@ async fn open_oauth(app: tauri::AppHandle, state: State<'_, AppState>, provider:
         "qwen" => format!("http://127.0.0.1:{}/v0/management/qwen-auth-url?is_webui=true", port),
         "iflow" => format!("http://127.0.0.1:{}/v0/management/iflow-auth-url?is_webui=true", port),
         "antigravity" => format!("http://127.0.0.1:{}/v0/management/antigravity-auth-url?is_webui=true", port),
+        "kimi" => format!("http://127.0.0.1:{}/v0/management/kimi-auth-url?is_webui=true", port),
         "vertex" => return Err("Vertex uses service account import, not OAuth. Use import_vertex_credential instead.".to_string()),
         // Note: Kiro is handled above with direct Web UI
         _ => return Err(format!("Unknown provider: {}", provider)),
@@ -3340,6 +3342,8 @@ async fn refresh_auth_status(app: tauri::AppHandle, state: State<'_, AppState>) 
                     new_auth.kiro += 1;
                 } else if filename.starts_with("antigravity-") {
                     new_auth.antigravity += 1;
+                } else if filename.starts_with("kimi-") {
+                    new_auth.kimi += 1;
                 }
             }
         }
@@ -3385,6 +3389,7 @@ async fn complete_oauth(
             "vertex" => auth.vertex += 1,
             "kiro" => auth.kiro += 1,
             "antigravity" => auth.antigravity += 1,
+            "kimi" => auth.kimi += 1,
             _ => return Err(format!("Unknown provider: {}", provider)),
         }
 
@@ -3428,6 +3433,7 @@ async fn disconnect_provider(
                     "vertex" => filename.starts_with("vertex-"),
                     "kiro" => filename.starts_with("kiro-"),
                     "antigravity" => filename.starts_with("antigravity-"),
+                    "kimi" => filename.starts_with("kimi-"),
                     _ => false,
                 };
                 
@@ -3451,6 +3457,7 @@ async fn disconnect_provider(
         "vertex" => auth.vertex = 0,
         "kiro" => auth.kiro = 0,
         "antigravity" => auth.antigravity = 0,
+        "kimi" => auth.kimi = 0,
         _ => return Err(format!("Unknown provider: {}", provider)),
     }
 
