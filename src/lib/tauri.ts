@@ -118,17 +118,24 @@ export interface AmpModelSlot {
 // IMPORTANT: Model names must match EXACTLY what Amp sends in requests
 // NOTE: When using Copilot provider, these get mapped to copilot-prefixed models
 export const AMP_MODEL_SLOTS: AmpModelSlot[] = [
-	// Claude Opus 4.5 - used by Smart agent (default main agent)
+	// Claude Opus 4.6 - used by Smart agent (default main agent)
 	{
-		id: "opus-4-5",
+		id: "opus-4-6",
 		name: "Smart",
-		fromModel: "claude-opus-4-5-20251101",
-		fromLabel: "Claude Opus 4.5",
+		fromModel: "claude-opus-4-6-20260205",
+		fromLabel: "Claude Opus 4.6",
 	},
-	// Claude Haiku 4.5 - used by Librarian, Rush, and Titling subagents
+	// Claude Sonnet 4.5 - used by Librarian subagent
+	{
+		id: "sonnet-4-5",
+		name: "Librarian",
+		fromModel: "claude-sonnet-4-5-20241022",
+		fromLabel: "Claude Sonnet 4.5",
+	},
+	// Claude Haiku 4.5 - used by Rush and Titling subagents
 	{
 		id: "haiku-4-5",
-		name: "Librarian/Rush/Titling",
+		name: "Rush/Titling",
 		fromModel: "claude-haiku-4-5-20251001",
 		fromLabel: "Claude Haiku 4.5",
 	},
@@ -170,12 +177,14 @@ export const AMP_MODEL_SLOTS: AmpModelSlot[] = [
 // Common model aliases that Amp might use (without date suffix)
 // These map to the full model identifiers
 export const AMP_MODEL_ALIASES: Record<string, string> = {
+	"claude-opus-4.6": "claude-opus-4-6-20260205",
+	"claude-opus-4-6": "claude-opus-4-6-20260205",
 	"claude-opus-4.5": "claude-opus-4-5-20251101",
 	"claude-opus-4-5": "claude-opus-4-5-20251101",
-	"claude-haiku-4.5": "claude-haiku-4-5-20251001",
-	"claude-haiku-4-5": "claude-haiku-4-5-20251001",
 	"claude-sonnet-4.5": "claude-sonnet-4-5-20241022",
 	"claude-sonnet-4-5": "claude-sonnet-4-5-20241022",
+	"claude-haiku-4.5": "claude-haiku-4-5-20251001",
+	"claude-haiku-4-5": "claude-haiku-4-5-20251001",
 };
 
 // Complete list of GitHub Copilot models available via copilot-api

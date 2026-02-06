@@ -721,7 +721,7 @@ async fn start_proxy(
     
     // Build amp model-mappings section if configured
     // Model mappings route Amp model requests to other models available in the proxy
-    // (e.g., name: claude-opus-4-5-20251101 -> alias: copilot-gpt-5-mini)
+    // (e.g., name: claude-opus-4-6-20260205 -> alias: copilot-gpt-5-mini)
     // Only include mappings that are enabled
     let enabled_mappings: Vec<_> = config.amp_model_mappings.iter()
         .filter(|m| m.enabled)
@@ -822,6 +822,8 @@ async fn start_proxy(
         // Claude models (Preview)
         entry.push_str("      - alias: \"claude-opus-4.5\"\n");
         entry.push_str("        name: \"claude-opus-4.5\"\n");
+        entry.push_str("      - alias: \"claude-opus-4.6\"\n");
+        entry.push_str("        name: \"claude-opus-4.6\"\n");
         openai_compat_entries.push(entry);
     }
     
@@ -981,16 +983,24 @@ payload:
       params:
         "thinking.budget_tokens": {}
     - models:
-        - name: "claude-opus-4-5"
-          protocol: "claude"
-        - name: "claude-opus-4-5-thinking"
-          protocol: "claude"
-        - name: "gemini-claude-opus-4-5"
-          protocol: "claude"
-        - name: "gemini-claude-opus-4-5-thinking"
-          protocol: "claude"
+        - name: \"claude-opus-4-5\"
+          protocol: \"claude\"
+        - name: \"claude-opus-4-5-thinking\"
+          protocol: \"claude\"
+        - name: \"gemini-claude-opus-4-5\"
+          protocol: \"claude\"
+        - name: \"gemini-claude-opus-4-5-thinking\"
+          protocol: \"claude\"
+        - name: \"claude-opus-4-6\"
+          protocol: \"claude\"
+        - name: \"claude-opus-4-6-thinking\"
+          protocol: \"claude\"
+        - name: \"gemini-claude-opus-4-6\"
+          protocol: \"claude\"
+        - name: \"gemini-claude-opus-4-6-thinking\"
+          protocol: \"claude\"
       params:
-        "thinking.budget_tokens": {}
+        \"thinking.budget_tokens\": {}
 {}
 "#, 
         thinking_mode_display,
