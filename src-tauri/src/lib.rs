@@ -994,14 +994,16 @@ async fn start_proxy(
       params:
         generationConfig.thinkingConfig.thinkingLevel: "{0}"
     # Antigravity variants (without -preview suffix)
+    # gemini-3-pro-high only supports "high" thinking level
     - models:
         - name: "gemini-3-pro-high"
       params:
-        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+        generationConfig.thinkingConfig.thinkingLevel: "high"
+    # gemini-3-pro-low only supports "low" thinking level
     - models:
         - name: "gemini-3-pro-low"
       params:
-        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+        generationConfig.thinkingConfig.thinkingLevel: "low"
     - models:
         - name: "gemini-3-flash"
       params:
