@@ -6,6 +6,8 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+	// Use relative paths so assets resolve under tauri:// protocol (fixes white screen on Linux AppImage)
+	base: "./",
 	plugins: [solid()],
 	test: {
 		environment: "jsdom",
