@@ -811,6 +811,10 @@ async fn start_proxy(
         entry.push_str("        name: \"gemini-2.5-pro\"\n");
         entry.push_str("      - alias: \"gemini-3-pro-preview\"\n");
         entry.push_str("        name: \"gemini-3-pro-preview\"\n");
+        entry.push_str("      - alias: \"gemini-3.1-pro-high\"\n");
+        entry.push_str("        name: \"gemini-3.1-pro-high\"\n");
+        entry.push_str("      - alias: \"gemini-3.1-pro-low\"\n");
+        entry.push_str("        name: \"gemini-3.1-pro-low\"\n");
         // Claude models (GA)
         entry.push_str("      - alias: \"claude-haiku-4.5\"\n");
         entry.push_str("        name: \"claude-haiku-4.5\"\n");
@@ -993,6 +997,15 @@ async fn start_proxy(
         - name: "gemini-3-flash-preview*"
       params:
         generationConfig.thinkingConfig.thinkingLevel: "{0}"
+    # Gemini 3.1 Pro
+    - models:
+        - name: "gemini-3.1-pro-high*"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "high"
+    - models:
+        - name: "gemini-3.1-pro-low*"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "low"
     # Antigravity variants (without -preview suffix)
     # gemini-3-pro-high only supports "high" thinking level
     - models:
@@ -3770,6 +3783,11 @@ async fn fetch_antigravity_quota() -> Result<Vec<types::AntigravityQuotaResult>,
                                               "gemini-3-pro-low" | "3-pro-low" => "Gemini 3 Pro Low",
                                               "gemini-3-flash" | "3-flash" => "Gemini 3 Flash",
                                               "gemini-3-pro-image" => "Gemini 3 Pro Image",
+                                              // Gemini 3.x models (from Google/Vertex API)
+                                              "gemini-3-pro-preview" => "Gemini 3 Pro",
+                                              "gemini-3-flash-preview" => "Gemini 3 Flash",
+                                              "gemini-3.1-pro-high" => "Gemini 3.1 Pro High",
+                                              "gemini-3.1-pro-low" => "Gemini 3.1 Pro Low",
                                               // Claude models via Antigravity
                                               "claude-sonnet-4-5" | "claude-sonnet-4-5-thinking" => "Claude Sonnet 4.5",
                                               "claude-opus-4-5" | "claude-opus-4-5-thinking" => "Claude Opus 4.5",
@@ -6012,7 +6030,7 @@ export AMP_API_KEY="proxypal-local"
                 // Check if this is a GPT-5.x model (Codex reasoning models)
                 let is_gpt5_model = m.id.starts_with("gpt-5");
                 // Check if this is a Gemini 3 model (native thinking support)
-                let is_gemini3_model = m.id.starts_with("gemini-3-") && !m.id.contains("image");
+                let is_gemini3_model = (m.id.starts_with("gemini-3-") || m.id.starts_with("gemini-3.1-")) && !m.id.contains("image");
                 // Check if this is a Qwen3 or DeepSeek model with thinking support
                 let is_qwen3_thinking = m.id.contains("qwen3") && m.id.contains("thinking");
                 let is_deepseek_thinking = m.id.contains("deepseek") && m.id.contains("thinking");
@@ -6029,10 +6047,11 @@ export AMP_API_KEY="proxypal-local"
                 // Multimodal models support text + image + pdf input
                 // gemini-claude-* models are ProxyPal's Gemini-powered Claude-compatible models
                 // gemini-2.5-* models also support image/pdf
-                // gemini-3-* models also support image/pdf
+                // gemini-3-* and gemini-3.1-* models also support image/pdf
                 let is_multimodal = m.id.starts_with("gemini-claude-") 
                     || m.id.starts_with("gemini-2.5-") 
-                    || (m.id.starts_with("gemini-3-") && !m.id.contains("image"));
+                    || (m.id.starts_with("gemini-3-") && !m.id.contains("image"))
+                    || (m.id.starts_with("gemini-3.1-") && !m.id.contains("image"));
                 
                 let mut model_config = serde_json::json!({
                     "name": display_name,

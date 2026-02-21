@@ -1475,6 +1475,10 @@ export function SettingsPage() {
 				{ value: "gemini-3-pro-preview", label: "gemini-3-pro-preview" },
 				{ value: "gemini-3-flash-preview", label: "gemini-3-flash-preview" },
 				{
+					value: "gemini-3.1-pro-high",
+					label: "gemini-3.1-pro-high",
+				},
+				{
 					value: "gemini-3-pro-image-preview",
 					label: "gemini-3-pro-image-preview",
 				},
