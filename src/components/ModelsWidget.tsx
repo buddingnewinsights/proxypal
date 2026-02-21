@@ -22,6 +22,8 @@ const getProviderDisplayName = (ownedBy: string): string => {
 		copilot: "GitHub Copilot",
 		qwen: "Qwen",
 		iflow: "iFlow",
+		kimi: "Kimi",
+		kiro: "Kiro",
 		antigravity: "Antigravity",
 	};
 	return names[ownedBy] || ownedBy.charAt(0).toUpperCase() + ownedBy.slice(1);
@@ -35,6 +37,8 @@ const getProviderColor = (ownedBy: string): string => {
 		copilot: "bg-purple-500",
 		qwen: "bg-cyan-500",
 		iflow: "bg-pink-500",
+		kimi: "bg-yellow-500",
+		kiro: "bg-teal-500",
 		antigravity: "bg-indigo-500",
 	};
 	return colors[ownedBy] || "bg-gray-500";

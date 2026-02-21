@@ -7,7 +7,7 @@ BINARY_NAME="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BINARIES_DIR="$SCRIPT_DIR/../binaries"
 
-# Use CLIProxyAPIPlus (now up to date with v6.7.34-0)
+# Use CLIProxyAPIPlus (always downloads latest release)
 CLIPROXYAPI_REPO="${CLIPROXYAPI_REPO:-router-for-me/CLIProxyAPIPlus}"
 
 # Get latest version from GitHub API

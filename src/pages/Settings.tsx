@@ -1526,6 +1526,7 @@ export function SettingsPage() {
 				{ value: "qwq-32b", label: "qwq-32b" },
 			],
 			iflow: [] as { value: string; label: string }[],
+			kimi: [] as { value: string; label: string }[],
 			copilot: [
 				{ value: "copilot-gpt-4o", label: "copilot-gpt-4o" },
 				{ value: "copilot-claude-sonnet-4", label: "copilot-claude-sonnet-4" },
@@ -1561,6 +1562,9 @@ export function SettingsPage() {
 				.map((m) => ({ value: m.id, label: m.id })),
 			iflow: models
 				.filter((m) => m.ownedBy === "iflow")
+				.map((m) => ({ value: m.id, label: m.id })),
+			kimi: models
+				.filter((m) => m.ownedBy === "kimi" || m.id.startsWith("kimi-"))
 				.map((m) => ({ value: m.id, label: m.id })),
 			// GitHub Copilot models (via copilot-api) - includes both GPT and Claude models
 			copilot: models
@@ -1598,6 +1602,10 @@ export function SettingsPage() {
 				groupedModels.iflow.length > 0
 					? groupedModels.iflow
 					: fallbackModels.iflow,
+			kimi:
+				groupedModels.kimi.length > 0
+					? groupedModels.kimi
+					: fallbackModels.kimi,
 			copilot:
 				groupedModels.copilot.length > 0
 					? groupedModels.copilot
@@ -2237,9 +2245,6 @@ export function SettingsPage() {
 									<option value="fill-first">
 										{t("settings.network.routingStrategy.fillFirst")}
 									</option>
-									<option value="sequential">
-										{t("settings.network.routingStrategy.sequential")}
-									</option>
 								</select>
 								<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
 									{t("settings.network.routingStrategy.description")}
@@ -2560,7 +2565,8 @@ export function SettingsPage() {
 										builtInModels.google.length > 0 ||
 										builtInModels.openai.length > 0 ||
 										builtInModels.copilot.length > 0 ||
-										builtInModels.kiro.length > 0;
+										builtInModels.kiro.length > 0 ||
+										builtInModels.kimi.length > 0;
 
 									if (!hasModels) {
 										return (
@@ -2671,6 +2677,17 @@ export function SettingsPage() {
 												<Show when={builtInModels.iflow.length > 0}>
 													<optgroup label="iFlow">
 														<For each={builtInModels.iflow}>
+															{(model) => (
+																<option value={model.value}>
+																	{model.label}
+																</option>
+															)}
+														</For>
+													</optgroup>
+												</Show>
+												<Show when={builtInModels.kimi.length > 0}>
+													<optgroup label="Kimi">
+														<For each={builtInModels.kimi}>
 															{(model) => (
 																<option value={model.value}>
 																	{model.label}
@@ -2994,6 +3011,17 @@ export function SettingsPage() {
 																				</For>
 																			</optgroup>
 																		</Show>
+																		<Show when={builtInModels.kimi.length > 0}>
+																			<optgroup label="Kimi">
+																				<For each={builtInModels.kimi}>
+																					{(model) => (
+																						<option value={model.value}>
+																							{model.label}
+																						</option>
+																					)}
+																				</For>
+																			</optgroup>
+																		</Show>
 																		<Show
 																			when={builtInModels.copilot.length > 0}
 																		>
@@ -3233,6 +3261,17 @@ export function SettingsPage() {
 																		</For>
 																	</optgroup>
 																</Show>
+																<Show when={builtInModels.kimi.length > 0}>
+																	<optgroup label="Kimi">
+																		<For each={builtInModels.kimi}>
+																			{(model) => (
+																				<option value={model.value}>
+																					{model.label}
+																				</option>
+																			)}
+																		</For>
+																	</optgroup>
+																</Show>
 																<Show when={builtInModels.copilot.length > 0}>
 																	<optgroup label="GitHub Copilot">
 																		<For each={builtInModels.copilot}>
@@ -3387,6 +3426,17 @@ export function SettingsPage() {
 														<Show when={builtInModels.iflow.length > 0}>
 															<optgroup label="iFlow">
 																<For each={builtInModels.iflow}>
+																	{(model) => (
+																		<option value={model.value}>
+																			{model.label}
+																		</option>
+																	)}
+																</For>
+															</optgroup>
+														</Show>
+														<Show when={builtInModels.kimi.length > 0}>
+															<optgroup label="Kimi">
+																<For each={builtInModels.kimi}>
 																	{(model) => (
 																		<option value={model.value}>
 																			{model.label}
@@ -4158,6 +4208,8 @@ export function SettingsPage() {
 													return builtInModels.qwen;
 												case "iflow":
 													return builtInModels.iflow;
+												case "kimi":
+													return builtInModels.kimi;
 												case "copilot":
 													return builtInModels.copilot;
 												case "kiro":

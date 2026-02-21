@@ -912,6 +912,38 @@ async fn start_proxy(
         section
     };
     
+    // Build vertex-api-key section from user's persisted keys
+    let vertex_api_key_section = if config.vertex_api_keys.is_empty() {
+        String::new()
+    } else {
+        let mut section = String::from("# Vertex API keys\nvertex-api-key:\n");
+        for key in &config.vertex_api_keys {
+            section.push_str(&format!("  - api-key: \"{}\"\n", key.api_key));
+            if let Some(ref project_id) = key.project_id {
+                if !project_id.is_empty() {
+                    section.push_str(&format!("    project-id: \"{}\"\n", project_id));
+                }
+            }
+            if let Some(ref location) = key.location {
+                if !location.is_empty() {
+                    section.push_str(&format!("    location: \"{}\"\n", location));
+                }
+            }
+            if let Some(ref base_url) = key.base_url {
+                if !base_url.is_empty() {
+                    section.push_str(&format!("    base-url: \"{}\"\n", base_url));
+                }
+            }
+            if let Some(ref prefix) = key.prefix {
+                if !prefix.is_empty() {
+                    section.push_str(&format!("    prefix: \"{}\"\n", prefix));
+                }
+            }
+        }
+        section.push('\n');
+        section
+    };
+    
     // Get thinking budget from config
     let thinking_budget = {
         let mode = if config.thinking_budget_mode.is_empty() {
@@ -1058,7 +1090,7 @@ remote-management:
   secret-key: "{}"
   disable-control-panel: {}
 
-{}{}{}{}{}{}# Amp CLI Integration - enables amp login and management routes
+{}{}{}{}{}{}{}# Amp CLI Integration - enables amp login and management routes
 # See: https://help.router-for.me/agent-client/amp-cli.html
 # Get API key from: https://ampcode.com/settings
 ampcode:
@@ -1090,6 +1122,7 @@ ws-auth: {}
         claude_api_key_section,
         gemini_api_key_section,
         codex_api_key_section,
+        vertex_api_key_section,
         routing_section,
         payload_section,
         amp_api_key_line,
