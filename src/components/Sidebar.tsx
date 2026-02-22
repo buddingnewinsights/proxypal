@@ -14,6 +14,7 @@ import {
 } from "../lib/tauri";
 import { appStore } from "../stores/app";
 import { themeStore } from "../stores/theme";
+import { toastStore } from "../stores/toast";
 
 type PageId =
 	| "dashboard"
@@ -188,6 +189,7 @@ export const Sidebar: Component = () => {
 			await downloadAndInstallUpdate();
 		} catch (error) {
 			console.error("Update failed:", error);
+			toastStore.error(t("settings.toasts.updateFailed"), String(error));
 			setIsUpdating(false);
 		}
 	};

@@ -24,6 +24,7 @@ import {
 	importUsageStats,
 	type UsageStats,
 } from "../lib/tauri";
+import { toastStore } from "../stores/toast";
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -333,7 +334,7 @@ export function Analytics() {
 	const [exporting, setExporting] = createSignal(false);
 	const [importing, setImporting] = createSignal(false);
 
-	const fetchStats = async () => {
+	const fetchStats = async (showToast = false) => {
 		try {
 			setRefreshing(true);
 			const data = await getUsageStats();
@@ -341,6 +342,9 @@ export function Analytics() {
 			setLastUpdated(Date.now());
 		} catch (err) {
 			console.error("Failed to fetch analytics:", err);
+			if (showToast) {
+				toastStore.error("Failed to load analytics", String(err));
+			}
 		} finally {
 			setLoading(false);
 			setRefreshing(false);
@@ -373,6 +377,7 @@ export function Analytics() {
 			}
 		} catch (err) {
 			console.error("Failed to export usage stats:", err);
+			toastStore.error("Failed to export usage stats", String(err));
 		} finally {
 			setExporting(false);
 		}
@@ -390,13 +395,13 @@ export function Analytics() {
 			if (filePath) {
 				const content = await readTextFile(filePath as string);
 				const data = JSON.parse(content);
-				const result = await importUsageStats(data);
-				console.log("Import result:", result);
+				await importUsageStats(data);
 				// Refresh stats after import
 				await fetchStats();
 			}
 		} catch (err) {
 			console.error("Failed to import usage stats:", err);
+			toastStore.error("Failed to import usage stats", String(err));
 		} finally {
 			setImporting(false);
 		}
@@ -684,7 +689,7 @@ export function Analytics() {
 
 						{/* Refresh Button */}
 						<button
-							onClick={fetchStats}
+							onClick={() => fetchStats(true)}
 							disabled={refreshing()}
 							class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
 						>

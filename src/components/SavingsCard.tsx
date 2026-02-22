@@ -77,7 +77,6 @@ export function SavingsCard() {
 			await requestStore.loadHistory();
 		} catch (err) {
 			// Silently fail - proxy might not be ready yet
-			console.debug("Usage sync pending:", err);
 		}
 	};
 

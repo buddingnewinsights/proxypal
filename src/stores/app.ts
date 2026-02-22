@@ -163,9 +163,6 @@ function createAppStore() {
 						ampModelMappings: result.mappings,
 					};
 					shouldSave = true;
-					console.log(
-						"[ProxyPal] Auto-migrated amp model mappings to new slot models",
-					);
 				}
 			}
 

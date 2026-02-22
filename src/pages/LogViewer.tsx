@@ -193,6 +193,7 @@ export function LogViewerPage() {
 			}
 		} catch (err) {
 			console.error("Failed to load error log files:", err);
+			toastStore.error(t("logs.toasts.failedToLoadErrorLog"), String(err));
 		} finally {
 			setLoadingErrorLogs(false);
 		}

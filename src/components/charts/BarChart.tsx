@@ -139,7 +139,17 @@ export function BarChart(props: BarChartProps) {
 					type: "bar",
 					data: chartData.map((d) => {
 						const labelPosition = isHorizontal ? "right" : "top";
-						const item: any = {
+						type QuotaColor = ReturnType<typeof getQuotaColor>;
+						const item: {
+							value: number;
+							label: {
+								position: "right" | "top";
+								color: string;
+							};
+							itemStyle?: {
+								color: QuotaColor;
+							};
+						} = {
 							value: d.value,
 							label: {
 								position: labelPosition,

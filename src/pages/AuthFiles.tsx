@@ -174,8 +174,9 @@ export function AuthFilesPage() {
 					result.message,
 				);
 			}
-		} catch (err: any) {
-			toastStore.error(t("authFiles.toasts.testFailed"), String(err));
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			toastStore.error(t("authFiles.toasts.testFailed"), message);
 		} finally {
 			setTestingProvider(null);
 		}
