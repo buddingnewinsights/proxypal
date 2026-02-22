@@ -12,8 +12,11 @@ fn main() {
     let binaries_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries");
     let binary_path = binaries_dir.join(&binary_name);
 
-    // Skip download in CI - binaries are downloaded in workflow steps
     let is_ci = env::var("CI").is_ok();
+    // CARGO_PRIMARY_PACKAGE is set during check/build of the workspace root package.
+    // For `cargo check`, Tauri doesn't bundle sidecars, so we can skip validation.
+    // The release workflow downloads the binary before `cargo build`.
+    let is_check_only = env::var("PROXYPAL_SKIP_SIDECAR").is_ok();
 
     let needs_download = if !binary_path.exists() {
         println!("cargo:warning=Sidecar binary not found: {}", binary_name);
@@ -31,7 +34,16 @@ fn main() {
     };
 
     if needs_download {
-        if is_ci {
+        if is_check_only {
+            // Create a dummy binary so tauri_build::build() doesn't fail
+            let _ = fs::create_dir_all(&binaries_dir);
+            fs::write(&binary_path, b"PLACEHOLDER").unwrap_or_else(|e| {
+                println!("cargo:warning=Failed to create placeholder binary: {}", e);
+            });
+            println!(
+                "cargo:warning=Sidecar binary not available, using placeholder for check-only build"
+            );
+        } else if is_ci {
             panic!(
                 "Sidecar binary missing or corrupted in CI: {}.\n\
                 The CI workflow must download and extract the binary before cargo build.\n\
