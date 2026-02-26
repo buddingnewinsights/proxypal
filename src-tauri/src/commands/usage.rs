@@ -12,6 +12,7 @@ use crate::utils::estimate_request_cost;
 use tauri::State;
 
 // Live usage data from Go backend
+#[allow(dead_code)] // Fields deserialized from JSON, used indirectly
 struct LiveUsageData {
     total_tokens: u64,
     input_tokens: u64,
@@ -386,19 +387,21 @@ pub fn get_usage_stats(state: State<'_, AppState>) -> Result<UsageStats, String>
     let history = load_request_history();
 
     // Try to fetch live data from Go backend if proxy is running
+    // Live data provides per-model breakdowns for the current session
     let live_data = if is_running {
         fetch_live_usage_stats_blocking(port)
     } else {
         None
     };
 
-    // Merge live data with aggregate
-    let (total_tokens, input_tokens, output_tokens, cached_tokens, model_tokens, model_token_breakdown): (u64, u64, u64, u64, std::collections::HashMap<String, u64>, std::collections::HashMap<String, (u64, u64, u64)>) = if let Some(ref live) = live_data {
+    // Use aggregate as the source of truth for all-time totals (preserved across restarts).
+    // Live data only supplements per-model breakdowns for the current session.
+    let total_tokens = agg.total_tokens_in + agg.total_tokens_out;
+    let input_tokens = agg.total_tokens_in;
+    let output_tokens = agg.total_tokens_out;
+    let cached_tokens = agg.total_tokens_cached;
+    let (model_tokens, model_token_breakdown): (std::collections::HashMap<String, u64>, std::collections::HashMap<String, (u64, u64, u64)>) = if let Some(ref live) = live_data {
         (
-            live.total_tokens,
-            live.input_tokens,
-            live.output_tokens,
-            live.cached_tokens,
             live.model_tokens.clone(),
             live.model_token_breakdown.clone(),
         )
@@ -414,14 +417,7 @@ pub fn get_usage_stats(state: State<'_, AppState>) -> Result<UsageStats, String>
             .iter()
             .map(|(k, v)| (k.clone(), (v.input_tokens, v.output_tokens, v.cached_tokens)))
             .collect();
-        (
-            agg.total_tokens_in + agg.total_tokens_out,
-            agg.total_tokens_in,
-            agg.total_tokens_out,
-            agg.total_tokens_cached,
-            agg_model_tokens,
-            agg_model_breakdown,
-        )
+        (agg_model_tokens, agg_model_breakdown)
     };
 
     // If no data yet, return defaults
@@ -845,23 +841,33 @@ pub async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<Request
         }
     }
 
-    // Update local history with synced data
+    // Update local history with synced data - use max() to never lose all-time data
+    // The proxy reports cumulative session totals which reset on restart,
+    // so we must never let a fresh session zero out persisted all-time data.
     let mut history = load_request_history();
-    history.total_tokens_in = total_input;
-    history.total_tokens_out = total_output;
-    history.total_tokens_cached = total_cached;
-    history.total_cost_usd = total_cost;
+    history.total_tokens_in = history.total_tokens_in.max(total_input);
+    history.total_tokens_out = history.total_tokens_out.max(total_output);
+    history.total_tokens_cached = history.total_tokens_cached.max(total_cached);
+    history.total_cost_usd = if total_cost > history.total_cost_usd {
+        total_cost
+    } else {
+        history.total_cost_usd
+    };
     history.tokens_by_day = tokens_by_day.clone();
     history.tokens_by_hour = tokens_by_hour.clone();
 
     // Save updated history
     save_request_history(&history)?;
 
-    // Also update aggregate with token data from proxy
+    // Also update aggregate with token data from proxy - use max() to preserve all-time
     let mut agg = load_aggregate();
-    agg.total_tokens_in = total_input;
-    agg.total_tokens_out = total_output;
-    agg.total_cost_usd = total_cost;
+    agg.total_tokens_in = agg.total_tokens_in.max(total_input);
+    agg.total_tokens_out = agg.total_tokens_out.max(total_output);
+    agg.total_cost_usd = if total_cost > agg.total_cost_usd {
+        total_cost
+    } else {
+        agg.total_cost_usd
+    };
     // Merge tokens_by_day into aggregate (proxy is source of truth for tokens)
     for point in &tokens_by_day {
         if let Some(existing) = agg
