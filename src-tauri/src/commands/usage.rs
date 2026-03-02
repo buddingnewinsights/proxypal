@@ -147,21 +147,34 @@ fn sync_usage_from_proxy_blocking(port: u16) {
         .send()
     {
         Ok(r) => r,
-        Err(_) => return,
+        Err(e) => {
+            eprintln!("[usage] sync_usage_from_proxy_blocking: request failed: {}", e);
+            return;
+        }
     };
 
     if !response.status().is_success() {
+        eprintln!(
+            "[usage] sync_usage_from_proxy_blocking: HTTP {}",
+            response.status()
+        );
         return;
     }
 
     let body: serde_json::Value = match response.json() {
         Ok(j) => j,
-        Err(_) => return,
+        Err(e) => {
+            eprintln!("[usage] sync_usage_from_proxy_blocking: parse error: {}", e);
+            return;
+        }
     };
 
     let usage = match body.get("usage") {
         Some(u) => u,
-        None => return,
+        None => {
+            eprintln!("[usage] sync_usage_from_proxy_blocking: missing 'usage' field");
+            return;
+        }
     };
 
     // Parse time-series data from CLIProxyAPI
@@ -364,6 +377,14 @@ fn sync_usage_from_proxy_blocking(port: u16) {
     if synced_success > agg.total_success_count {
         agg.total_success_count = synced_success;
     }
+
+    // Compute total tokens from per-model stats and update aggregate
+    let total_input: u64 = agg.model_stats.values().map(|s| s.input_tokens).sum();
+    let total_output: u64 = agg.model_stats.values().map(|s| s.output_tokens).sum();
+    let total_cached: u64 = agg.model_stats.values().map(|s| s.cached_tokens).sum();
+    agg.total_tokens_in = agg.total_tokens_in.max(total_input);
+    agg.total_tokens_out = agg.total_tokens_out.max(total_output);
+    agg.total_tokens_cached = agg.total_tokens_cached.max(total_cached);
 
     let _ = save_aggregate(&agg);
 }
@@ -1007,8 +1028,8 @@ pub async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<Request
     if synced_success > agg.total_success_count {
         agg.total_success_count = synced_success;
     }
-    // Update total_tokens_cached in aggregate
-    agg.total_tokens_cached = total_cached;
+    // Update total_tokens_cached in aggregate (use max to prevent regression on proxy restart)
+    agg.total_tokens_cached = agg.total_tokens_cached.max(total_cached);
 
     let _ = save_aggregate(&agg);
 
