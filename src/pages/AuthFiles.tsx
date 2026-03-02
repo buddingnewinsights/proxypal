@@ -152,7 +152,7 @@ export function AuthFilesPage() {
 		// Using ProxyPal's model IDs that map to each provider's auth
 		let modelId: string | null = null;
 		if (p.includes("claude")) {
-			modelId = "gemini-claude-sonnet-4-5";
+			modelId = "claude-sonnet-4-5";
 		} else if (p.includes("gemini") || p.includes("vertex")) {
 			modelId = "gemini-2.5-flash";
 		} else if (p.includes("codex")) {
