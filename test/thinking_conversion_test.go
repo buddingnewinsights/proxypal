@@ -386,15 +386,17 @@ func TestThinkingE2EMatrix_Suffix(t *testing.T) {
 			includeThoughts: "true",
 			expectErr:       false,
 		},
-		// Case 30: Effort xhigh → not in low/high → error
+		// Case 30: Effort xhigh → clamped to high
 		{
-			name:        "30",
-			from:        "openai",
-			to:          "gemini",
-			model:       "gemini-mixed-model(xhigh)",
-			inputJSON:   `{"model":"gemini-mixed-model(xhigh)","messages":[{"role":"user","content":"hi"}]}`,
-			expectField: "",
-			expectErr:   true,
+			name:            "30",
+			from:            "openai",
+			to:              "gemini",
+			model:           "gemini-mixed-model(xhigh)",
+			inputJSON:       `{"model":"gemini-mixed-model(xhigh)","messages":[{"role":"user","content":"hi"}]}`,
+			expectField:     "generationConfig.thinkingConfig.thinkingLevel",
+			expectValue:     "high",
+			includeThoughts: "true",
+			expectErr:       false,
 		},
 		// Case 31: Effort none → clamped to low (min supported) → includeThoughts=false
 		{
@@ -1668,15 +1670,17 @@ func TestThinkingE2EMatrix_Body(t *testing.T) {
 			includeThoughts: "true",
 			expectErr:       false,
 		},
-		// Case 30: reasoning_effort=xhigh → error (not in low/high)
+		// Case 30: reasoning_effort=xhigh → clamped to high
 		{
-			name:        "30",
-			from:        "openai",
-			to:          "gemini",
-			model:       "gemini-mixed-model",
-			inputJSON:   `{"model":"gemini-mixed-model","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"xhigh"}`,
-			expectField: "",
-			expectErr:   true,
+			name:            "30",
+			from:            "openai",
+			to:              "gemini",
+			model:           "gemini-mixed-model",
+			inputJSON:       `{"model":"gemini-mixed-model","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"xhigh"}`,
+			expectField:     "generationConfig.thinkingConfig.thinkingLevel",
+			expectValue:     "high",
+			includeThoughts: "true",
+			expectErr:       false,
 		},
 		// Case 31: reasoning_effort=none → clamped to low → includeThoughts=false
 		{
