@@ -543,6 +543,20 @@ func (m *Manager) executeStreamWithModelPool(ctx context.Context, executor Provi
 			return m.wrapStreamResult(ctx, auth.Clone(), provider, routeModel, streamResult.Headers, nil, errCh), nil
 		}
 
+		if closed && len(buffered) == 0 {
+			emptyErr := &Error{Code: "empty_stream", Message: "upstream stream closed before first payload", Retryable: true}
+			result := Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: false, Error: emptyErr}
+			m.MarkResult(ctx, result)
+			if idx < len(execModels)-1 {
+				lastErr = emptyErr
+				continue
+			}
+			errCh := make(chan cliproxyexecutor.StreamChunk, 1)
+			errCh <- cliproxyexecutor.StreamChunk{Err: emptyErr}
+			close(errCh)
+			return m.wrapStreamResult(ctx, auth.Clone(), provider, routeModel, streamResult.Headers, nil, errCh), nil
+		}
+
 		remaining := streamResult.Chunks
 		if closed {
 			closedCh := make(chan cliproxyexecutor.StreamChunk)
