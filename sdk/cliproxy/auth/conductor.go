@@ -471,7 +471,10 @@ func (m *Manager) wrapStreamResult(ctx context.Context, auth *Auth, provider, ro
 			}
 		}
 		for chunk := range remaining {
-			_ = emit(chunk)
+			if ok := emit(chunk); !ok {
+				discardStreamChunks(remaining)
+				return
+			}
 		}
 		if !failed {
 			m.MarkResult(ctx, Result{AuthID: auth.ID, Provider: provider, Model: routeModel, Success: true})
