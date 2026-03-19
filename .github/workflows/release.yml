@@ -50,7 +50,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2 rpm
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -195,6 +195,7 @@ jobs:
             | Windows | `.exe` installer |
             | Windows (Portable) | `.zip` (no install required) |
             | Linux | `.deb` package |
+            | Linux (Fedora/RHEL) | `.rpm` package |
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
@@ -319,6 +320,7 @@ jobs:
             echo "| Windows | \`.exe\` installer |"
             echo "| Windows (Portable) | \`.zip\` (no install required) |"
             echo "| Linux | \`.deb\` package |"
+            echo "| Linux (Fedora/RHEL) | \`.rpm\` package |"
             echo ""
             echo "---"
             echo "*Bundled sidecar: CLIProxyAPIPlus $SIDECAR_VERSION*"
