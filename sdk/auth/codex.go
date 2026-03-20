@@ -127,6 +127,9 @@ func (a *CodexAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 		defer manualPromptTimer.Stop()
 	}
 
+	var manualInputCh <-chan string
+	var manualInputErrCh <-chan error
+
 waitForCallback:
 	for {
 		select {
@@ -152,10 +155,22 @@ waitForCallback:
 				return nil, err
 			default:
 			}
-			input, errPrompt := opts.Prompt("Paste the Codex callback URL (or press Enter to keep waiting): ")
-			if errPrompt != nil {
-				return nil, errPrompt
-			}
+			inputCh := make(chan string, 1)
+			inputErrCh := make(chan error, 1)
+			go func() {
+				input, errPrompt := opts.Prompt("Paste the Codex callback URL (or press Enter to keep waiting): ")
+				if errPrompt != nil {
+					inputErrCh <- errPrompt
+					return
+				}
+				inputCh <- input
+			}()
+			manualInputCh = inputCh
+			manualInputErrCh = inputErrCh
+			continue
+		case input := <-manualInputCh:
+			manualInputCh = nil
+			manualInputErrCh = nil
 			parsed, errParse := misc.ParseOAuthCallback(input)
 			if errParse != nil {
 				return nil, errParse
@@ -170,6 +185,8 @@ waitForCallback:
 				Error: parsed.Error,
 			}
 			break waitForCallback
+		case errManual := <-manualInputErrCh:
+			return nil, errManual
 		}
 	}
 
