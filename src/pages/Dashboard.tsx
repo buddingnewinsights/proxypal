@@ -609,6 +609,7 @@ export function DashboardPage() {
       console.error("Manual code submission failed:", error);
       setOauthLoading(false);
       toastStore.error(t("dashboard.toasts.connectionFailed"), String(error));
+      throw error; // Re-throw so OAuthModal can reset its submitting state
     }
   };
 

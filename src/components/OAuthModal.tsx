@@ -24,7 +24,7 @@ interface OAuthModalProps {
   onAlreadyAuthorized: () => void;
   onCancel: () => void;
   onStartOAuth: () => void;
-  onSubmitCode?: (code: string) => void;
+  onSubmitCode?: (code: string) => Promise<void>;
   provider: Provider | null;
   providerName: string;
   showManualInput?: boolean;
@@ -33,6 +33,7 @@ interface OAuthModalProps {
 export function OAuthModal(props: OAuthModalProps) {
   const [copied, setCopied] = createSignal(false);
   const [manualCode, setManualCode] = createSignal("");
+  const [submittingCode, setSubmittingCode] = createSignal(false);
   const { t } = useI18n();
 
   const handleCopy = async () => {
@@ -166,7 +167,7 @@ export function OAuthModal(props: OAuthModalProps) {
                 <div class="flex gap-2">
                   <input
                     class="flex-1 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 font-mono text-xs text-gray-900 placeholder-gray-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-amber-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
-                    disabled={props.loading}
+                    disabled={submittingCode()}
                     onInput={(e) => setManualCode(e.currentTarget.value)}
                     placeholder={t("oauth.manualCodePlaceholder")}
                     type="text"
@@ -174,12 +175,19 @@ export function OAuthModal(props: OAuthModalProps) {
                   />
                   <button
                     class="flex-shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-700 dark:hover:bg-amber-600"
-                    disabled={props.loading || !manualCode().trim()}
-                    onClick={() => {
+                    disabled={submittingCode() || !manualCode().trim()}
+                    onClick={async () => {
                       const code = manualCode().trim();
                       if (code && props.onSubmitCode) {
-                        props.onSubmitCode(code);
-                        setManualCode("");
+                        setSubmittingCode(true);
+                        try {
+                          await props.onSubmitCode(code);
+                          setManualCode("");
+                        } catch {
+                          // Submission failed — allow retry
+                        } finally {
+                          setSubmittingCode(false);
+                        }
                       }
                     }}
                   >
