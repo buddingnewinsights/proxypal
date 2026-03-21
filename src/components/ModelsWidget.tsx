@@ -52,7 +52,11 @@ const deriveProvider = (model: ModelInfo): string => {
   const id = model.id.toLowerCase();
 
   // GitHub Copilot (owned_by from CLIProxyAPI is "github-copilot")
-  if (model.ownedBy === "github-copilot" || model.ownedBy === "copilot" || id.startsWith("github-copilot/")) {
+  if (
+    model.ownedBy === "github-copilot" ||
+    model.ownedBy === "copilot" ||
+    id.startsWith("github-copilot/")
+  ) {
     return "copilot";
   }
 

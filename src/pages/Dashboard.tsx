@@ -260,7 +260,9 @@ export function DashboardPage() {
     // Listen for deep-link OAuth callback (faster than polling)
     const unlistenOAuth = await onOAuthCallback(async (data) => {
       const provider = oauthModalProvider();
-      if (!provider || data.provider !== provider || oauthCompleted()) return;
+      if (!provider || data.provider !== provider || oauthCompleted()) {
+        return;
+      }
       setOauthCompleted(true);
       try {
         const newAuth = await completeOAuth(data.provider, data.code);
@@ -441,7 +443,7 @@ export function DashboardPage() {
       // Show manual code input after 10 seconds if deep-link hasn't fired
       const manualInputTimer = setTimeout(() => {
         setShowManualCodeInput(true);
-      }, 10000);
+      }, 10_000);
 
       // Start polling for OAuth completion
       let attempts = 0;
@@ -460,7 +462,9 @@ export function DashboardPage() {
             clearInterval(pollInterval);
             clearTimeout(manualInputTimer);
             // Race guard: bail if another path (deep-link/manual) already handled this
-            if (oauthCompleted()) return;
+            if (oauthCompleted()) {
+              return;
+            }
             setOauthCompleted(true);
             // Add delay to ensure file is written before scanning
             await new Promise((resolve) => setTimeout(resolve, 500));
@@ -597,7 +601,9 @@ export function DashboardPage() {
 
   const handleSubmitCode = async (code: string) => {
     const provider = oauthModalProvider();
-    if (!provider || oauthCompleted()) return;
+    if (!provider || oauthCompleted()) {
+      return;
+    }
     setOauthCompleted(true);
 
     setOauthLoading(true);
