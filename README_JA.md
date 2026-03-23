@@ -62,7 +62,7 @@ CLIProxyAPIガイド：[https://help.router-for.me/ja/](https://help.router-for.
 
 ## 管理API
 
-[MANAGEMENT_API.md](https://help.router-for.me/management/api)を参照
+[MANAGEMENT_API.md](https://help.router-for.me/ja/management/api)を参照
 
 ## Amp CLIサポート
 
