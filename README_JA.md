@@ -58,7 +58,7 @@ GLM CODING PLANを10%割引で取得：https://z.ai/subscribe?ic=8JVLJQFSKB
 
 ## はじめに
 
-CLIProxyAPIガイド：[https://help.router-for.me/](https://help.router-for.me/)
+CLIProxyAPIガイド：[https://help.router-for.me/ja/](https://help.router-for.me/ja/)
 
 ## 管理API
 
