@@ -1,21 +1,24 @@
 import { flatten } from "@solid-primitives/i18n";
 import { createContext, createMemo, useContext } from "solid-js";
 import { en } from "./en";
+import { vi } from "./vi";
 import { zhCN } from "./zh-CN";
 
 import type { Accessor, JSX } from "solid-js";
 
-export const LOCALE_OPTIONS = ["en", "zh-CN"] as const;
+export const LOCALE_OPTIONS = ["en", "vi", "zh-CN"] as const;
 
 export type Locale = (typeof LOCALE_OPTIONS)[number];
 
 export const LOCALE_LABELS: Record<Locale, string> = {
   en: "English",
+  vi: "Tiếng Việt",
   "zh-CN": "中文",
 };
 
 const dictionaries = {
   en,
+  vi,
   "zh-CN": zhCN,
 } as const;
 
@@ -39,6 +42,10 @@ export function toSupportedLocale(value: string | undefined | null): Locale {
 
   if (value === "zh" || value.toLowerCase().startsWith("zh-")) {
     return "zh-CN";
+  }
+
+  if (value.toLowerCase().startsWith("vi")) {
+    return "vi";
   }
 
   if (value.toLowerCase().startsWith("en")) {

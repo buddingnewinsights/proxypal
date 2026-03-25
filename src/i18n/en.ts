@@ -613,6 +613,7 @@ export const en = {
       description: "Choose the display language for the app",
       en: "English",
       label: "Language",
+      vi: "Vietnamese",
       zhCN: "Chinese (Simplified)",
     },
     launchAtLogin: {

@@ -604,6 +604,7 @@ export const zhCN = {
       description: "选择应用显示语言",
       en: "英文",
       label: "语言",
+      vi: "越南语",
       zhCN: "简体中文",
     },
     launchAtLogin: {
