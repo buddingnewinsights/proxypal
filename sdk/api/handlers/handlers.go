@@ -46,6 +46,7 @@ type ErrorDetail struct {
 }
 
 const idempotencyKeyMetadataKey = "idempotency_key"
+const authAffinityMetadataKey = "auth_affinity_key"
 
 const (
 	defaultStreamingKeepAliveSeconds = 0
@@ -189,9 +190,11 @@ func requestExecutionMetadata(ctx context.Context) map[string]any {
 	// Idempotency-Key is an optional client-supplied header used to correlate retries.
 	// It is forwarded as execution metadata; when absent we generate a UUID.
 	key := ""
+	explicitIdempotencyKey := ""
 	if ctx != nil {
 		if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil && ginCtx.Request != nil {
-			key = strings.TrimSpace(ginCtx.GetHeader("Idempotency-Key"))
+			explicitIdempotencyKey = strings.TrimSpace(ginCtx.GetHeader("Idempotency-Key"))
+			key = explicitIdempotencyKey
 		}
 	}
 	if key == "" {
@@ -207,6 +210,15 @@ func requestExecutionMetadata(ctx context.Context) map[string]any {
 	}
 	if executionSessionID := executionSessionIDFromContext(ctx); executionSessionID != "" {
 		meta[coreexecutor.ExecutionSessionMetadataKey] = executionSessionID
+		meta[authAffinityMetadataKey] = executionSessionID
+	} else if explicitIdempotencyKey != "" {
+		meta[authAffinityMetadataKey] = explicitIdempotencyKey
+	} else if ctx != nil {
+		if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil {
+			if apiKey, exists := ginCtx.Get("apiKey"); exists && apiKey != nil {
+				meta[authAffinityMetadataKey] = fmt.Sprintf("principal:%v", apiKey)
+			}
+		}
 	}
 	return meta
 }
