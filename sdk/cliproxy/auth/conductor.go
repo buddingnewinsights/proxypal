@@ -2271,6 +2271,20 @@ func (m *Manager) AuthAffinity(key string) string {
 	return strings.TrimSpace(m.affinity[key])
 }
 
+func (m *Manager) applyAuthAffinity(opts *cliproxyexecutor.Options) {
+	if m == nil || opts == nil || pinnedAuthIDFromMetadata(opts.Metadata) != "" {
+		return
+	}
+	if affinityKey := authAffinityKeyFromMetadata(opts.Metadata); affinityKey != "" {
+		if affinityAuthID := m.AuthAffinity(affinityKey); affinityAuthID != "" {
+			if opts.Metadata == nil {
+				opts.Metadata = make(map[string]any)
+			}
+			opts.Metadata[cliproxyexecutor.PinnedAuthMetadataKey] = affinityAuthID
+		}
+	}
+}
+
 func (m *Manager) SetAuthAffinity(key, authID string) {
 	key = strings.TrimSpace(key)
 	authID = strings.TrimSpace(authID)
@@ -2378,18 +2392,7 @@ func (m *Manager) pickNextLegacy(ctx context.Context, provider, model string, op
 }
 
 func (m *Manager) pickNext(ctx context.Context, provider, model string, opts cliproxyexecutor.Options, tried map[string]struct{}) (*Auth, ProviderExecutor, error) {
-	if pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata); pinnedAuthID == "" {
-		if affinityKey := authAffinityKeyFromMetadata(opts.Metadata); affinityKey != "" {
-			if affinityAuthID := m.AuthAffinity(affinityKey); affinityAuthID != "" {
-				meta := opts.Metadata
-				if meta == nil {
-					meta = make(map[string]any)
-					opts.Metadata = meta
-				}
-				meta[cliproxyexecutor.PinnedAuthMetadataKey] = affinityAuthID
-			}
-		}
-	}
+	m.applyAuthAffinity(&opts)
 	if !m.useSchedulerFastPath() {
 		return m.pickNextLegacy(ctx, provider, model, opts, tried)
 	}
@@ -2504,18 +2507,7 @@ func (m *Manager) pickNextMixedLegacy(ctx context.Context, providers []string, m
 }
 
 func (m *Manager) pickNextMixed(ctx context.Context, providers []string, model string, opts cliproxyexecutor.Options, tried map[string]struct{}) (*Auth, ProviderExecutor, string, error) {
-	if pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata); pinnedAuthID == "" {
-		if affinityKey := authAffinityKeyFromMetadata(opts.Metadata); affinityKey != "" {
-			if affinityAuthID := m.AuthAffinity(affinityKey); affinityAuthID != "" {
-				meta := opts.Metadata
-				if meta == nil {
-					meta = make(map[string]any)
-					opts.Metadata = meta
-				}
-				meta[cliproxyexecutor.PinnedAuthMetadataKey] = affinityAuthID
-			}
-		}
-	}
+	m.applyAuthAffinity(&opts)
 	if !m.useSchedulerFastPath() {
 		return m.pickNextMixedLegacy(ctx, providers, model, opts, tried)
 	}

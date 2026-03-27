@@ -216,11 +216,29 @@ func requestExecutionMetadata(ctx context.Context) map[string]any {
 	} else if ctx != nil {
 		if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil {
 			if apiKey, exists := ginCtx.Get("apiKey"); exists && apiKey != nil {
-				meta[authAffinityMetadataKey] = fmt.Sprintf("principal:%v", apiKey)
+				if principal := stablePrincipalMetadataKey(apiKey); principal != "" {
+					meta[authAffinityMetadataKey] = principal
+				}
 			}
 		}
 	}
 	return meta
+}
+
+func stablePrincipalMetadataKey(raw any) string {
+	var keyStr string
+	switch v := raw.(type) {
+	case string:
+		keyStr = v
+	case fmt.Stringer:
+		keyStr = v.String()
+	default:
+		keyStr = fmt.Sprintf("%v", raw)
+	}
+	if trimmed := strings.TrimSpace(keyStr); trimmed != "" {
+		return "principal:" + trimmed
+	}
+	return ""
 }
 
 func pinnedAuthIDFromContext(ctx context.Context) string {
