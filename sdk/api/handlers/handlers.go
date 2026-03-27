@@ -210,7 +210,6 @@ func requestExecutionMetadata(ctx context.Context) map[string]any {
 	}
 	if executionSessionID := executionSessionIDFromContext(ctx); executionSessionID != "" {
 		meta[coreexecutor.ExecutionSessionMetadataKey] = executionSessionID
-		meta[authAffinityMetadataKey] = executionSessionID
 	} else if ctx != nil {
 		if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil {
 			if apiKey, exists := ginCtx.Get("apiKey"); exists && apiKey != nil {

@@ -52,7 +52,7 @@ func TestManagerPickNextMixedUsesAuthAffinity(t *testing.T) {
 		t.Fatalf("Register(codex-b) error = %v", errRegister)
 	}
 
-	manager.SetAuthAffinity("idem-1", "codex-b")
+	manager.SetAuthAffinity("codex", "idem-1", "codex-b")
 	opts := cliproxyexecutor.Options{Metadata: map[string]any{"auth_affinity_key": "idem-1"}}
 
 	got, _, provider, errPick := manager.pickNextMixed(context.Background(), []string{"codex"}, "gpt-5.4", opts, map[string]struct{}{})
@@ -74,12 +74,27 @@ func TestManagerAuthAffinityRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	manager := NewManager(nil, nil, nil)
-	manager.SetAuthAffinity("idem-2", "auth-1")
-	if got := manager.AuthAffinity("idem-2"); got != "auth-1" {
+	manager.SetAuthAffinity("codex", "idem-2", "auth-1")
+	if got := manager.AuthAffinity("codex", "idem-2"); got != "auth-1" {
 		t.Fatalf("AuthAffinity = %q, want %q", got, "auth-1")
 	}
-	manager.ClearAuthAffinity("idem-2")
-	if got := manager.AuthAffinity("idem-2"); got != "" {
+	manager.ClearAuthAffinity("codex", "idem-2")
+	if got := manager.AuthAffinity("codex", "idem-2"); got != "" {
 		t.Fatalf("AuthAffinity after clear = %q, want empty", got)
+	}
+}
+
+func TestManagerAuthAffinityScopedByProvider(t *testing.T) {
+	t.Parallel()
+
+	manager := NewManager(nil, nil, nil)
+	manager.SetAuthAffinity("codex", "shared-key", "codex-auth")
+	manager.SetAuthAffinity("gemini", "shared-key", "gemini-auth")
+
+	if got := manager.AuthAffinity("codex", "shared-key"); got != "codex-auth" {
+		t.Fatalf("codex affinity = %q, want %q", got, "codex-auth")
+	}
+	if got := manager.AuthAffinity("gemini", "shared-key"); got != "gemini-auth" {
+		t.Fatalf("gemini affinity = %q, want %q", got, "gemini-auth")
 	}
 }
