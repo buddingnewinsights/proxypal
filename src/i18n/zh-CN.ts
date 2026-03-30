@@ -212,9 +212,11 @@ export const zhCN = {
     actions: {
       delete: "删除",
       deleteAll: "删除全部",
+      deleteSelected: "删除选中（{{count}}）",
       disable: "禁用",
       download: "下载",
       enable: "启用",
+      selectAll: "全选",
       testConnection: "测试连接",
       testing: "测试中...",
       upload: "上传",
@@ -224,6 +226,9 @@ export const zhCN = {
       all: "全部（{{count}}）",
     },
     modals: {
+      batchDeleteDescription:
+        "这将删除 {{count}} 个选中的认证文件。你需要重新认证受影响的提供商。此操作无法撤销。",
+      batchDeleteTitle: "删除选中的认证文件？",
       deleteAllDescription:
         "这将删除全部 {{count}} 个认证文件。你需要重新认证所有提供商。此操作无法撤销。",
       deleteAllTitle: "删除所有认证文件？",
@@ -233,6 +238,9 @@ export const zhCN = {
     },
     noAuthFiles: "暂无认证文件",
     noAuthFilesDescription: "连接提供商后 OAuth 凭据会显示在这里，或可手动上传凭据文件。",
+    priority: {
+      tooltip: "路由优先级 — 数字越小优先级越高",
+    },
     proxyNotRunning: "代理未运行",
     startProxyDescription: "启动代理服务器后即可通过管理 API 管理认证文件。",
     stats: {
@@ -244,6 +252,8 @@ export const zhCN = {
       allAuthFilesDeleted: "所有认证文件已删除",
       authFileDeleted: "认证文件已删除",
       authFileUploadedSuccessfully: "认证文件上传成功",
+      batchDeleteErrors: "{{count}} 个文件删除失败",
+      batchDeleted: "已删除 {{count}} 个认证文件",
       connectionFailed: "连接失败",
       connectionToProviderSuccessful: "连接 {{provider}} 成功！（{{latency}}ms）",
       downloadedTo: "已下载到 {{path}}",

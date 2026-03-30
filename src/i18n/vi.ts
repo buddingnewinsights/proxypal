@@ -213,9 +213,11 @@ export const vi = {
     actions: {
       delete: "Xóa",
       deleteAll: "Xóa tất cả",
+      deleteSelected: "Xóa đã chọn ({{count}})",
       disable: "Tắt",
       download: "Tải xuống",
       enable: "Bật",
+      selectAll: "Chọn tất cả",
       testConnection: "Kiểm tra kết nối",
       testing: "Đang kiểm tra...",
       upload: "Tải lên",
@@ -225,6 +227,9 @@ export const vi = {
       all: "Tất cả ({{count}})",
     },
     modals: {
+      batchDeleteDescription:
+        "Thao tác này sẽ xóa {{count}} tệp xác thực đã chọn. Bạn sẽ cần xác thực lại với các nhà cung cấp bị ảnh hưởng. Không thể hoàn tác.",
+      batchDeleteTitle: "Xóa các tệp xác thực đã chọn?",
       deleteAllDescription:
         "Thao tác này sẽ xóa tất cả {{count}} tệp xác thực. Bạn sẽ cần xác thực lại với tất cả nhà cung cấp. Không thể hoàn tác.",
       deleteAllTitle: "Xóa tất cả tệp xác thực?",
@@ -235,6 +240,9 @@ export const vi = {
     noAuthFiles: "Chưa có tệp xác thực",
     noAuthFilesDescription:
       "Thông tin xác thực OAuth sẽ hiển thị ở đây sau khi kết nối nhà cung cấp, hoặc bạn có thể tải lên tệp thủ công.",
+    priority: {
+      tooltip: "Ưu tiên định tuyến — số càng nhỏ ưu tiên càng cao",
+    },
     proxyNotRunning: "Proxy chưa chạy",
     startProxyDescription: "Khởi động proxy server để quản lý tệp xác thực qua Management API.",
     stats: {
@@ -246,6 +254,8 @@ export const vi = {
       allAuthFilesDeleted: "Đã xóa tất cả tệp xác thực",
       authFileDeleted: "Đã xóa tệp xác thực",
       authFileUploadedSuccessfully: "Tải lên tệp xác thực thành công",
+      batchDeleteErrors: "{{count}} tệp xóa thất bại",
+      batchDeleted: "Đã xóa {{count}} tệp xác thực",
       connectionFailed: "Kết nối thất bại",
       connectionToProviderSuccessful: "Kết nối {{provider}} thành công! ({{latency}}ms)",
       downloadedTo: "Đã tải xuống {{path}}",

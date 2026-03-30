@@ -109,6 +109,8 @@ pub async fn get_auth_files(state: State<'_, AppState>) -> Result<Vec<AuthFile>,
                             last_refresh: None,
                             success_count: None,
                             failure_count: None,
+                            priority: None,
+                            note: None,
                         });
                     }
                 }
@@ -152,6 +154,8 @@ pub async fn get_auth_files(state: State<'_, AppState>) -> Result<Vec<AuthFile>,
                                 failure_count: None,
                                 label: None,
                                 status_message: None,
+                                priority: None,
+                                note: None,
                             };
                             
                             files.push(disabled_file);
@@ -373,6 +377,83 @@ pub async fn delete_all_auth_files(state: State<'_, AppState>) -> Result<(), Str
     }
     
     Ok(())
+}
+
+// Batch delete selected auth files (CLIProxyAPI v6.9.2+ supports batch operations)
+// Falls back to sequential single deletes if batch endpoint is unavailable.
+#[tauri::command]
+pub async fn batch_delete_auth_files(
+    state: State<'_, AppState>,
+    file_ids: Vec<String>,
+) -> Result<serde_json::Value, String> {
+    let port = state.config.lock().unwrap().port;
+    let client = build_management_client();
+    let management_key = get_management_key();
+
+    // Try batch endpoint first (CLIProxyAPI v6.9.2+)
+    let batch_url = get_management_url(port, "auth-files/batch");
+    let batch_body = serde_json::json!({ "names": file_ids, "action": "delete" });
+    let batch_result = client
+        .delete(&batch_url)
+        .header("X-Management-Key", &management_key)
+        .json(&batch_body)
+        .send()
+        .await;
+
+    match batch_result {
+        Ok(resp) if resp.status().is_success() => {
+            return Ok(serde_json::json!({
+                "deleted": file_ids.len(),
+                "method": "batch"
+            }));
+        }
+        Ok(resp) if resp.status().as_u16() == 404 => {
+            // Batch endpoint not available, fall through to sequential
+        }
+        _ => {
+            // Network error or other failure, fall through to sequential
+        }
+    }
+
+    // Fallback: delete one by one
+    let mut deleted = 0u32;
+    let mut errors: Vec<String> = Vec::new();
+    let auth_dir = dirs::home_dir()
+        .ok_or("Could not find home directory")?
+        .join(".cli-proxy-api");
+    for file_id in &file_ids {
+        // Check if it's a disabled file on disk
+        let disabled_path = auth_dir.join(format!("{}.json.disabled", file_id));
+        if disabled_path.exists() {
+            match std::fs::remove_file(&disabled_path) {
+                Ok(_) => { deleted += 1; }
+                Err(e) => errors.push(format!("{}: {}", file_id, e)),
+            }
+            continue;
+        }
+
+        let url = get_management_url(port, "auth-files");
+        match client
+            .delete(&url)
+            .query(&[("name", file_id.as_str())])
+            .header("X-Management-Key", &management_key)
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => { deleted += 1; }
+            Ok(resp) => {
+                let text = resp.text().await.unwrap_or_default();
+                errors.push(format!("{}: {}", file_id, text));
+            }
+            Err(e) => errors.push(format!("{}: {}", file_id, e)),
+        }
+    }
+
+    Ok(serde_json::json!({
+        "deleted": deleted,
+        "errors": errors,
+        "method": "sequential"
+    }))
 }
 
 // ==========================================================================

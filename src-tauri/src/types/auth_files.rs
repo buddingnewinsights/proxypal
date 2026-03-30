@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 // Auth file entry from Management API
+// Fields `priority` and `note` added in CLIProxyAPI v6.8.55+ (GET /auth-files response)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthFile {
@@ -42,4 +43,10 @@ pub struct AuthFile {
     pub success_count: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure_count: Option<u64>,
+    /// Priority for routing order (lower = higher priority). CLIProxyAPI v6.8.55+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<i32>,
+    /// User-defined note/description for this auth entry. CLIProxyAPI v6.8.55+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }

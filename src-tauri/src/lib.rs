@@ -445,6 +445,7 @@ pub fn run() {
             commands::auth_files::toggle_auth_file,
             commands::auth_files::download_auth_file,
             commands::auth_files::delete_all_auth_files,
+            commands::auth_files::batch_delete_auth_files,
             commands::auth_files::verify_proxy_auth_status,
             // Log Viewer
             commands::logs::get_logs,

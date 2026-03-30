@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 // Auth file entry from Management API
+// Fields `priority` and `note` available from CLIProxyAPI v6.8.55+
 export interface AuthFile {
   account?: string;
   accountType?: string;
@@ -13,7 +14,11 @@ export interface AuthFile {
   lastRefresh?: string;
   modtime?: string;
   name: string;
+  /** User-defined note/description for this auth entry (v6.8.55+) */
+  note?: string;
   path?: string;
+  /** Priority for routing order — lower = higher priority (v6.8.55+) */
+  priority?: number;
   provider: string;
   runtimeOnly: boolean;
   size?: number;
@@ -47,4 +52,15 @@ export async function downloadAuthFile(fileId: string, filename: string): Promis
 
 export async function deleteAllAuthFiles(): Promise<void> {
   return invoke("delete_all_auth_files");
+}
+
+/** Batch delete selected auth files. Returns count deleted and any errors. */
+export interface BatchDeleteResult {
+  deleted: number;
+  errors?: string[];
+  method: "batch" | "sequential";
+}
+
+export async function batchDeleteAuthFiles(fileIds: string[]): Promise<BatchDeleteResult> {
+  return invoke("batch_delete_auth_files", { fileIds });
 }

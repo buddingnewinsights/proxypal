@@ -214,9 +214,11 @@ export const en = {
     actions: {
       delete: "Delete",
       deleteAll: "Delete All",
+      deleteSelected: "Delete Selected ({{count}})",
       disable: "Disable",
       download: "Download",
       enable: "Enable",
+      selectAll: "Select all",
       testConnection: "Test Connection",
       testing: "Testing...",
       upload: "Upload",
@@ -226,6 +228,9 @@ export const en = {
       all: "All ({{count}})",
     },
     modals: {
+      batchDeleteDescription:
+        "This will delete {{count}} selected auth file(s). You will need to re-authenticate with the affected providers. This action cannot be undone.",
+      batchDeleteTitle: "Delete Selected Auth Files?",
       deleteAllDescription:
         "This will delete all {{count}} auth files. You will need to re-authenticate with all providers. This action cannot be undone.",
       deleteAllTitle: "Delete All Auth Files?",
@@ -236,6 +241,9 @@ export const en = {
     noAuthFiles: "No Auth Files",
     noAuthFilesDescription:
       "OAuth credentials will appear here after connecting providers, or upload credential files manually.",
+    priority: {
+      tooltip: "Routing priority — lower number = higher priority",
+    },
     proxyNotRunning: "Proxy Not Running",
     startProxyDescription: "Start the proxy server to manage auth files via the Management API.",
     stats: {
@@ -247,6 +255,8 @@ export const en = {
       allAuthFilesDeleted: "All auth files deleted",
       authFileDeleted: "Auth file deleted",
       authFileUploadedSuccessfully: "Auth file uploaded successfully",
+      batchDeleteErrors: "{{count}} file(s) failed to delete",
+      batchDeleted: "{{count}} auth file(s) deleted",
       connectionFailed: "Connection failed",
       connectionToProviderSuccessful: "Connection to {{provider}} successful! ({{latency}}ms)",
       downloadedTo: "Downloaded to {{path}}",

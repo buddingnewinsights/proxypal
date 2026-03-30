@@ -5,6 +5,7 @@ import { Button } from "../components/ui";
 import { useI18n } from "../i18n";
 import {
   type AuthFile,
+  batchDeleteAuthFiles,
   deleteAllAuthFiles,
   deleteAuthFile,
   downloadAuthFile,
@@ -20,8 +21,11 @@ import { toastStore } from "../stores/toast";
 const providerColors: Record<string, string> = {
   antigravity: "bg-pink-500/20 text-pink-400 border-pink-500/30",
   claude: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  codebuddy: "bg-teal-500/20 text-teal-400 border-teal-500/30",
   codex: "bg-green-500/20 text-green-400 border-green-500/30",
+  cursor: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
   gemini: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  gitlab: "bg-orange-600/20 text-orange-500 border-orange-600/30",
   iflow: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   kiro: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
   qwen: "bg-purple-500/20 text-purple-400 border-purple-500/30",
@@ -32,9 +36,12 @@ const providerColors: Record<string, string> = {
 const providerIcons: Record<string, string> = {
   antigravity: "/logos/antigravity.webp",
   claude: "/logos/claude.svg",
+  codebuddy: "/logos/codebuddy.svg",
   codex: "/logos/openai.svg",
+  cursor: "/logos/cursor.svg",
   gemini: "/logos/gemini.svg",
   "gemini-cli": "/logos/gemini.svg",
+  gitlab: "/logos/gitlab.svg",
   iflow: "/logos/iflow.svg",
   kiro: "/logos/kiro.svg",
   qwen: "/logos/qwen.svg",
@@ -50,6 +57,8 @@ export function AuthFilesPage() {
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = createSignal(false);
   const [fileToDelete, setFileToDelete] = createSignal<AuthFile | null>(null);
   const [testingProvider, setTestingProvider] = createSignal<string | null>(null);
+  const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = createSignal(false);
 
   // Load auth files on mount and when proxy status changes
   createEffect(() => {
@@ -257,12 +266,62 @@ export function AuthFilesPage() {
       await deleteAllAuthFiles();
       toastStore.success(t("authFiles.toasts.allAuthFilesDeleted"));
       setShowDeleteAllConfirm(false);
+      setSelectedIds(new Set<string>());
       // Refresh both file list and global auth status
       loadFiles();
       const newAuthStatus = await refreshAuthStatus();
       appStore.setAuthStatus(newAuthStatus);
     } catch (error) {
       toastStore.error(t("authFiles.toasts.failedToDeleteAll"), String(error));
+    }
+  };
+
+  const toggleSelect = (fileId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set<string>(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const visible = filteredFiles();
+    const sel = selectedIds();
+    const allSelected = visible.every((f) => sel.has(f.id));
+    if (allSelected) {
+      setSelectedIds(new Set<string>());
+    } else {
+      setSelectedIds(new Set<string>(visible.map((f) => f.id)));
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedIds());
+    if (ids.length === 0) {
+      return;
+    }
+    try {
+      const result = await batchDeleteAuthFiles(ids);
+      toastStore.success(
+        t("authFiles.toasts.batchDeleted", { count: result.deleted }),
+      );
+      if (result.errors && result.errors.length > 0) {
+        toastStore.error(
+          t("authFiles.toasts.batchDeleteErrors", { count: result.errors.length }),
+          result.errors.join(", "),
+        );
+      }
+      setShowBatchDeleteConfirm(false);
+      setSelectedIds(new Set<string>());
+      loadFiles();
+      const newAuthStatus = await refreshAuthStatus();
+      appStore.setAuthStatus(newAuthStatus);
+    } catch (error) {
+      toastStore.error(t("authFiles.toasts.failedToDelete"), String(error));
     }
   };
 
@@ -342,7 +401,17 @@ export function AuthFilesPage() {
           </div>
 
           <div class="flex items-center gap-2">
-            <Show when={files().length > 0}>
+            <Show when={selectedIds().size > 0}>
+              <Button
+                class="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                onClick={() => setShowBatchDeleteConfirm(true)}
+                size="sm"
+                variant="ghost"
+              >
+                {t("authFiles.actions.deleteSelected", { count: selectedIds().size })}
+              </Button>
+            </Show>
+            <Show when={files().length > 0 && selectedIds().size === 0}>
               <Button
                 class="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
                 onClick={() => setShowDeleteAllConfirm(true)}
@@ -392,6 +461,32 @@ export function AuthFilesPage() {
             {/* Filter Tabs */}
             <Show when={files().length > 0}>
               <div class="mb-4 flex flex-wrap items-center gap-2">
+                {/* Select All checkbox */}
+                <button
+                  class="mr-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                  onClick={toggleSelectAll}
+                  title={t("authFiles.actions.selectAll")}
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <Show
+                      fallback={
+                        <rect height="14" rx="2" stroke-width="2" width="14" x="5" y="5" />
+                      }
+                      when={
+                        filteredFiles().length > 0 &&
+                        filteredFiles().every((f) => selectedIds().has(f.id))
+                      }
+                    >
+                      <path
+                        d="M8.5 12.5l2 2 5-6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                      />
+                      <rect fill="currentColor" height="14" rx="2" width="14" x="5" y="5" />
+                    </Show>
+                  </svg>
+                </button>
                 <button
                   class={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     filter() === "all"
@@ -464,8 +559,25 @@ export function AuthFilesPage() {
                       }`}
                     >
                       <div class="flex items-start justify-between gap-4">
-                        {/* Left: Info */}
+                        {/* Left: Selection checkbox + Info */}
                         <div class="flex min-w-0 flex-1 items-start gap-3">
+                          {/* Selection checkbox */}
+                          <button
+                            class={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
+                              selectedIds().has(file.id)
+                                ? "border-brand-500 bg-brand-500 text-white"
+                                : "border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
+                            }`}
+                            onClick={() => toggleSelect(file.id)}
+                            type="button"
+                          >
+                            <Show when={selectedIds().has(file.id)}>
+                              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" />
+                              </svg>
+                            </Show>
+                          </button>
+
                           {/* Provider Icon */}
                           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
                             <img
@@ -492,6 +604,14 @@ export function AuthFilesPage() {
                               >
                                 {file.provider}
                               </span>
+                              <Show when={file.priority != null}>
+                                <span
+                                  class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                  title={t("authFiles.priority.tooltip")}
+                                >
+                                  P{file.priority}
+                                </span>
+                              </Show>
                               <Show when={file.status === "error"}>
                                 <span class="rounded border border-red-200 bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
                                   {t("common.error")}
@@ -530,6 +650,21 @@ export function AuthFilesPage() {
                                 <span>{formatDate(file.modtime)}</span>
                               </Show>
                             </div>
+
+                            {/* Note from auth file metadata (v6.8.55+) */}
+                            <Show when={file.note}>
+                              <div class="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                  />
+                                </svg>
+                                <span class="italic">{file.note}</span>
+                              </div>
+                            </Show>
 
                             <Show when={file.statusMessage}>
                               <div class="mt-2 text-sm text-red-600 dark:text-red-400">
@@ -770,6 +905,34 @@ export function AuthFilesPage() {
               </Button>
               <Button class="bg-red-500 hover:bg-red-600" onClick={confirmDelete} variant="primary">
                 {t("authFiles.actions.delete")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Batch Delete Confirmation Modal */}
+      <Show when={showBatchDeleteConfirm()}>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div class="mx-4 w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {t("authFiles.modals.batchDeleteTitle")}
+            </h3>
+            <p class="mb-6 text-gray-600 dark:text-gray-400">
+              {t("authFiles.modals.batchDeleteDescription", {
+                count: selectedIds().size,
+              })}
+            </p>
+            <div class="flex justify-end gap-3">
+              <Button onClick={() => setShowBatchDeleteConfirm(false)} variant="ghost">
+                {t("common.cancel")}
+              </Button>
+              <Button
+                class="bg-red-500 hover:bg-red-600"
+                onClick={handleBatchDelete}
+                variant="primary"
+              >
+                {t("authFiles.actions.deleteSelected", { count: selectedIds().size })}
               </Button>
             </div>
           </div>

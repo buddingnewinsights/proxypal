@@ -161,6 +161,52 @@ pub fn detect_cli_agents(state: State<AppState>) -> Vec<AgentStatus> {
         docs_url: "https://opencode.ai/docs/providers/".to_string(),
     });
 
+    // 7. Kiro CLI - AWS's AI coding agent, uses ~/.kiro/ directory
+    let kiro_installed = which_exists("kiro") || which_exists("kiro-cli");
+    let kiro_config = home.join(".kiro");
+    let kiro_configured = if kiro_config.exists() {
+        // Kiro stores auth tokens in ~/.kiro/ directory
+        kiro_config.join("config.json").exists()
+            || kiro_config.join("auth.json").exists()
+    } else {
+        false
+    };
+
+    agents.push(AgentStatus {
+        id: "kiro".to_string(),
+        name: "Kiro CLI".to_string(),
+        description: "AWS's AI coding agent with spec-driven development".to_string(),
+        installed: kiro_installed,
+        configured: kiro_configured,
+        config_type: "env".to_string(),
+        config_path: Some(kiro_config.to_string_lossy().to_string()),
+        logo: "/logos/kiro.svg".to_string(),
+        docs_url: "https://help.router-for.me/agent-client/kiro.html".to_string(),
+    });
+
+    // 8. CodeBuddy-CN - browser OAuth authentication (CLIProxyAPI v6.9.2+)
+    let codebuddy_installed = which_exists("codebuddy");
+    let codebuddy_config = home.join(".codebuddy");
+    let codebuddy_configured = if codebuddy_config.exists() {
+        std::fs::read_dir(&codebuddy_config)
+            .map(|entries| entries.count() > 0)
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
+    agents.push(AgentStatus {
+        id: "codebuddy".to_string(),
+        name: "CodeBuddy".to_string(),
+        description: "CodeBuddy-CN AI coding assistant with browser OAuth".to_string(),
+        installed: codebuddy_installed,
+        configured: codebuddy_configured,
+        config_type: "env".to_string(),
+        config_path: Some(codebuddy_config.to_string_lossy().to_string()),
+        logo: "/logos/codebuddy.svg".to_string(),
+        docs_url: "https://help.router-for.me/agent-client/codebuddy.html".to_string(),
+    });
+
     agents
 }
 
@@ -459,6 +505,43 @@ wire_api = "responses"
             thinking_budget,
             &reasoning_effort,
         ),
+
+        // Kiro CLI — environment variable configuration
+        "kiro" => {
+            let shell_config = format!(
+                "# ProxyPal - Kiro CLI Configuration\n\
+                 {}\n\
+                 {}\n",
+                env_export_line("KIRO_ENDPOINT", &endpoint),
+                env_export_line("KIRO_API_KEY", "proxypal-local"),
+            );
+
+            let profile_hint = if cfg!(target_os = "windows") {
+                "Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
+            } else {
+                "~/.bashrc, ~/.zshrc, or shell config file"
+            };
+
+            Ok(serde_json::json!({
+                "success": true,
+                "configType": "env",
+                "shellConfig": shell_config,
+                "instructions": format!("Add the above to your {} then restart your terminal.", profile_hint)
+            }))
+        }
+
+        // CodeBuddy-CN — browser-based OAuth managed by the sidecar
+        "codebuddy" => {
+            Ok(serde_json::json!({
+                "success": true,
+                "configType": "env",
+                "shellConfig": format!(
+                    "# ProxyPal - CodeBuddy Configuration\n{}\n",
+                    env_export_line("CODEBUDDY_ENDPOINT", &endpoint),
+                ),
+                "instructions": "CodeBuddy authentication is managed by the proxy sidecar via browser OAuth (CLIProxyAPI v6.9.2+). Ensure the proxy is running and use the management panel to initiate login."
+            }))
+        }
 
         _ => Err(format!("Unknown agent: {}", agent_id)),
     }
@@ -1169,8 +1252,8 @@ pub fn detect_ai_tools() -> Vec<DetectedTool> {
         id: "cursor".to_string(),
         name: "Cursor".to_string(),
         installed: cursor_app,
-        config_path: None, // Cursor doesn't support custom API base URL
-        can_auto_configure: false,
+        config_path: None,
+        can_auto_configure: true, // CLIProxyAPI v6.9.4-1: Cursor OAuth multi-account support
     });
 
     // Check for VS Code (needed for Continue/Cline)
@@ -1239,6 +1322,27 @@ pub fn detect_ai_tools() -> Vec<DetectedTool> {
         id: "windsurf".to_string(),
         name: "Windsurf".to_string(),
         installed: windsurf_app,
+        config_path: None,
+        can_auto_configure: false,
+    });
+
+    // Check for GitLab Duo (via glab CLI or GitLab extension)
+    // CLIProxyAPI v6.9.4-2: GitLab Duo gateway compatibility
+    let glab_installed = which_exists("glab");
+    let gitlab_vscode_ext = home
+        .join(".vscode/extensions")
+        .read_dir()
+        .map(|entries| {
+            entries
+                .flatten()
+                .any(|e| e.file_name().to_string_lossy().contains("gitlab.gitlab-workflow"))
+        })
+        .unwrap_or(false);
+
+    tools.push(DetectedTool {
+        id: "gitlab-duo".to_string(),
+        name: "GitLab Duo".to_string(),
+        installed: glab_installed || gitlab_vscode_ext,
         config_path: None,
         can_auto_configure: false,
     });
@@ -1324,18 +1428,29 @@ pub fn get_tool_setup_info(tool_id: String, state: State<AppState>) -> Result<se
         "cursor" => serde_json::json!({
             "name": "Cursor",
             "logo": "/logos/cursor.svg",
-            "canAutoConfigure": false,
-            "note": "Cursor doesn't support custom API base URLs. Use your connected providers' API keys directly in Cursor settings.",
+            "canAutoConfigure": true,
+            "note": "CLIProxyAPI v6.9.4+ supports Cursor OAuth with multi-account routing, session isolation, and auto-migration on quota exhaustion.",
             "steps": [
                 {
-                    "title": "Open Cursor Settings",
-                    "description": "Press Cmd+, (Mac) or Ctrl+, (Windows) and go to 'Models'"
+                    "title": "Start ProxyPal Proxy",
+                    "description": "Make sure the proxy is running on your configured port"
                 },
                 {
-                    "title": "Add API Keys",
-                    "description": "Enter your API keys for Claude, OpenAI, or other providers directly"
+                    "title": "Configure Cursor Override",
+                    "description": "In Cursor Settings > Models, set the OpenAI API Base URL:",
+                    "copyable": endpoint.clone()
+                },
+                {
+                    "title": "Set API Key",
+                    "description": "Use your ProxyPal API key:",
+                    "copyable": "proxypal-local".to_string()
+                },
+                {
+                    "title": "Multi-Account Support",
+                    "description": "If you have multiple Cursor accounts, the proxy automatically handles round-robin routing and session isolation. Quota-exhausted accounts are auto-migrated."
                 }
-            ]
+            ],
+            "endpoint": endpoint
         }),
         "continue" => serde_json::json!({
             "name": "Continue",
@@ -1400,6 +1515,28 @@ pub fn get_tool_setup_info(tool_id: String, state: State<AppState>) -> Result<se
                     "description": "Windsurf routes all requests through Codeium servers and doesn't allow custom endpoints."
                 }
             ]
+        }),
+        "gitlab-duo" => serde_json::json!({
+            "name": "GitLab Duo",
+            "logo": "/logos/gitlab.svg",
+            "canAutoConfigure": false,
+            "note": "CLIProxyAPI v6.9.4-2 added GitLab Duo gateway compatibility. GitLab Duo can route through the proxy for AI-assisted coding features.",
+            "steps": [
+                {
+                    "title": "Install glab CLI",
+                    "description": "Install the GitLab CLI: brew install glab (macOS) or see https://gitlab.com/gitlab-org/cli"
+                },
+                {
+                    "title": "Configure GitLab Duo Gateway",
+                    "description": "Set the Duo gateway URL to point to your ProxyPal proxy:",
+                    "copyable": endpoint.clone()
+                },
+                {
+                    "title": "Authenticate with GitLab",
+                    "description": "Run 'glab auth login' and authenticate with your GitLab account. The proxy will handle Duo AI requests."
+                }
+            ],
+            "endpoint": endpoint
         }),
         _ => return Err(format!("Unknown tool: {}", tool_id)),
     };

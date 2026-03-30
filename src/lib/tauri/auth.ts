@@ -2,16 +2,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 // OAuth management
+// OAuth-managed providers (ProxyPal initiates OAuth flow for these)
 export type Provider =
-  | "claude"
-  | "openai"
-  | "gemini"
-  | "qwen"
-  | "iflow"
-  | "vertex"
-  | "kiro"
   | "antigravity"
-  | "kimi";
+  | "claude"
+  | "gemini"
+  | "iflow"
+  | "kimi"
+  | "kiro"
+  | "openai"
+  | "qwen"
+  | "vertex";
 
 export async function openOAuth(provider: Provider): Promise<string> {
   return invoke("open_oauth", { provider });
