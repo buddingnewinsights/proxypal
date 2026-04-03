@@ -996,7 +996,7 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
                       </p>
                       <a
                         class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
-                        href="https://github.com/buddingnewinsights/proxypal/releases"
+                        href="https://github.com/heyhuynhgiabuu/proxypal/releases"
                         rel="noopener noreferrer"
                         target="_blank"
                       >

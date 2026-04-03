@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ProxyPal",
-  "version": "0.4.20",
+  "version": "0.4.21",
   "identifier": "com.proxypal.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -54,7 +54,7 @@
     },
     "updater": {
       "endpoints": [
-        "https://github.com/buddingnewinsights/proxypal/releases/latest/download/latest.json"
+        "https://github.com/heyhuynhgiabuu/proxypal/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZENDg5MjM4NDREOEZBRTEKUldUaCt0aEVPSkpJYmV4SHpUZzZOemYvN1FLR2k0RC9BbHVpMU5BS2o2SzFvV29HTHdNUTdIZlUK"
     }

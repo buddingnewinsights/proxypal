@@ -2,9 +2,9 @@
 
 Use your AI subscriptions (Claude, ChatGPT, Gemini, GitHub Copilot) with any coding tool. Native desktop app wrapping [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI).
 
-[![Release](https://img.shields.io/github/v/release/buddingnewinsights/proxypal?style=flat-square)](https://github.com/buddingnewinsights/proxypal/releases)
+[![Release](https://img.shields.io/github/v/release/heyhuynhgiabuu/proxypal?style=flat-square)](https://github.com/heyhuynhgiabuu/proxypal/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/buddingnewinsights/proxypal/total?style=flat-square)](https://github.com/buddingnewinsights/proxypal/releases)
+[![Downloads](https://img.shields.io/github/downloads/heyhuynhgiabuu/proxypal/total?style=flat-square)](https://github.com/heyhuynhgiabuu/proxypal/releases)
 
 ![ProxyPal Dashboard](src/assets/dashboard.png)
 
@@ -26,7 +26,7 @@ ProxyPal bridges that gap. One proxy, all your AI subscriptions, any client.
 
 ## Quick Start
 
-1. Download from [Releases](https://github.com/buddingnewinsights/proxypal/releases)
+1. Download from [Releases](https://github.com/heyhuynhgiabuu/proxypal/releases)
 2. Launch ProxyPal and start the proxy
 3. Connect your AI accounts (OAuth or auth files)
 4. Point your coding tool to `http://localhost:8317/v1`
@@ -109,4 +109,4 @@ MIT
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=buddingnewinsights/proxypal&type=Date)](https://star-history.com/#buddingnewinsights/proxypal&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=heyhuynhgiabuu/proxypal&type=Date)](https://star-history.com/#heyhuynhgiabuu/proxypal&Date)
