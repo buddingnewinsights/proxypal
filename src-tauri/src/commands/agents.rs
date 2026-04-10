@@ -577,24 +577,35 @@ fn configure_claude_code_agent(
         find_model(&["claude-sonnet-4-5", "claude-sonnet-4", "claude-sonnet", "gpt-5"])
             .unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string());
 
-    // Haiku tier: claude-haiku > gemini-claude-sonnet > gemini-2.5-flash > gpt-5(minimal)
+    // Haiku tier: claude-haiku > gemini-claude-sonnet > gemini-2.5-flash > gpt-5-mini variants
+    // IMPORTANT: Never use base gpt-5.X-codex models here — they are heavyweight Copilot models
+    // that route to copilot-api (localhost:4141). If copilot-api is not running the sidecar
+    // closes the connection and Claude Code sees ECONNRESET on every background call.
+    // Only lightweight/mini GPT-5 variants are acceptable as a last-resort fallback.
     let haiku_model = find_model(&[
         "claude-3-5-haiku",
         "claude-haiku",
         "gemini-claude-sonnet-4-5",
         "gemini-2.5-flash",
-        "gpt-5",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5-mini",
+        "gpt-5-codex-mini",
     ])
     .unwrap_or_else(|| "claude-3-5-haiku-20241022".to_string());
 
     // Build env config for Claude Code settings.json
+    // Note: ANTHROPIC_SMALL_FAST_MODEL must be kept in sync with haiku_model.
+    // Claude Code uses it for lightweight background ops (auto-compact, context summaries, etc.).
+    // If left unset or pointing to a stale value it causes ECONNRESET on every background call.
     let env_config = serde_json::json!({
         "ANTHROPIC_BASE_URL": endpoint,
         "ANTHROPIC_AUTH_TOKEN": "proxypal-local",
         "ANTHROPIC_MODEL": sonnet_model,
         "ANTHROPIC_DEFAULT_OPUS_MODEL": opus_model,
         "ANTHROPIC_DEFAULT_SONNET_MODEL": sonnet_model,
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": haiku_model
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": haiku_model,
+        "ANTHROPIC_SMALL_FAST_MODEL": haiku_model
     });
 
     // If config exists, merge with existing (preserve other settings)
@@ -628,6 +639,10 @@ fn configure_claude_code_agent(
                         obj.insert(
                             "ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(),
                             env_config["ANTHROPIC_DEFAULT_HAIKU_MODEL"].clone(),
+                        );
+                        obj.insert(
+                            "ANTHROPIC_SMALL_FAST_MODEL".to_string(),
+                            env_config["ANTHROPIC_SMALL_FAST_MODEL"].clone(),
                         );
                     }
                 } else {
@@ -702,7 +717,7 @@ Edit your `~/.claude/settings.json` and replace the model values in the `env` se
 |------|----------|
 | Opus | `gpt-5(high)`, `gpt-5` |
 | Sonnet | `gpt-5(medium)`, `gpt-5-codex` |
-| Haiku | `gpt-5(minimal)`, `gpt-5(low)` |
+| Haiku | `gpt-5.4-mini`, `gpt-5-mini` (mini variants only — do NOT use full codex models here) |
 
 ### Qwen
 | Tier | Model ID |
