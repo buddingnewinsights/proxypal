@@ -361,10 +361,10 @@ export const zhCN = {
     subtitle: "通过 Copilot 订阅使用免费 AI 模型",
     toasts: {
       checkTerminalForDeviceCode: "请查看终端中的设备码，然后访问 github.com/login/device",
+      codeCopied: "代码已复制！",
       completeGithubAuthenticationIfPrompted: "如提示，请完成 GitHub 认证",
       copilotStarting: "Copilot 启动中...",
       copilotStopped: "Copilot 已停止",
-      codeCopied: "代码已复制！",
       failedToSaveSettings: "保存设置失败",
       failedToStartCopilot: "启动 Copilot 失败",
       failedToStopCopilot: "停止 Copilot 失败",

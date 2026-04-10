@@ -31,9 +31,9 @@ export interface CopilotApiInstallResult {
 
 // Structured auth info for device code flow
 export interface CopilotAuthInfo {
+  rawMessage: string;
   userCode?: string;
   verificationUri: string;
-  rawMessage: string;
 }
 
 export async function getCopilotStatus(): Promise<CopilotStatus> {

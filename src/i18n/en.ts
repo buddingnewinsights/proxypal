@@ -369,10 +369,10 @@ export const en = {
     toasts: {
       checkTerminalForDeviceCode:
         "Check the terminal for your device code, then visit github.com/login/device",
+      codeCopied: "Code copied!",
       completeGithubAuthenticationIfPrompted: "Complete GitHub authentication if prompted",
       copilotStarting: "Copilot Starting...",
       copilotStopped: "Copilot Stopped",
-      codeCopied: "Code copied!",
       failedToSaveSettings: "Failed to save settings",
       failedToStartCopilot: "Failed to start Copilot",
       failedToStopCopilot: "Failed to stop Copilot",

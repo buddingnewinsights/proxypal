@@ -366,10 +366,10 @@ export const vi = {
     toasts: {
       checkTerminalForDeviceCode:
         "Kiểm tra mã thiết bị trong terminal, sau đó truy cập github.com/login/device",
+      codeCopied: "Đã sao chép mã!",
       completeGithubAuthenticationIfPrompted: "Hoàn thành xác thực GitHub nếu được yêu cầu",
       copilotStarting: "Copilot đang khởi động...",
       copilotStopped: "Copilot đã dừng",
-      codeCopied: "Đã sao chép mã!",
       failedToSaveSettings: "Lưu cài đặt thất bại",
       failedToStartCopilot: "Khởi động Copilot thất bại",
       failedToStopCopilot: "Dừng Copilot thất bại",
