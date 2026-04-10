@@ -328,6 +328,7 @@ export const zhCN = {
     },
     actions: {
       advancedSettings: "高级设置",
+      copyCode: "复制代码",
       enable: "启用",
       openGithubAuthentication: "打开 GitHub 认证",
       startCopilot: "启动 Copilot",
@@ -363,6 +364,7 @@ export const zhCN = {
       completeGithubAuthenticationIfPrompted: "如提示，请完成 GitHub 认证",
       copilotStarting: "Copilot 启动中...",
       copilotStopped: "Copilot 已停止",
+      codeCopied: "代码已复制！",
       failedToSaveSettings: "保存设置失败",
       failedToStartCopilot: "启动 Copilot 失败",
       failedToStopCopilot: "停止 Copilot 失败",

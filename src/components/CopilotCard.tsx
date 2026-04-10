@@ -15,7 +15,7 @@ import { toastStore } from "../stores/toast";
 import { Button } from "./ui";
 import { Switch } from "./ui/Switch";
 
-import type { CopilotApiDetection, CopilotConfig, CopilotStatus } from "../lib/tauri";
+import type { CopilotApiDetection, CopilotAuthInfo, CopilotConfig, CopilotStatus } from "../lib/tauri";
 
 interface CopilotCardProps {
   config: CopilotConfig;
@@ -33,7 +33,7 @@ export function CopilotCard(props: CopilotCardProps) {
   });
   const [starting, setStarting] = createSignal(false);
   const [stopping, setStopping] = createSignal(false);
-  const [authMessage, setAuthMessage] = createSignal<string | null>(null);
+  const [authMessage, setAuthMessage] = createSignal<CopilotAuthInfo | null>(null);
   const [startError, setStartError] = createSignal<string | null>(null);
   const [expanded, setExpanded] = createSignal(false);
   const [apiDetection, setApiDetection] = createSignal<CopilotApiDetection | null>(null);
@@ -67,16 +67,12 @@ export function CopilotCard(props: CopilotCardProps) {
     });
 
     // Subscribe to auth required events
-    const unlistenAuth = await onCopilotAuthRequired((message) => {
-      setAuthMessage(message);
-      // Extract the URL from the message if present
-      const urlMatch = message.match(/https:\/\/github\.com\/login\/device/);
-      if (urlMatch) {
-        toastStore.info(
-          t("copilot.toasts.githubAuthenticationRequired"),
-          t("copilot.toasts.checkTerminalForDeviceCode"),
-        );
-      }
+    const unlistenAuth = await onCopilotAuthRequired((info) => {
+      setAuthMessage(info);
+      toastStore.info(
+        t("copilot.toasts.githubAuthenticationRequired"),
+        t("copilot.toasts.checkTerminalForDeviceCode"),
+      );
     });
 
     // Poll for health status when running but not authenticated
@@ -260,6 +256,33 @@ export function CopilotCard(props: CopilotCardProps) {
                   <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">
                     {t("copilot.authHelpDescription")}
                   </p>
+                  <Show when={authMessage()?.userCode}>
+                    <div class="mt-2 flex items-center gap-2">
+                      <code class="rounded bg-amber-100 px-2 py-1 font-mono text-sm font-bold tracking-widest text-amber-900 dark:bg-amber-800/40 dark:text-amber-100">
+                        {authMessage()!.userCode}
+                      </code>
+                      <button
+                        class="rounded p-1 text-amber-600 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-800/40 dark:hover:text-amber-200"
+                        onClick={() => {
+                          const code = authMessage()?.userCode;
+                          if (code) {
+                            navigator.clipboard.writeText(code).catch(() => {});
+                            toastStore.success(t("copilot.toasts.codeCopied"));
+                          }
+                        }}
+                        title={t("copilot.actions.copyCode")}
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </Show>
                   <Button class="mt-2" onClick={handleOpenGitHubAuth} size="sm" variant="secondary">
                     <svg class="mr-1.5 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
@@ -298,7 +321,7 @@ export function CopilotCard(props: CopilotCardProps) {
                   <div class="mt-2 rounded bg-red-100 p-2 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
                     <p class="font-medium">{t("copilot.quickFixRunManually")}</p>
                     <code class="mt-1 block font-mono text-red-800 dark:text-red-200">
-                      bunx copilot-api start --port 4141
+                      bunx @jeffreycao/copilot-api start --port 4141
                     </code>
                   </div>
                   <p class="mt-2 text-xs text-red-600 dark:text-red-400">

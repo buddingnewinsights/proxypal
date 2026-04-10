@@ -331,6 +331,7 @@ export const vi = {
     },
     actions: {
       advancedSettings: "Cài đặt nâng cao",
+      copyCode: "Sao chép mã",
       enable: "Bật",
       openGithubAuthentication: "Mở xác thực GitHub",
       startCopilot: "Khởi động Copilot",
@@ -368,6 +369,7 @@ export const vi = {
       completeGithubAuthenticationIfPrompted: "Hoàn thành xác thực GitHub nếu được yêu cầu",
       copilotStarting: "Copilot đang khởi động...",
       copilotStopped: "Copilot đã dừng",
+      codeCopied: "Đã sao chép mã!",
       failedToSaveSettings: "Lưu cài đặt thất bại",
       failedToStartCopilot: "Khởi động Copilot thất bại",
       failedToStopCopilot: "Dừng Copilot thất bại",

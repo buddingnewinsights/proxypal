@@ -29,6 +29,13 @@ export interface CopilotApiInstallResult {
   version?: string;
 }
 
+// Structured auth info for device code flow
+export interface CopilotAuthInfo {
+  userCode?: string;
+  verificationUri: string;
+  rawMessage: string;
+}
+
 export async function getCopilotStatus(): Promise<CopilotStatus> {
   return invoke("get_copilot_status");
 }
@@ -62,9 +69,9 @@ export async function onCopilotStatusChanged(
 }
 
 export async function onCopilotAuthRequired(
-  callback: (message: string) => void,
+  callback: (info: CopilotAuthInfo) => void,
 ): Promise<UnlistenFn> {
-  return listen<string>("copilot-auth-required", (event) => {
+  return listen<CopilotAuthInfo>("copilot-auth-required", (event) => {
     callback(event.payload);
   });
 }

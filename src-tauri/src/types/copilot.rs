@@ -77,3 +77,12 @@ pub struct CopilotApiInstallResult {
     pub message: String,
     pub version: Option<String>,
 }
+
+/// Structured device code auth info emitted as "copilot-auth-required" event payload.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotAuthInfo {
+    pub user_code: Option<String>,
+    pub verification_uri: String,
+    pub raw_message: String,
+}

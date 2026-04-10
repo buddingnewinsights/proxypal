@@ -332,6 +332,7 @@ export const en = {
     },
     actions: {
       advancedSettings: "Advanced settings",
+      copyCode: "Copy code",
       enable: "Enable",
       openGithubAuthentication: "Open GitHub Authentication",
       startCopilot: "Start Copilot",
@@ -371,6 +372,7 @@ export const en = {
       completeGithubAuthenticationIfPrompted: "Complete GitHub authentication if prompted",
       copilotStarting: "Copilot Starting...",
       copilotStopped: "Copilot Stopped",
+      codeCopied: "Code copied!",
       failedToSaveSettings: "Failed to save settings",
       failedToStartCopilot: "Failed to start Copilot",
       failedToStopCopilot: "Failed to stop Copilot",

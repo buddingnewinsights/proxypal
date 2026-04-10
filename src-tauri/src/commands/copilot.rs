@@ -1,5 +1,5 @@
 use crate::state::AppState;
-use crate::types::{CopilotApiDetection, CopilotApiInstallResult, CopilotStatus};
+use crate::types::{CopilotApiDetection, CopilotApiInstallResult, CopilotAuthInfo, CopilotStatus};
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_shell::ShellExt;
 
@@ -113,12 +113,12 @@ pub async fn start_copilot(
         (copilot_bin, vec![])
     } else if let Some(bunx_bin) = detection.bunx_bin.clone() {
         // Prefer bunx since copilot-api is now a Bun package (requires Bun >= 1.2.x)
-        println!("[copilot] Using bunx: {} copilot-api start", bunx_bin);
-        (bunx_bin, vec!["copilot-api".to_string()])
+        println!("[copilot] Using bunx: {} @jeffreycao/copilot-api start", bunx_bin);
+        (bunx_bin, vec!["@jeffreycao/copilot-api".to_string()])
     } else if let Some(npx_bin) = detection.npx_bin.clone() {
         // Fallback to npx (may work with older versions)
-        println!("[copilot] Using npx: {} copilot-api@latest", npx_bin);
-        (npx_bin, vec!["copilot-api@latest".to_string()])
+        println!("[copilot] Using npx: {} @jeffreycao/copilot-api@latest", npx_bin);
+        (npx_bin, vec!["@jeffreycao/copilot-api@latest".to_string()])
     } else {
         return Err(
             "Could not start GitHub Copilot bridge.\n\n\
@@ -127,9 +127,9 @@ pub async fn start_copilot(
             • macOS/Linux: curl -fsSL https://bun.sh/install | bash\n\
             • Then restart ProxyPal\n\n\
             Option 2 - Run manually in terminal:\n\
-            • bunx copilot-api start --port 4141\n\
-            • Or: npx copilot-api@latest start --port 4141\n\n\
-            For more info: https://github.com/ericc-ch/copilot-api".to_string()
+            • bunx @jeffreycao/copilot-api start --port 4141\n\
+            • Or: npx @jeffreycao/copilot-api@latest start --port 4141\n\n\
+            For more info: https://github.com/caozhiyuan/copilot-api".to_string()
         );
     };
     
@@ -186,15 +186,18 @@ pub async fn start_copilot(
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         use tauri_plugin_shell::process::CommandEvent;
-        
+
         println!("[copilot] Starting stdout/stderr listener...");
-        
+
+        // Accumulate output for multi-line device code parsing
+        let mut accumulated = String::new();
+
         while let Some(event) = rx.recv().await {
             match event {
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
                     println!("[copilot-api] {}", text);
-                    
+
                     // Check for successful login message
                     // copilot-api outputs "Listening on: http://localhost:PORT/" when ready
                     let text_lower = text.to_lowercase();
@@ -207,20 +210,22 @@ pub async fn start_copilot(
                             println!("[copilot] ✓ Authenticated via stdout detection");
                         }
                     }
-                    
-                    // Check for auth URL in output
-                    if text.contains("https://github.com/login/device") || text.contains("device code") {
-                        // Emit auth required event
-                        let _ = app_handle.emit("copilot-auth-required", text.to_string());
-                        println!("[copilot] Auth required - device code flow initiated");
+
+                    // Accumulate and parse device auth info (may span multiple lines)
+                    accumulated.push_str(&text);
+                    accumulated.push('\n');
+                    if let Some(auth_info) = parse_copilot_auth_info(&accumulated) {
+                        if auth_info.user_code.is_some() {
+                            println!("[copilot] Auth required - device code: {:?} (stdout)", auth_info.user_code);
+                        }
+                        let _ = app_handle.emit("copilot-auth-required", auth_info);
                     }
                 }
                 CommandEvent::Stderr(line) => {
                     let text = String::from_utf8_lossy(&line);
                     eprintln!("[copilot-api ERROR] {}", text);
-                    
+
                     // Some processes log to stderr even for non-errors
-                    // Check if it's actually a login/running message
                     let text_lower = text.to_lowercase();
                     if text_lower.contains("listening on") || text.contains("Logged in as") || text.contains("Server running") {
                         if let Some(state) = app_handle.try_state::<AppState>() {
@@ -229,6 +234,16 @@ pub async fn start_copilot(
                             let _ = app_handle.emit("copilot-status-changed", status.clone());
                             println!("[copilot] ✓ Authenticated via stderr detection");
                         }
+                    }
+
+                    // Also accumulate stderr for device code parsing
+                    accumulated.push_str(&text);
+                    accumulated.push('\n');
+                    if let Some(auth_info) = parse_copilot_auth_info(&accumulated) {
+                        if auth_info.user_code.is_some() {
+                            println!("[copilot] Auth required - device code: {:?} (stderr)", auth_info.user_code);
+                        }
+                        let _ = app_handle.emit("copilot-auth-required", auth_info);
                     }
                 }
                 CommandEvent::Terminated(payload) => {
@@ -393,20 +408,29 @@ pub async fn stop_copilot(
 pub async fn check_copilot_health(state: State<'_, AppState>) -> Result<CopilotStatus, String> {
     let config = state.config.lock().unwrap().clone();
     let port = config.copilot.port;
-    
+
+    // Read the authoritative running flag from in-memory state.
+    // HTTP failure does NOT mean the process isn't running — during GitHub device auth
+    // the server hasn't started listening yet, so HTTP will fail even though the
+    // copilot-api process is alive and waiting for the user to authenticate.
+    let process_running = {
+        let status = state.copilot_status.lock().unwrap();
+        status.running
+    };
+
     let client = crate::build_management_client();
     let health_url = format!("http://127.0.0.1:{}/v1/models", port);
-    
+
     let (running, authenticated) = match client
         .get(&health_url)
         .timeout(std::time::Duration::from_secs(3))
         .send()
         .await
     {
-        Ok(response) => (true, response.status().is_success()),
-        Err(_) => (false, false),
+        Ok(response) => (process_running, response.status().is_success()),
+        Err(_) => (process_running, false),
     };
-    
+
     // Update status
     let new_status = {
         let mut status = state.copilot_status.lock().unwrap();
@@ -418,7 +442,7 @@ pub async fn check_copilot_health(state: State<'_, AppState>) -> Result<CopilotS
         }
         status.clone()
     };
-    
+
     Ok(new_status)
 }
 
@@ -781,16 +805,16 @@ pub async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetec
     let npm_list = app
         .shell()
         .command(&npm_bin)
-        .args(["list", "-g", "copilot-api", "--depth=0", "--json"])
+        .args(["list", "-g", "@jeffreycao/copilot-api", "--depth=0", "--json"])
         .output()
         .await;
-    
+
     if let Ok(output) = npm_list {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
                 if let Some(deps) = json.get("dependencies") {
-                    if let Some(copilot) = deps.get("copilot-api") {
+                    if let Some(copilot) = deps.get("@jeffreycao/copilot-api") {
                         let version = copilot.get("version")
                             .and_then(|v| v.as_str())
                             .map(|s| s.to_string());
@@ -931,7 +955,7 @@ pub async fn install_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiInst
     let install_output = app
         .shell()
         .command(&npm_bin)
-        .args(["install", "-g", "copilot-api"])
+        .args(["install", "-g", "@jeffreycao/copilot-api"])
         .output()
         .await
         .map_err(|e| format!("Failed to run npm install: {}", e))?;
@@ -962,4 +986,58 @@ pub async fn install_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiInst
             version: None,
         })
     }
+}
+
+fn parse_copilot_auth_info(accumulated: &str) -> Option<CopilotAuthInfo> {
+    let device_url = "https://github.com/login/device";
+    if !accumulated.contains(device_url) && !accumulated.to_lowercase().contains("device code") {
+        return None;
+    }
+    let user_code = extract_user_code(accumulated);
+    if accumulated.contains(device_url) || user_code.is_some() {
+        Some(CopilotAuthInfo {
+            user_code,
+            verification_uri: device_url.to_string(),
+            raw_message: accumulated
+                .lines()
+                .filter(|l| {
+                    let ll = l.to_lowercase();
+                    ll.contains("github.com/login/device")
+                        || ll.contains("device code")
+                        || ll.contains("enter code")
+                        || ll.contains("user code")
+                        || (l.trim().len() == 9
+                            && l.trim().chars().filter(|c| *c == '-').count() == 1)
+                })
+                .collect::<Vec<_>>()
+                .join(" | "),
+        })
+    } else {
+        None
+    }
+}
+
+fn extract_user_code(text: &str) -> Option<String> {
+    for line in text.lines() {
+        if let Some(code) = find_device_code_in_line(line.trim()) {
+            return Some(code);
+        }
+    }
+    None
+}
+
+fn find_device_code_in_line(line: &str) -> Option<String> {
+    for token in line.split_whitespace() {
+        let token = token.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '-');
+        let parts: Vec<&str> = token.split('-').collect();
+        if parts.len() == 2
+            && parts[0].len() == 4
+            && parts[1].len() == 4
+            && parts[0].chars().all(|c| c.is_ascii_alphanumeric())
+            && parts[1].chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            return Some(token.to_uppercase());
+        }
+    }
+    None
 }
