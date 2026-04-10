@@ -995,6 +995,8 @@ fn configure_opencode_agent(
         // Check if this is a Qwen3 or DeepSeek model with thinking support
         let is_qwen3_thinking = m.id.contains("qwen3") && m.id.contains("thinking");
         let is_deepseek_thinking = m.id.contains("deepseek") && m.id.contains("thinking");
+        // Check if this is any Qwen model (includes coder, max, plus, flash variants)
+        let is_qwen_model = m.id.to_lowercase().contains("qwen");
         // Use user's configured thinking budget
         let min_thinking_output: u64 = thinking_budget + 8192; // thinking + 8K buffer for response
         let effective_output_limit = if is_thinking_model
@@ -1020,7 +1022,8 @@ fn configure_opencode_agent(
             || m.id.starts_with("o3")
             || m.id.starts_with("o4")
             || m.id.starts_with("claude-")
-            || m.id.starts_with("copilot-gpt-4");
+            || m.id.starts_with("copilot-gpt-4")
+            || is_qwen_model;
 
         let mut model_config = serde_json::json!({
             "name": display_name,
@@ -1109,6 +1112,42 @@ fn configure_opencode_agent(
             model_config["reasoning"] = serde_json::json!(true);
             model_config["options"] = serde_json::json!({
                 "reasoningEffort": reasoning_effort
+            });
+        } else if is_qwen_model && !is_qwen3_thinking {
+            // Qwen models: full config with reasoning variants, image input, tool_call support
+            // Uses reasoningEffort/reasoningSummary/textVerbosity pattern (not thinkingBudget)
+            model_config["attachment"] = serde_json::json!(true);
+            model_config["reasoning"] = serde_json::json!(true);
+            model_config["temperature"] = serde_json::json!(true);
+            model_config["tool_call"] = serde_json::json!(true);
+            model_config["modalities"] = serde_json::json!({
+                "input": ["text", "image"],
+                "output": ["text"]
+            });
+            model_config["options"] = serde_json::json!({
+                "reasoningEffort": reasoning_effort,
+                "reasoningSummary": "auto",
+                "textVerbosity": "medium"
+            });
+            model_config["variants"] = serde_json::json!({
+                "xhigh": {
+                    "include": ["reasoning.encrypted_content"],
+                    "reasoningEffort": "xhigh",
+                    "reasoningSummary": "auto"
+                },
+                "high": {
+                    "include": ["reasoning.encrypted_content"],
+                    "reasoningEffort": "high",
+                    "reasoningSummary": "auto"
+                },
+                "medium": {
+                    "reasoningEffort": "medium",
+                    "reasoningSummary": "auto"
+                },
+                "low": {
+                    "reasoningEffort": "low",
+                    "reasoningSummary": "auto"
+                }
             });
         }
         models_obj.insert(m.id.clone(), model_config);
