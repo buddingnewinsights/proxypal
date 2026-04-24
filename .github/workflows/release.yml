@@ -7,6 +7,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CLIPROXYAPI_CHANNEL: mainline
 
 jobs:
   release:
@@ -60,34 +61,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Download CLIProxyAPIPlus binary
+      - name: Download CLIProxyAPI sidecar binary
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -e
           mkdir -p src-tauri/binaries
 
           case "${{ matrix.target }}" in
             aarch64-apple-darwin)
-              ASSET_PATTERN="*darwin_arm64.tar.gz"
               BINARY="cli-proxy-api-aarch64-apple-darwin"
-              ARCHIVE_TYPE="tar"
               ;;
             x86_64-apple-darwin)
-              ASSET_PATTERN="*darwin_amd64.tar.gz"
               BINARY="cli-proxy-api-x86_64-apple-darwin"
-              ARCHIVE_TYPE="tar"
               ;;
             x86_64-unknown-linux-gnu)
-              ASSET_PATTERN="*linux_amd64.tar.gz"
               BINARY="cli-proxy-api-x86_64-unknown-linux-gnu"
-              ARCHIVE_TYPE="tar"
               ;;
             x86_64-pc-windows-msvc)
-              ASSET_PATTERN="*windows_amd64.zip"
               BINARY="cli-proxy-api-x86_64-pc-windows-msvc.exe"
-              ARCHIVE_TYPE="zip"
               ;;
             *)
               echo "Unknown target: ${{ matrix.target }}"
@@ -95,78 +88,8 @@ jobs:
               ;;
           esac
 
-          echo "Downloading CLIProxyAPIPlus for ${{ matrix.target }}..."
-          cd /tmp
-          gh release download --repo router-for-me/CLIProxyAPIPlus --pattern "$ASSET_PATTERN" --clobber
-
-          ARCHIVE=$(ls $ASSET_PATTERN 2>/dev/null | head -1)
-          echo "Extracting $ARCHIVE..."
-
-          if [ "$ARCHIVE_TYPE" = "zip" ]; then
-            unzip -q "$ARCHIVE"
-          else
-            tar -xzf "$ARCHIVE"
-          fi
-
-          # List extracted contents for debugging
-          ls -la
-
-          # CLIProxyAPIPlus uses platform-suffixed names like cli-proxy-api-x86_64-pc-windows-msvc.exe
-          # Detect the correct binary based on platform
-          case "${{ matrix.target }}" in
-            aarch64-apple-darwin)
-              SRC_BINARY="cli-proxy-api-aarch64-apple-darwin"
-              ;;
-            x86_64-apple-darwin)
-              SRC_BINARY="cli-proxy-api-x86_64-apple-darwin"
-              ;;
-            x86_64-unknown-linux-gnu)
-              SRC_BINARY="cli-proxy-api-x86_64-unknown-linux-gnu"
-              ;;
-            x86_64-pc-windows-msvc)
-              SRC_BINARY="cli-proxy-api-x86_64-pc-windows-msvc.exe"
-              ;;
-          esac
-
-          if [ -f "$SRC_BINARY" ]; then
-            echo "Found platform-specific binary: $SRC_BINARY"
-            cp "$SRC_BINARY" "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY" 2>/dev/null || true
-          # Fallback to generic naming (older releases)
-          elif [ -f "cli-proxy-api-plus" ]; then
-            cp cli-proxy-api-plus "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "cli-proxy-api-plus.exe" ]; then
-            cp cli-proxy-api-plus.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPIPlus" ]; then
-            cp CLIProxyAPIPlus "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPIPlus.exe" ]; then
-            cp CLIProxyAPIPlus.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPI" ]; then
-            cp CLIProxyAPI "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPI.exe" ]; then
-            cp CLIProxyAPI.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "cli-proxy-api.exe" ]; then
-            cp cli-proxy-api.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "cli-proxy-api" ]; then
-            cp cli-proxy-api "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          else
-            # Recursive search fallback in case binary is nested in subdirectory
-            FOUND=$(find . -type f \( -name "cli-proxy-api-plus" -o -name "CLIProxyAPIPlus" -o -name "CLIProxyAPI" -o -name "cli-proxy-api" -o -name "$SRC_BINARY" \) ! -name "*.tar.gz" ! -name "*.zip" ! -name "*.tgz" | head -1)
-            if [ -n "$FOUND" ]; then
-              echo "Found binary via recursive search: $FOUND"
-              cp "$FOUND" "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-              chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY" 2>/dev/null || true
-            else
-              echo "ERROR: Binary not found!"
-              echo "Looking for: $SRC_BINARY"
-              ls -laR
-              exit 1
-            fi
-          fi
+          echo "Downloading CLIProxyAPI sidecar channel '$CLIPROXYAPI_CHANNEL' for ${{ matrix.target }}..."
+          node scripts/update-sidecar.mjs --channel "$CLIPROXYAPI_CHANNEL" --force "$BINARY"
 
           echo "Downloaded:"
           ls -la "$GITHUB_WORKSPACE/src-tauri/binaries/"
@@ -235,7 +158,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate changelog from commits and CLIProxyAPIPlus
+      - name: Generate changelog from commits and CLIProxyAPI
         id: changelog
         env:
           GH_TOKEN: ${{ github.token }}
@@ -258,8 +181,12 @@ jobs:
             fi
           fi
 
-          # Get CLIProxyAPIPlus latest release info
-          SIDECAR_RELEASE=$(gh release view --repo router-for-me/CLIProxyAPIPlus --json tagName,body 2>/dev/null || echo "{}")
+          # Get CLIProxyAPI latest release info for the selected sidecar channel
+          SIDECAR_REPO="router-for-me/CLIProxyAPI"
+          if [ "$CLIPROXYAPI_CHANNEL" = "plus" ]; then
+            SIDECAR_REPO="router-for-me/CLIProxyAPIPlus"
+          fi
+          SIDECAR_RELEASE=$(gh release view --repo "$SIDECAR_REPO" --json tagName,body 2>/dev/null || echo "{}")
           SIDECAR_VERSION=$(echo "$SIDECAR_RELEASE" | jq -r '.tagName // "unknown"')
           SIDECAR_BODY=$(echo "$SIDECAR_RELEASE" | jq -r '.body // ""')
 
@@ -284,7 +211,7 @@ jobs:
 
           CHANGELOG="$CHANGELOG
 
-          ### Sidecar: CLIProxyAPIPlus $SIDECAR_VERSION"
+          ### Sidecar: CLIProxyAPI ($CLIPROXYAPI_CHANNEL) $SIDECAR_VERSION"
 
           if [ -n "$SIDECAR_HIGHLIGHTS" ]; then
             CHANGELOG="$CHANGELOG
@@ -325,7 +252,7 @@ jobs:
             echo "| Linux (Fedora/RHEL) | \`.rpm\` package |"
             echo ""
             echo "---"
-            echo "*Bundled sidecar: CLIProxyAPIPlus $SIDECAR_VERSION*"
+            echo "*Bundled sidecar: CLIProxyAPI (${{ env.CLIPROXYAPI_CHANNEL }}) $SIDECAR_VERSION*"
           } > /tmp/release_body.md
 
           echo "=== Release body ==="
