@@ -39,6 +39,10 @@ opensrc/
 src-tauri/logs/
 *.key
 *.pub
+*.key.b64
+
+# Local signer artifacts
+*.sig
 
 # bv (beads viewer) local config and caches
 .bv/
