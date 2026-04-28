@@ -34,7 +34,7 @@ const CHANNELS = {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  let channel = process.env.CLIPROXYAPI_CHANNEL || "plus";
+  let channel = process.env.CLIPROXYAPI_CHANNEL || "mainline";
   let force = false;
   let requestedTarget = null;
 

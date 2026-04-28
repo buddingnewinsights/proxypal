@@ -23,8 +23,8 @@ import {
   type AgentConfigResult,
   type AvailableModel,
   appendToShellProfile,
-  completeOAuth,
   type CopilotConfig,
+  completeOAuth,
   type DeviceCodeResponse,
   detectCliAgents,
   disconnectProvider,
@@ -56,8 +56,6 @@ const providers = [
     provider: "openai" as Provider,
   },
   { logo: "/logos/gemini.svg", name: "Gemini", provider: "gemini" as Provider },
-  { logo: "/logos/qwen.png", name: "Qwen", provider: "qwen" as Provider },
-  { logo: "/logos/iflow.svg", name: "iFlow", provider: "iflow" as Provider },
   {
     logo: "/logos/vertex.svg",
     name: "Vertex AI",
@@ -67,11 +65,6 @@ const providers = [
     logo: "/logos/antigravity.webp",
     name: "Antigravity",
     provider: "antigravity" as Provider,
-  },
-  {
-    logo: "/logos/kiro.svg",
-    name: "Kiro",
-    provider: "kiro" as Provider,
   },
   {
     logo: "/logos/kimi.png",
@@ -178,7 +171,7 @@ export function DashboardPage() {
   const [deviceCodeData, setDeviceCodeData] = createSignal<DeviceCodeResponse | null>(null);
 
   // Providers that support device-code login
-  const deviceCodeProviders = new Set<Provider>(["openai", "qwen"]);
+  const deviceCodeProviders = new Set<Provider>(["openai"]);
 
   const getProviderName = (provider: Provider): string => {
     const found = providers.find((p) => p.provider === provider);

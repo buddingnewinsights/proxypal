@@ -27,6 +27,24 @@ pub struct DeviceCodeResponse {
     pub interval: u64,
 }
 
+fn unsupported_mainline_oauth_error(provider: &str) -> Option<String> {
+    match provider {
+        "qwen" => Some(
+            "Qwen OAuth is not available in the bundled mainline CLIProxyAPI sidecar. Use a custom OpenAI-compatible provider or a Plus sidecar build that exposes Qwen auth."
+                .to_string(),
+        ),
+        "iflow" => Some(
+            "iFlow OAuth is not available in the bundled mainline CLIProxyAPI sidecar. Use a custom OpenAI-compatible provider or a Plus sidecar build that exposes iFlow auth."
+                .to_string(),
+        ),
+        "kiro" => Some(
+            "Kiro OAuth is not available in the bundled mainline CLIProxyAPI sidecar. Kiro quota checks via kiro-cli remain separate."
+                .to_string(),
+        ),
+        _ => None,
+    }
+}
+
 #[tauri::command]
 pub fn get_auth_status(state: State<AppState>) -> AuthStatus {
     state.auth_status.lock().unwrap().clone()
@@ -38,6 +56,10 @@ pub async fn get_oauth_url(
     state: State<'_, AppState>,
     provider: String,
 ) -> Result<OAuthUrlResponse, String> {
+    if let Some(message) = unsupported_mainline_oauth_error(&provider) {
+        return Err(message);
+    }
+
     // Get proxy port from config
     let port = {
         let config = state.config.lock().unwrap();
@@ -144,6 +166,10 @@ pub async fn get_device_code(
     state: State<'_, AppState>,
     provider: String,
 ) -> Result<DeviceCodeResponse, String> {
+    if let Some(message) = unsupported_mainline_oauth_error(&provider) {
+        return Err(message);
+    }
+
     // Get the proxy port from config
     let port = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
@@ -236,6 +262,10 @@ pub async fn open_oauth(
     state: State<'_, AppState>,
     provider: String,
 ) -> Result<String, String> {
+    if let Some(message) = unsupported_mainline_oauth_error(&provider) {
+        return Err(message);
+    }
+
     // Get proxy port from config
     let port = {
         let config = state.config.lock().unwrap();
