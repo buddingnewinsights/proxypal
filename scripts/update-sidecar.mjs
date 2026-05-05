@@ -121,10 +121,13 @@ function getCurrentTarget() {
 
 function getAssetInfo(target, version, assetPrefix) {
   const map = {
-    "cli-proxy-api-aarch64-apple-darwin": [[
-      `${assetPrefix}_${version}_darwin_aarch64.tar.gz`,
-      `${assetPrefix}_${version}_darwin_arm64.tar.gz`,
-    ], "tar"],
+    "cli-proxy-api-aarch64-apple-darwin": [
+      [
+        `${assetPrefix}_${version}_darwin_aarch64.tar.gz`,
+        `${assetPrefix}_${version}_darwin_arm64.tar.gz`,
+      ],
+      "tar",
+    ],
     "cli-proxy-api-x86_64-apple-darwin": [[`${assetPrefix}_${version}_darwin_amd64.tar.gz`], "tar"],
     "cli-proxy-api-x86_64-unknown-linux-gnu": [
       [`${assetPrefix}_${version}_linux_amd64.tar.gz`],
@@ -182,12 +185,9 @@ async function downloadTarget(target, version, channelConfig, releaseAssets = nu
   if (!assetInfo) throw new Error(`Unknown target: ${target}`);
 
   const [assetNames, archiveType] = assetInfo;
-  const assetName =
-    assetNames.find((name) => !releaseAssets || releaseAssets.has(name)) || null;
+  const assetName = assetNames.find((name) => !releaseAssets || releaseAssets.has(name)) || null;
   if (!assetName) {
-    throw new Error(
-      `No matching asset found for ${target}. Tried: ${assetNames.join(", ")}`,
-    );
+    throw new Error(`No matching asset found for ${target}. Tried: ${assetNames.join(", ")}`);
   }
   const url = `https://github.com/${channelConfig.repo}/releases/download/v${version}/${assetName}`;
 
