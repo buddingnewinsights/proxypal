@@ -35,12 +35,19 @@ pub fn detect_provider_from_model(model: &str) -> String {
         return "antigravity".to_string();
     }
     // Antigravity-exclusive Gemini model variants (no "-preview" suffix)
+    // Gemini 3.0 (no dot) — exact names from Antigravity API
     if model_lower == "gemini-3-flash"
         || model_lower == "gemini-3-pro-high"
         || model_lower == "gemini-3-pro-low"
         || model_lower == "gemini-3-pro-image"
         || model_lower == "tab_flash_lite_preview"
         || model_lower == "gpt-oss-120b-medium"
+        // Gemini 3.1 — Antigravity-only variants
+        || model_lower == "gemini-3.1-pro-high"
+        || model_lower == "gemini-3.1-pro-low"
+        // Gemini 3.5 — Antigravity-only variants
+        || model_lower == "gemini-3.5-flash"
+        || model_lower == "gemini-3.5-flash-low"
     {
         return "antigravity".to_string();
     }
@@ -196,15 +203,24 @@ mod tests {
 
     #[test]
     fn detect_provider_from_filename_known_prefixes() {
-        assert_eq!(detect_provider_from_filename("claude-user@example.json"), "claude");
-        assert_eq!(detect_provider_from_filename("anthropic-foo.json"), "claude");
+        assert_eq!(
+            detect_provider_from_filename("claude-user@example.json"),
+            "claude"
+        );
+        assert_eq!(
+            detect_provider_from_filename("anthropic-foo.json"),
+            "claude"
+        );
         assert_eq!(detect_provider_from_filename("codex-bar.json"), "openai");
         assert_eq!(detect_provider_from_filename("gemini-baz.json"), "gemini");
         assert_eq!(detect_provider_from_filename("qwen-test.json"), "qwen");
         assert_eq!(detect_provider_from_filename("iflow-acct.json"), "iflow");
         assert_eq!(detect_provider_from_filename("vertex-proj.json"), "vertex");
         assert_eq!(detect_provider_from_filename("kiro-dev.json"), "kiro");
-        assert_eq!(detect_provider_from_filename("antigravity-x.json"), "antigravity");
+        assert_eq!(
+            detect_provider_from_filename("antigravity-x.json"),
+            "antigravity"
+        );
         assert_eq!(detect_provider_from_filename("kimi-user.json"), "kimi");
         assert_eq!(detect_provider_from_filename("github-token.json"), "github");
         assert_eq!(detect_provider_from_filename("aws-creds.json"), "AWS");
@@ -219,9 +235,23 @@ mod tests {
     #[test]
     fn provider_filename_prefixes_roundtrip() {
         // Every known provider should have at least one prefix
-        for provider in &["claude", "openai", "gemini", "qwen", "iflow", "vertex", "kiro", "antigravity", "kimi"] {
+        for provider in &[
+            "claude",
+            "openai",
+            "gemini",
+            "qwen",
+            "iflow",
+            "vertex",
+            "kiro",
+            "antigravity",
+            "kimi",
+        ] {
             let prefixes = provider_filename_prefixes(provider);
-            assert!(!prefixes.is_empty(), "provider '{}' should have prefixes", provider);
+            assert!(
+                !prefixes.is_empty(),
+                "provider '{}' should have prefixes",
+                provider
+            );
             // Each prefix should map back to the same provider
             for prefix in prefixes {
                 let filename = format!("{}test.json", prefix);

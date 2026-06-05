@@ -510,6 +510,14 @@ fn build_gemini_override_section(thinking_level: &str) -> String {
         - name: "gemini-3-flash"
       params:
         generationConfig.thinkingConfig.thinkingLevel: "{0}"
+    - models:
+        - name: "gemini-3.5-flash*"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+    - models:
+        - name: "gemini-3.5-flash-low*"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "low"
 "#, thinking_level)
 }
 
